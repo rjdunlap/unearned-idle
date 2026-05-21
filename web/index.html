@@ -11,18 +11,39 @@
         background: #0d1520;
         display: flex;
         justify-content: center;
+        align-items: stretch;
         font-family: system-ui, -apple-system, 'Segoe UI', monospace;
         -webkit-tap-highlight-color: transparent;
       }
       #app {
-        width: 360px;
+        width: min(100vw, 1440px);
         min-height: 100vh;
+        height: 100vh;
         background: #172033;
         color: #E8D8B8;
-        display: flex;
-        flex-direction: column;
+        display: grid;
+        grid-template-columns: minmax(320px, 1fr) minmax(520px, 2fr);
+        grid-template-rows: auto 1fr;
+        grid-template-areas:
+          "ocean status"
+          "ocean mechanics";
         position: relative;
-        overflow-x: hidden;
+        overflow: hidden;
+      }
+      @media (max-width: 760px) {
+        html, body {
+          height: auto;
+          min-height: 100%;
+          overflow: auto;
+        }
+        #app {
+          width: 100%;
+          height: auto;
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          overflow-x: hidden;
+        }
       }
     </style>
   </head>

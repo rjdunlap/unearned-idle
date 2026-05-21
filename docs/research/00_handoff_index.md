@@ -1,71 +1,69 @@
-# Pirate Unfolding Idle Research Handoff
+# Unearned Bounty Research And Handoff Index
 
-Research date: 2026-05-21
+Updated: 2026-05-21
 
-This folder captures research and early planning for a game that borrows the structural strengths of Unnamed Space Idle while translating them into the age-of-exploration, mystical pirate identity described for Unearned Bounty.
+This index separates durable direction from raw research. If a future agent only reads one thing, start here, then follow the "Start Here" links.
 
-Important local-context note: at research time the project folder contained only an empty git repository, so there was no Godot source, art, README, or prior Unearned Bounty implementation to inspect. The pirate theme assumptions below come from the user prompt: age of exploration, mystical, One Piece-like energy, and pirate themed. Avoid direct One Piece IP terms, characters, powers, locations, or naming.
+## Current North Star
 
-## Files
+Unearned Bounty is a pirate-themed unfolding idle game with automatic ship combat, visible weapon buildcraft, and long-term captain's desk progression.
+
+The current prototype should move toward:
+
+- Left third: live open-sea combat that is worth watching.
+- Right two-thirds: upgrades, counters, resources, and unfolding systems.
+- Combat presentation: horizon threats, wakes, broadsides, projectiles, reward bursts, and boss arrivals.
+- Upgrade rule: when the player buys an upgrade, the ocean should show it.
+- Progression rule: keep early resources few, useful, and visibly connected to ship power.
+
+Use "lane" only as an internal progression/data term when helpful. The player-facing combat scene should not feel like a road, rail, checklist, or vertical track.
+
+## Start Here
+
+- [../design/05_senior_design_review.md](../design/05_senior_design_review.md): cleaned project review with current decisions, risks, revised MVP focus, and next implementation priorities.
+- [../design/06_web_ui_gameplay_handoff.md](../design/06_web_ui_gameplay_handoff.md): current web prototype handoff, file map, known gaps, and next slice.
+- [../design/07_web_combat_upgrade_layout_notes.md](../design/07_web_combat_upgrade_layout_notes.md): implementation notes for the open-sea combat window and upgrade workspace.
+- [../design/08_bullet_heaven_synthesis_backlog.md](../design/08_bullet_heaven_synthesis_backlog.md): high-signal backlog from Bullet Heaven research.
+- [../design/09_worldbuilding_mechanics_synthesis.md](../design/09_worldbuilding_mechanics_synthesis.md): faction, region, relic, boss, and Captain's Desk synthesis.
+
+## Research Archive
+
+These files are useful background, not implementation orders. Prefer the synthesis docs above when they disagree.
 
 - [01_unnamed_space_idle_breakdown.md](01_unnamed_space_idle_breakdown.md): source-based breakdown of Unnamed Space Idle mechanics, pacing, UI, automation, and lessons.
-- [../design/02_pirate_unfolding_idle_concept.md](../design/02_pirate_unfolding_idle_concept.md): translation of USI systems into an original mystical pirate framework, including Ship's Bearing, Bounty/Infamy, and revised crew names.
-- [../design/03_mvp_and_technical_plan.md](../design/03_mvp_and_technical_plan.md): practical Godot-first prototype plan scoped to the revised 5-system MVP.
-- [../design/04_progression_content_taxonomy.md](../design/04_progression_content_taxonomy.md): proposed resources, unlocks, content categories, formulas, and data tables with Infamy/Bounty economy.
-- [../design/05_senior_design_review.md](../design/05_senior_design_review.md): full design critique, system-by-system notes, revised MVP scope, first-hour sketch, balance guidance, and prioritized next specs.
-- [../design/06_visual_design_bible.md](../design/06_visual_design_bible.md): visual direction based on Unearned Bounty, Richard Pince's concept work, and the revised idle/mobile design needs.
-- [../project_management/07_mvp_pm_handoff.md](../project_management/07_mvp_pm_handoff.md): execution handoff for a project management agent to start MVP development, including milestones, scope lock, backlog, acceptance criteria, and first sprint.
-- [../project_management/08_mvp_execution_board.md](../project_management/08_mvp_execution_board.md): task board, scope guardrails, parked post-MVP systems, and milestone-level acceptance checks.
-- [../project_management/09_sprint_01_lane_1_playable.md](../project_management/09_sprint_01_lane_1_playable.md): first sprint plan for the Lane 1 playable slice, including Godot version lock, folder conventions, demo script, and combat readability checklist.
-- [../project_management/10_development_start_prompt.md](../project_management/10_development_start_prompt.md): copy-ready prompt for handing Sprint 01 implementation to a development agent.
+- [02_unnamed_space_idle_ui_layout_teardown.md](02_unnamed_space_idle_ui_layout_teardown.md): source-based teardown of USI's desktop screen contract and translation rules for this prototype.
+- [03_bullet_heaven_steam_genre_research.md](03_bullet_heaven_steam_genre_research.md): Steam-focused learnings from Vampire Survivors, Brotato, Halls of Torment, Deep Rock Galactic: Survivor, 20 Minutes Till Dawn, Soulstone Survivors, Death Must Die, and Nordic Ashes.
+- [05_gemini_bullet_heaven_research_response.md](05_gemini_bullet_heaven_research_response.md): condensed external-model response pasted by the user. Treat as brainstorm/synthesis, not verified source truth.
+- [06_user_worldbuilding_mechanics_brainstorm.md](06_user_worldbuilding_mechanics_brainstorm.md): preserved user brainstorm for factions, regions, relics, bosses, and exploration mechanics.
 
-## One-Page Direction
+## External Prompts
 
-Build a long-form unfolding idle game where the player commands a cursed exploration ship pushing through dangerous sea lanes. Combat is automatic but buildcraft matters: cannons, hull, sails, wards, crew roles, relic slots, island outposts, and special voyages all feed each other.
+- [04_external_bullet_heaven_research_handoff.md](04_external_bullet_heaven_research_handoff.md): copy-ready prompt for asking Gemini, Claude, or another model for broader genre research.
+- [claude_review_prompt.md](claude_review_prompt.md): older Claude review prompt. Use only if you need the original review framing.
+- [../project_management/10_development_start_prompt.md](../project_management/10_development_start_prompt.md): older implementation-start prompt for a development agent.
 
-The spiritual model from Unnamed Space Idle is:
+## Broader Design Docs
 
-- A visible battle lane creates the heartbeat.
-- Every defeated enemy feeds several progression systems.
-- New systems unlock often and recontextualize older resources.
-- Prestige is not just a reset. It is a way to change equipment, bank permanent gains, and make old chores faster.
-- Automation is earned as part of progression.
-- Late systems should either automate, cap, or transform early systems so the player is not buried under busywork.
+These remain useful, but some details predate the web prototype and the open-sea pivot.
 
-For the pirate game, the first prototype should target:
+- [../design/02_pirate_unfolding_idle_concept.md](../design/02_pirate_unfolding_idle_concept.md): original pirate-system translation.
+- [../design/03_mvp_and_technical_plan.md](../design/03_mvp_and_technical_plan.md): Godot-first technical plan and MVP scope.
+- [../design/04_progression_content_taxonomy.md](../design/04_progression_content_taxonomy.md): resources, unlocks, content categories, formulas, and data tables.
+- [../design/06_visual_design_bible.md](../design/06_visual_design_bible.md): visual direction, palette, UI tone, and production guidance.
+- [../project_management/07_mvp_pm_handoff.md](../project_management/07_mvp_pm_handoff.md): older PM handoff.
+- [../project_management/08_mvp_execution_board.md](../project_management/08_mvp_execution_board.md): older milestone task board.
+- [../project_management/09_sprint_01_lane_1_playable.md](../project_management/09_sprint_01_lane_1_playable.md): older Sprint 01 plan.
 
-- Sea Lane combat with lanes, waves, bosses, enemy counters, and build choices.
-- Ship systems: Armaments, Hull, Sails, and Fittings.
-- Three long-term layers: Chartwork, Artificing, and Relic Compass.
-- A first prestige loop named Return to Port or Raise New Colors.
-- A readable dense UI that feels like a captain's desk, not a marketing landing page.
+## Current Implementation Priority
 
-## High-Confidence Design Pillars
+1. Make the combat window read as open sea, not UI tokens on a lane.
+2. Make the Arsenal data-driven and multi-upgrade.
+3. Add a Spyglass / At the Horizon preview so counters are telegraphed.
+4. Add a Harpoon unlock before armor-heavy enemies punish cannon builds.
+5. Give Doubloons an early sink.
+6. Make upgrades visibly change projectiles, reload rhythm, smoke, reward bursts, or enemy reactions.
+7. Reduce reliance on the combat log; show important events in the water.
 
-- Captaincy over clicking: the player should make strategic routing, loadout, and timing decisions more than tap repeatedly.
-- Bounty chase: progression should feel like pushing into waters nobody survives, then coming back richer, stranger, and more infamous.
-- Mystical but operational: curses, sea gods, relics, and living storms should map cleanly onto resources and systems.
-- Frequent new affordances: the first hour should reveal new tabs and mechanics often enough that the player trusts the horizon.
-- Legible optimization: choices can matter a lot, but the UI must show why.
+## Source Links
 
-## Key Sources
-
-- Unnamed Space Idle Steam page: https://store.steampowered.com/app/2471100/Unnamed_Space_Idle/
-- Official Unnamed Space Idle Wiki main page: https://spaceidle.game-vault.net/wiki/Main_Page
-- Gameplay overview: https://spaceidle.game-vault.net/wiki/Gameplay
-- Core: https://spaceidle.game-vault.net/wiki/Core
-- Compute: https://spaceidle.game-vault.net/wiki/Compute
-- Synth: https://spaceidle.game-vault.net/wiki/Synth
-- V-Device: https://spaceidle.game-vault.net/wiki/V-Device
-- Reactor: https://spaceidle.game-vault.net/wiki/Reactor
-- Research: https://spaceidle.game-vault.net/wiki/Research
-- Bases: https://spaceidle.game-vault.net/wiki/Bases
-- Challenges: https://spaceidle.game-vault.net/wiki/Challenges
-- Warp Drive: https://spaceidle.game-vault.net/wiki/Warp_Drive
-- Crew: https://spaceidle.game-vault.net/wiki/Crew
-- AI: https://spaceidle.game-vault.net/wiki/AI
-- Reinforce: https://spaceidle.game-vault.net/wiki/Reinforce
-- Fleet: https://spaceidle.game-vault.net/wiki/Fleet
-- April 28, 2026 content update notes via SteamDB: https://steamdb.info/patchnotes/22996983/
-- Unnamed Space Idle V0.80 Reddit announcement: https://www.reddit.com/r/incremental_games/comments/1syedx6/unnamed_space_idle_major_content_update_v080/
-- Idle design overview from Machinations: https://machinations.io/articles/idle-games-and-how-to-design-them
+Primary sources and Steam/store links live inside the individual research docs. Keep this index short so it stays useful as a navigation page.

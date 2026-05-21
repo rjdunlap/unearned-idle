@@ -2,6 +2,8 @@
 
 Board date: 2026-05-21
 
+Status note: this is an older execution board. It is useful for scope history, but it is not the current task board for the web prototype. Current implementation priorities live in `docs/research/00_handoff_index.md`, `docs/design/06_web_ui_gameplay_handoff.md`, and `docs/design/08_bullet_heaven_synthesis_backlog.md`.
+
 This board turns the MVP handoff into executable work. Task IDs are local planning IDs until they are mirrored into GitHub Issues or another tracker.
 
 ## Source Of Truth

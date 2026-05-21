@@ -2,6 +2,8 @@
 
 Prompt date: 2026-05-21
 
+Status note: this prompt is preserved for history. Do not use it as-is for a new coding agent unless you intentionally want the older Godot-first Sprint 01 framing. For current work, point agents to `docs/research/00_handoff_index.md` and `docs/design/06_web_ui_gameplay_handoff.md`.
+
 Use this prompt to start the first development agent on the Godot MVP. It assumes the agent is working in this repository and should begin with Sprint 01: Lane 1 Playable.
 
 ## Copy-Ready Prompt

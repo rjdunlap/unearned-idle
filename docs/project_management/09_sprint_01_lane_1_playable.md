@@ -2,6 +2,8 @@
 
 Sprint plan date: 2026-05-21
 
+Status note: this is an older Godot-first Sprint 01 plan. It remains useful for the original combat-only proof, but the current prototype is the TypeScript web build and the visual direction has shifted from literal lane presentation to an open-sea encounter window.
+
 This sprint is the first execution slice for the MVP. It intentionally proves the smallest visible loop before Relics, Artificing, Bearing, Bounty, Cartography, or prestige are implemented.
 
 ## Sprint Goal

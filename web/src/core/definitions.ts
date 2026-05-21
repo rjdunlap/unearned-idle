@@ -12,6 +12,10 @@ function findById(items: AnyDef[], id: string): AnyDef | undefined {
   return items.find(item => item.id === id)
 }
 
+function upgradeTargetsWeapon(upgrade: AnyDef, weaponId: string): boolean {
+  return upgrade['weapon_id'] === weaponId || upgrade['target_weapon'] === weaponId
+}
+
 const resources = resourcesData.items as AnyDef[]
 const ships     = shipsData.items as AnyDef[]
 const enemies   = enemiesData.items as AnyDef[]
@@ -26,6 +30,7 @@ export const Definitions = {
   getLane:              (id: string) => findById(lanes, id),
   getWeapon:            (id: string) => findById(weapons, id),
   getUpgrade:           (id: string) => findById(upgrades, id),
-  getUpgradeForWeapon:  (weaponId: string) => upgrades.find(u => u['target_weapon'] === weaponId),
+  getUpgradeForWeapon:  (weaponId: string) => upgrades.find(u => upgradeTargetsWeapon(u, weaponId)),
+  getUpgradesForWeapon: (weaponId: string) => upgrades.filter(u => upgradeTargetsWeapon(u, weaponId)),
   allLanes:             () => lanes,
 }

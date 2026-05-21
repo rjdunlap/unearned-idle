@@ -86,7 +86,7 @@ Weak mystical visuals:
 
 ### 4. Bright Combat, Quiet Controls
 
-The combat lane should carry the color and motion. The surrounding UI should be calmer, darker, and more legible.
+The open-sea combat window should carry the color and motion. The surrounding UI should be calmer, darker, and more legible.
 
 This creates a useful mobile hierarchy:
 
@@ -629,7 +629,7 @@ Create a set of small pirate character emotes for a mobile idle game. Each emote
 - Do not copy Richard Pince's specific compositions or old ship designs unless ownership is confirmed.
 - Do not make every magical element purple.
 - Do not hide required information in tiny decorative UI.
-- Do not let resource numbers visually compete with the combat lane.
+- Do not let resource numbers visually compete with the combat window.
 - Do not mistake costume detail for character identity.
 
 ## First Visual Production Pass
@@ -637,7 +637,7 @@ Create a set of small pirate character emotes for a mobile idle game. Each emote
 Recommended first asset list before implementation polish:
 
 1. One portrait main-screen mockup.
-2. One combat lane background for Saltglass Expanse.
+2. One open-sea combat background for Saltglass Expanse.
 3. Player starter ship side-view sprite or paintover.
 4. Four weapon identity overlays: cannon, harpoon, firepot, shrine lantern.
 5. Four enemy family silhouettes.

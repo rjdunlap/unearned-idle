@@ -2,6 +2,8 @@
 
 Handoff date: 2026-05-21
 
+Status note: this is an older Godot-first planning handoff. Keep it for milestone history, but use `docs/research/00_handoff_index.md`, `docs/design/05_senior_design_review.md`, and `docs/design/06_web_ui_gameplay_handoff.md` for current direction. The web prototype now exists, and the combat presentation target is open-sea rather than a literal lane.
+
 Audience: project management agent beginning MVP development for the Unearned Bounty idle project.
 
 ## Current Repository State
@@ -350,4 +352,3 @@ Sprint demo:
 - Buy cannon upgrade.
 - Defeat Lane 1 boss.
 - Save, close/reload, and continue from correct state.
-

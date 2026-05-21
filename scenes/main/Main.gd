@@ -323,7 +323,7 @@ func _build_debug_overlay() -> void:
 	for mul in [1, 3, 10]:
 		var btn := _make_button("%dx" % mul, 13)
 		btn.custom_minimum_size = Vector2(50, 44)
-		var m := mul  # capture
+		var m: int = mul
 		btn.pressed.connect(func(): _set_speed(float(m)))
 		_debug_speed_labels.append(btn)
 		speed_row.add_child(btn)
@@ -336,7 +336,7 @@ func _build_debug_overlay() -> void:
 	for amt in [50, 500]:
 		var btn := _make_button("+%d" % amt, 13)
 		btn.custom_minimum_size = Vector2(60, 44)
-		var a := amt
+		var a: int = amt
 		btn.pressed.connect(func(): GameState.add_resource("salvage", float(a)))
 		res_row.add_child(btn)
 
@@ -347,7 +347,7 @@ func _build_debug_overlay() -> void:
 	for amt in [10, 100]:
 		var btn := _make_button("+%d" % amt, 13)
 		btn.custom_minimum_size = Vector2(60, 44)
-		var a := amt
+		var a: int = amt
 		btn.pressed.connect(func(): GameState.add_resource("doubloons", float(a)))
 		dbl_row.add_child(btn)
 
@@ -359,7 +359,7 @@ func _build_debug_overlay() -> void:
 	for lane_id in ["lane_01", "lane_02"]:
 		var btn := _make_button(lane_id.replace("lane_0", "L"), 13)
 		btn.custom_minimum_size = Vector2(50, 44)
-		var lid := lane_id
+		var lid: String = lane_id
 		btn.pressed.connect(func(): _debug_jump_lane(lid))
 		lane_row.add_child(btn)
 

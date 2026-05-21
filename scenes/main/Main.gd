@@ -39,6 +39,10 @@ var _boss_banner: Label
 var _debug_overlay: PanelContainer
 var _debug_speed_labels: Array[Button] = []
 
+# Combat VFX node refs — set during _build_*_block
+var _player_ship_rect: ColorRect
+var _enemy_ship_rect: ColorRect
+
 # State
 var _current_lane_id: String = "lane_01"
 var _next_lane_id: String = ""
@@ -152,6 +156,7 @@ func _build_player_block(parent: Node) -> void:
 	ship_rect.custom_minimum_size = Vector2(0, 60)
 	ship_rect.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(ship_rect)
+	_player_ship_rect = ship_rect
 
 	var ship_name_lbl := _make_label("Saltwind Drifter", 10, C_SILVER)
 	vbox.add_child(ship_name_lbl)
@@ -178,6 +183,7 @@ func _build_enemy_block(parent: Node) -> void:
 	enemy_rect.custom_minimum_size = Vector2(0, 60)
 	enemy_rect.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(enemy_rect)
+	_enemy_ship_rect = enemy_rect
 
 	_enemy_name_label = _make_label("Privateer Cutter", 11, C_TEXT, true)
 	vbox.add_child(_enemy_name_label)
@@ -418,11 +424,18 @@ func _on_enemy_spawned(enemy_def: Dictionary, max_hull: float) -> void:
 	_enemy_hp_label.text = "%s / %s" % [Balance.format_number(max_hull), Balance.format_number(max_hull)]
 	_enemy_counter_label.visible = false
 	_boss_banner.visible = false
+	# Slide-in: flash enemy rect from dark to its normal color
+	if _enemy_ship_rect:
+		_enemy_ship_rect.color = C_RED
+		_enemy_ship_rect.modulate = Color(0.3, 0.3, 0.3, 1.0)
+		var tw := create_tween()
+		tw.tween_property(_enemy_ship_rect, "modulate", Color.WHITE, 0.25)
 
 
 func _on_enemy_damaged(current: float, maximum: float, damage: float, evaded: bool) -> void:
 	_enemy_hp_bar.value = current
 	_enemy_hp_label.text = "%s / %s" % [Balance.format_number(current), Balance.format_number(maximum)]
+	_vfx_shoot_and_hit(damage, evaded)
 	if evaded:
 		_append_log("[color=#CDD9D9]— Evaded![/color]")
 
@@ -441,6 +454,9 @@ func _on_player_damaged(current: float, maximum: float, _damage: float) -> void:
 		_player_hp_bar.modulate = C_GOLD
 	else:
 		_player_hp_bar.modulate = Color.WHITE
+	# Flash player rect red on hit
+	if _player_ship_rect:
+		_vfx_flash_rect(_player_ship_rect, C_TEAL, Color(C_RED, 0.8), 0.18)
 
 
 func _on_player_hull_restored(current: float, maximum: float) -> void:
@@ -455,6 +471,9 @@ func _on_boss_spawned(boss_def: Dictionary, max_hull: float) -> void:
 	_boss_banner.visible = true
 	_wave_label.text = "BOSS"
 	_enemy_name_label.add_theme_color_override("font_color", C_GOLD)
+	# Boss uses a gold/orange rect to stand out from regular enemies
+	if _enemy_ship_rect:
+		_enemy_ship_rect.color = C_GOLD
 	_append_log("[color=#F2B134]⚔ Boss phase![/color]")
 
 
@@ -647,6 +666,87 @@ func _append_log(message: String) -> void:
 	_combat_log.text = ""
 	for line in _log_lines:
 		_combat_log.append_text(line + "\n")
+
+
+# ─────────────────────────────────────────────────────────
+#  Combat VFX
+# ─────────────────────────────────────────────────────────
+
+func _vfx_shoot_and_hit(damage: float, evaded: bool) -> void:
+	if not is_instance_valid(_player_ship_rect) or not is_instance_valid(_enemy_ship_rect):
+		return
+
+	# Muzzle flash on player rect
+	_vfx_flash_rect(_player_ship_rect, C_TEAL, Color(1.0, 0.92, 0.5, 1.0), 0.08)
+
+	# Determine projectile color from active weapon damage type
+	var ship_def := Definitions.get_ship("starter_ship")
+	var weapon_def := Definitions.get_weapon(ship_def.get("weapon_id", "long_nine_cannons"))
+	var proj_color: Color = C_GOLD  # cannon default
+	match weapon_def.get("damage_type", "cannon"):
+		"harpoon": proj_color = C_COPPER
+		"fire":    proj_color = C_RED
+		"occult":  proj_color = C_VIOLET
+
+	# Spawn projectile moving from player center to enemy center
+	var from_pos := _player_ship_rect.get_global_rect().get_center()
+	var to_pos   := _enemy_ship_rect.get_global_rect().get_center()
+
+	var proj := ColorRect.new()
+	proj.size = Vector2(12, 4)
+	proj.color = proj_color
+	proj.z_index = 20
+	proj.global_position = from_pos - proj.size * 0.5
+	add_child(proj)
+
+	var travel := 0.13  # seconds — fast enough to feel snappy, slow enough to see
+	var tw := create_tween()
+	tw.tween_property(proj, "global_position", to_pos - proj.size * 0.5, travel)
+	tw.tween_callback(func():
+		proj.queue_free()
+		if is_instance_valid(_enemy_ship_rect):
+			var base_color: Color = C_GOLD if _boss_banner.visible else C_RED
+			_vfx_flash_rect(_enemy_ship_rect, base_color, Color.WHITE, 0.15)
+		_vfx_damage_number(damage, evaded)
+	)
+
+
+func _vfx_flash_rect(rect: ColorRect, restore_to: Color, flash_color: Color, duration: float) -> void:
+	rect.color = flash_color
+	var tw := create_tween()
+	tw.tween_property(rect, "color", restore_to, duration)
+
+
+func _vfx_damage_number(damage: float, evaded: bool) -> void:
+	if not is_instance_valid(_enemy_ship_rect):
+		return
+	var lbl := Label.new()
+	if evaded:
+		lbl.text = "EVADE"
+		lbl.add_theme_color_override("font_color", C_SILVER)
+		lbl.add_theme_font_size_override("font_size", 13)
+	elif damage <= 0.0:
+		return
+	else:
+		lbl.text = "-%s" % Balance.format_number(damage)
+		lbl.add_theme_color_override("font_color", C_RED if not _boss_banner.visible else C_GOLD)
+		lbl.add_theme_font_size_override("font_size", 15)
+	lbl.z_index = 25
+
+	var enemy_gr := _enemy_ship_rect.get_global_rect()
+	lbl.global_position = Vector2(
+		enemy_gr.position.x + randf_range(4.0, enemy_gr.size.x * 0.6),
+		enemy_gr.position.y + enemy_gr.size.y * 0.15
+	)
+	add_child(lbl)
+
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(lbl, "global_position:y", lbl.global_position.y - 38.0, 0.75)
+	tw.tween_property(lbl, "modulate:a", 0.0, 0.75)
+	# Chain sequential callback after parallel tweens finish
+	tw.set_parallel(false)
+	tw.tween_callback(lbl.queue_free)
 
 
 # ─────────────────────────────────────────────────────────

@@ -31,11 +31,12 @@ The player fantasy is captaincy:
 | --- | --- | --- |
 | Battlefield sectors | Sea Lanes | Which lane to push or farm, which enemy defenses to counter |
 | Core equipment | Ship Arsenal | Which cannons, hull, sails, and fittings to invest salvage into |
-| Compute | Chartwork | Allocate navigator focus to Gunnery, Hull Discipline, Sail Trim, Boarding Drills |
-| Synth | Artificing | Craft materials, level recipes, unlock ship charms and automation devices |
-| V-Device | Relic Compass | Slot tide relics by color and resonance for build-defining bonuses |
-| Reactor | Stormheart Furnace | Burn ether brine into storm power and assign active ship-wide boosts |
-| Research | Cartography and Lore | Focus branches based on the waters being explored |
+| Compute | Ship's Bearing | Set operational stance (Hunter/Iron/Scout/Salvage) to direct officers over time |
+| Synth | Artificing | Commission materials, level recipes, unlock ship charms and automation devices |
+| V-Device | Relic Compass | Slot tide relics by color and resonance; link adjacent relics into constellations |
+| Reactor | Stormheart Furnace | Load ether brine and run storm patterns for active ship-wide boosts |
+| Research | Cartography | Focus chart branches based on the waters being explored |
+| — (new) | Bounty and Infamy | Accept named contracts, build infamy, use Infamy Marks as prestige currency |
 | Bases | Hidden Havens | Build island outposts on small grids for prestige bonuses and one-time unlocks |
 | Challenges | Trials | Run special voyages that force mastery of one system |
 | Warp Drive | Maelstrom Voyages | Spend charged compass needles to enter short mythic gauntlets |
@@ -62,14 +63,16 @@ This is a starting pacing target, not a hard spec.
 | --- | --- | --- |
 | Start | Sea Lane combat, salvage, basic armaments | Establish auto-combat and ship upgrades |
 | Lane 2 | Artificing | Add crafting, recipes, modules, permanent recipe levels |
-| Lane 3 | Relic Compass | Add drops-as-buildcraft with resonance |
-| Lane 5 | Stormheart Furnace | Add boost allocation and ether economy |
-| Lane 7 | Cartography and Lore | Add permanent research branches |
-| Lane 13 | First Hidden Haven | Add grid/base spatial puzzle and prestige incentive |
-| Lane 18 | Trials | Teach focused-system mastery |
-| Lane 22 | Maelstrom Voyages | Add charged side gauntlets and upgrade tree |
+| Lane 3 | Relic Compass | Add drops-as-buildcraft with resonance and constellations |
+| Lane 5 | Ship's Bearing | Add operational stance and officer direction |
+| Lane 6 | First Bounty Contract | Name a target; introduce Infamy as a metric |
+| Lane 7 | Cartography | Add permanent research branch (Charts, one branch only in MVP) |
+| Lane 13 | First Hidden Haven | Add grid/base spatial puzzle and prestige incentive (post-MVP) |
+| Lane 18 | Trials | Teach focused-system mastery (post-MVP) |
+| Lane 22 | Maelstrom Voyages | Add charged side gauntlets and upgrade tree (post-MVP) |
+| Wall around lane 15-20 | Return to Port | First prestige; Infamy Marks pay for permanent unlocks |
 | Lane 35-50 | Legendary Crew | Add character progression after economy literacy |
-| First major wall | Return to Port | First prestige and ship reconfiguration loop |
+| Post-MVP | Stormheart Furnace | Full ether brine → boost economy |
 
 ## Ship Arsenal
 
@@ -95,20 +98,25 @@ Damage defense model:
 
 This creates a pirate-flavored version of USI's enemy-type counters without using spaceships.
 
-## Chartwork
+## Ship's Bearing
 
-Chartwork is the pirate version of Compute. It should feel like the navigator and officers turning time at sea into better execution.
+Ship's Bearing replaces the earlier Chartwork concept. Rather than allocating percentage sliders to bars, the captain sets an operational bearing — a stance that directs the officers' priorities for the current leg of the voyage.
 
-Bars:
+The player picks one of four bearings:
 
-- Gunnery Solution: damage multiplier.
-- Hull Discipline: max hull and ward multiplier.
-- Sail Trim: lane speed and dodge.
-- Boarding Drills: crew XP and prize loot.
-- Powder Economy: resource efficiency.
-- Signal Flags: later, fleet/armada support.
+- **Hunter Bearing**: Gunnery officers push attack speed and damage. Slight lane slowdown (attention is on the target, not the horizon).
+- **Iron Bearing**: The Boatswain focuses on hull integrity and damage smoothing. Damage is reduced; defense multiplied.
+- **Scout Bearing**: The Navigator prioritizes chart-reading and lane speed. Less combat weight, faster traversal and chart gain.
+- **Salvage Bearing**: All hands shift to recovery. Combat efficiency drops; salvage and resource drops increase from every kill.
 
-The player allocates Chart Focus across bars. Bars fill over time based on Chart Power and Chart Speed. Later, the Quartermaster can auto-optimize focus.
+Each bearing builds momentum over time: holding a bearing multiplies its benefit by a compound factor (capped). Switching resets the momentum. This creates real timing decisions: switch to Iron Bearing before a boss wave, hold Hunter during easy enemies, then flick to Salvage when farming a known lane.
+
+Later upgrades:
+- Bearing Mastery: each bearing has a permanent level that raises its base effectiveness.
+- Second Bearing Slot: unlocked post-prestige, allows running two bearings simultaneously at reduced efficiency.
+- Bearing Auto-Hold: Quartermaster automation that locks a bearing during specific situations.
+
+The bearing panel should show current momentum as a tide-line fill, not a numeric bar, to reinforce the sea metaphor.
 
 ## Artificing
 
@@ -208,7 +216,7 @@ Havens apply their main component bonus when the player Returns to Port. Some sl
 
 Trials are focused challenge voyages.
 
-- Dead Calm Trial: only Chartwork can provide battle power.
+- Dead Calm Trial: only Ship's Bearing momentum can provide battle power.
 - Empty Hold Trial: Artificing materials become the main stat source, no salvage drops.
 - Stormheart Hunger: damage and hull are equal to current storm power.
 - Haven Carry: Hidden Haven buildings provide all battle stats.
@@ -234,16 +242,84 @@ Crew should arrive after the player understands ship, craft, relic, and outpost 
 
 Roles:
 
-- Master Gunner: cannon damage, fire rate.
-- Navigator: Chartwork, lane speed, maelstrom.
-- Boatswain: hull, repairs, crew efficiency.
-- Quartermaster: salvage, automation, loadouts.
-- Occultist: relics, wards, curses.
-- Cook-Surgeon: crew XP, offline stamina, recovery.
-- Smuggler: doubloons, rare loot, market conversion.
-- Diplomat-Bard: reputation, bounty contracts, harbor bonuses.
+- The Shot-Witch: cannon damage, fire rate, weapon milestones.
+- The Blind Chart: bearing momentum, lane speed, maelstrom navigation.
+- The Rope-Father: hull, repairs, crew efficiency.
+- The Ship's Articles: salvage, automation, loadouts (the Quartermaster role).
+- The Drowned Voice: relics, wards, curses, constellation unlocks.
+- The Knife and Kettle: crew XP, offline stamina, recovery.
+- The Cargo-Ghost: doubloons, rare loot, market conversion.
+- The Port Tongue: reputation, bounty contracts, harbor bonuses.
 
 Crew should be rehired or "retold" with a catch-up bonus based on their best prior legend level. This preserves the prestige feel while avoiding punishment.
+
+## Bounty and Infamy
+
+Bounty is the game's core identity mechanic and the missing piece from earlier drafts. It gives the game's title its meaning.
+
+### Infamy
+
+The player ship accumulates Infamy as it pushes into deeper waters. Infamy is a permanent rising number — it does not reset on Return to Port. It represents how notorious the captain has become across the Saltglass Expanse.
+
+Infamy increases from:
+- Clearing lane bosses (especially named enemies).
+- Completing Bounty Contracts.
+- Reaching new best lanes.
+- Defeating Crown Navy officers and privateers who were hunting the captain.
+
+High Infamy has mechanical effects:
+- Bounty Hunters appear as special enemies in lanes — harder than the lane average, but they carry large contract bounties.
+- Harbor prices improve (the captain's reputation opens doors).
+- Bounty Contract rewards scale with Infamy tier.
+- Unlocks deeper contracts from more dangerous factions.
+
+Infamy is also the prestige currency. When the player Returns to Port, their accumulated Infamy converts to Infamy Marks, which buy permanent upgrades, new ship options, and system unlocks. This ties the prestige loop directly to the game's identity: the captain's legend is what makes each new voyage stronger.
+
+```
+infamy_marks_gained = floor(current_infamy * 0.4)
+infamy_marks are additive per prestige; infamy itself resets to a fraction (20%) after Return to Port
+```
+
+### Bounty Contracts
+
+Contracts are named objectives that appear in a dedicated tab. They are not infinite — the player picks from a short list of available contracts, accepts one or two, and pursues them during the current run.
+
+Contract anatomy:
+- **Target**: a specific enemy, boss, family, or lane.
+- **Objective**: kill X enemies, defeat Y boss, survive Z waves, reach lane N.
+- **Reward**: doubloons, relic fragments, Infamy (large bonus), rare materials, or one-time permanent unlocks.
+- **Expiry**: some contracts expire on Return to Port if incomplete. High-value contracts may persist one return.
+
+Early contract examples:
+
+| Contract | Target | Objective | Reward |
+| --- | --- | --- | --- |
+| Wanted: Ironclad Cutter | Ironclad family | Defeat 30 | Salvage boost + Infamy 20 |
+| The Iron Tithe's Head | Lane 10 boss | Defeat the boss | Rare material + Infamy 50 |
+| Relic Plunder | Any boss | Collect 15 relic fragments | Relic Compass slot unlock |
+| Admiral Vey's Colors | Crown Navy boss | Defeat the Admiral | Doubloon jackpot + Infamy 80 |
+| Dead Reckoning | Storm belt lane | Reach lane 12 without switching bearings | Bearing Mastery level |
+
+### Wanted Bounties
+
+In addition to player-accepted contracts, the world posts bounties on the player. As Infamy rises, named bounty hunters appear as bonus enemies in lanes. Killing a bounty hunter:
+- Grants a large doubloon prize.
+- Drops a trophy relic fragment with a unique slot affinity.
+- Adds to Infamy.
+- Increases the tier of the next bounty hunter sent (escalation loop).
+
+The player is the bounty. The game's name is the answer to "what kind of bounty do you have? An unearned one — because you're just getting started."
+
+### Faction Standing
+
+Different factions post contracts and track the player's relationship separately:
+
+- **The Freebooters Guild**: pays well, asks for enemy kills, no moral complications.
+- **The Shattered Crown**: wants privateers and Hexed Corsairs eliminated; rewards legal harbor access.
+- **The Drowned Courts**: occult faction; wants relic retrieval and monster hunts; pays in rare relics.
+- **Independent Merchants**: wants safe passage contracts; pays in doubloons and rare cargo.
+
+Faction standing persists through Return to Port (Voyage Permanent tier). It affects contract availability and harbor prices. Players who favor one faction may find enemies from other factions more aggressive.
 
 ## UI Tone
 

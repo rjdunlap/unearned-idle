@@ -16,30 +16,44 @@ The prototype should prove:
 
 ## Recommended MVP Scope
 
-MVP lane range: 1-30.
+MVP lane range: 1-20.
 
 MVP systems:
 
-- Sea Lane combat.
-- Ship Arsenal upgrades.
-- Chartwork allocation.
-- Artificing recipes and modules.
-- Relic Compass shards and resonance.
-- Stormheart Furnace boosts.
-- Cartography and Lore research.
-- First Hidden Haven grid.
-- First Return to Port prestige.
-- Basic Quartermaster automation.
+- Sea Lane combat (4 enemy families, lane boss, stormwall diagnostic).
+- Ship Arsenal upgrades (4 weapons, 3 defenses, 2 fittings, weapon milestones).
+- Ship's Bearing stance system (4 bearings, momentum buildup).
+- Artificing (5 recipes, 4 modules, permanent recipe levels).
+- Relic Compass (2 slot colors, 6 relics, resonance, constellation linking).
+- Cartography research (1 branch only: Cartography; others unlock after first prestige).
+- Bounty Contracts (3 active contracts per run, Infamy accumulation, prestige currency).
+- First Return to Port prestige (Infamy Marks, preserved discoveries, 3 new unlocks).
+- Auto-Advance and Loadout Slot automation (only these two in MVP).
 - Save/load and offline gains.
 
 Out of MVP:
 
+- Stormheart Furnace (full ether brine economy; defer post-MVP).
+- Hidden Haven grid.
+- Full 4-branch Cartography and Lore research (3 branches unlock post-first-prestige).
+- Trials.
+- Maelstrom Voyages.
 - Full crew system.
 - Grand Expedition second prestige.
 - Armada Campaigns.
-- Large maelstrom trees.
+- Faction standing UI (can track numbers invisibly in MVP, surface the tab post-MVP).
+- Large automation tree beyond auto-advance and loadouts.
 - Monetization.
 - Mobile-specific layout, unless mobile is the main launch target.
+
+What the MVP must prove:
+
+- Auto-combat through sea lanes is satisfying and readable.
+- Weapon/defense counters make loadout choices feel meaningful.
+- Bearing stances create genuine timing decisions, not just stat allocation.
+- Relics turn drops into buildcraft with the constellation system.
+- Contracts give each run a named goal beyond "push forward."
+- Prestige feels earned and speeds the next run visibly.
 
 ## Development Phases
 
@@ -91,44 +105,46 @@ Add the layers that make it more than an upgrade clicker.
 
 Features:
 
-- Chartwork bars: Gunnery, Hull Discipline, Sail Trim, Boarding Drills.
-- Artificing with 4-6 starter recipes and 3-4 active modules.
-- Relic Compass with 2 slot colors and 4 starter relics.
-- Stormheart Furnace with ether brine generation and 2-3 boosts.
-- Cartography and Lore with 3 branches and lane density values.
+- Ship's Bearing with 4 stances and momentum buildup display.
+- Artificing with 5 starter recipes and 4 active modules.
+- Relic Compass with 2 slot colors, 6 starter relics, and constellation link previews.
+- Bounty Contracts tab with 3 active contract slots, Infamy counter, and Wanted bounty hunter encounters.
+- Cartography research (1 branch, passive Charts accumulation, lane density values).
 
 Success criteria:
 
-- Players can choose different focus strategies.
-- Drops have multiple uses.
+- Players can set a bearing and understand why they switched.
+- Drops have multiple uses (salvage, craft materials, relic fragments).
+- A Bounty Contract gives the player a named goal in the current run.
 - Tooltips show how each system contributes to damage, defense, and income.
 
-### Phase 3: Prestige and Haven
+### Phase 3: Prestige and Contracts
 
 Add the first reset loop.
 
 Features:
 
-- Hidden Haven grid with a few building types.
-- Return to Port prestige.
-- Preserve recipe levels, research, relic library/resonance, haven progress, and captain reputation.
-- Reset salvage, current lane, ship core levels, active modules, and storm power.
-- Unlock new ship loadout options or permanent multipliers after return.
-- Add a prestige preview before confirming.
+- Return to Port prestige with Infamy Marks as the currency.
+- Prestige reward tree: buy permanent hull multiplier, second relic slot, new Cartography branch, bearing mastery levels, additional contract slots.
+- Preserve recipe levels, Cartography research, relic library/resonance, faction standing, and captain Infamy fraction (20% carries over).
+- Reset salvage, current lane, Arsenal upgrade levels, active modules, current contracts.
+- Prestige preview screen showing what resets, what persists, what unlocks, and Infamy Marks gained.
+- Loadout Slot automation as a first-prestige unlock.
 
 Success criteria:
 
 - Return to Port makes the next run clearly faster.
-- The player can inspect what resets and what persists.
-- Prestige unlocks at least one new choice, not only a bigger multiplier.
+- Infamy Marks are spent on choices, not just a single multiplier.
+- The player can see what specifically caused their Infamy to be what it is.
 
 ### Phase 4: Automation and Usability
 
 Features:
 
-- Quartermaster upgrades: auto-advance, auto-upgrade cheapest Arsenal, auto-collect salvage, auto-select research, auto-optimize Chartwork.
-- Loadout slots for Arsenal and Relic Compass.
-- Offline summary window.
+- Quartermaster upgrades: auto-advance (if not added in phase 1), Arsenal auto-buy, research auto-select, relic auto-merge, bearing auto-hold.
+- Loadout slots for Arsenal and Relic Compass (if not added in phase 3).
+- Contract auto-refresh option.
+- Offline summary window showing resources gained, contracts completed, Infamy earned.
 - "Missing multipliers" diagnostic panel.
 - Next unlock tracker.
 
@@ -136,6 +152,7 @@ Success criteria:
 
 - Repeating early lanes after Return to Port takes much less babysitting.
 - The player can understand why progress slowed.
+- Contract status is visible in the summary without opening the tab.
 
 ## Data-Driven Content
 
@@ -144,15 +161,19 @@ Do not hard-code individual upgrades into UI scripts. Use definitions.
 Suggested definition tables:
 
 - `resources`: id, display name, icon, color, persistence tier.
-- `lanes`: id, name, distance, enemy table, boss id, research density, unlocks.
-- `enemies`: id, family, hull, armor, ward, evasion, reward multipliers, tags.
+- `lanes`: id, name, distance, enemy table, boss id, research density, chart density, unlocks.
+- `enemies`: id, family, hull, armor, ward, evasion, reward multipliers, tags, infamy_value.
 - `weapons`: id, damage type, fire rate, target priority, milestone list.
 - `arsenal_upgrades`: id, target, cost resource, base cost, cost scale, effect id.
-- `chart_bars`: id, effect, exponent, cap, unlock lane.
+- `bearings`: id, name, stat effects, momentum curve, unlock lane.
 - `recipes`: id, input resources, time, xp curve, unlocks, infinite level.
 - `modules`: id, required recipe, slot cost, effect, tier rules.
-- `relics`: id, slot affinities, resonance max, effects, drop lanes.
+- `relics`: id, slot affinities, resonance max, effects, drop lanes, constellation_links.
+- `constellations`: id, relic_a, relic_b, required_slots, combined_effect.
 - `research`: branch, node, cost, effect, prerequisites.
+- `bounty_contracts`: id, faction, target_type, target_id, objective_count, rewards, expiry.
+- `bounty_hunters`: id, name, lane_range, hull, armor, ward, reward_multiplier, trophy_relic.
+- `factions`: id, name, contract_pool, standing_effects.
 - `haven_buildings`: id, footprint, production, adjacency effects, component output.
 - `automation`: id, cost, effect, prerequisites.
 
@@ -189,7 +210,7 @@ Combat:
 ```text
 effective_damage = weapon_base_damage
   * arsenal_multiplier
-  * chartwork_damage
+  * bearing_damage_multiplier
   * module_damage
   * relic_damage
   * research_damage
@@ -224,12 +245,14 @@ This game will likely become dense. Build UI with that future in mind.
 
 Required panels for MVP:
 
-- Sea Lane panel: lane name, distance, wave, boss, enemy type, combat log micro-feed.
-- Ship status: hull, ward, speed, damage summary.
-- Resource strip: resources and rates.
-- Main tabs: Arsenal, Chartwork, Artificing, Relics, Stormheart, Lore, Haven, Logbook.
+- Sea Lane panel: lane name, distance, wave, boss, enemy type, combat log micro-feed, stormwall indicator.
+- Ship status: hull, ward, speed, damage summary, current bearing and momentum.
+- Resource strip: salvage, doubloons, craft materials, charts, relic fragments — with per-second rates.
+- Main tabs: Arsenal, Bearing, Artificing, Relics, Cartography, Contracts, Logbook. Locked tabs for Haven, Stormheart, Crew visible but greyed.
+- Infamy counter always visible (header or resource strip).
 - Tooltip system with source breakdowns.
 - Next unlock tracker.
+- Bounty Contract panel: active contracts with progress bars, faction icons, reward previews.
 
 Important rules:
 
@@ -257,26 +280,35 @@ Preferred playtest targets for first MVP:
 - Lane 1 clear: under 2 minutes.
 - Artificing unlock: 5-10 minutes.
 - Relic Compass unlock: 10-15 minutes.
-- Stormheart unlock: 20-30 minutes.
-- First Haven unlock: 60-120 minutes.
+- First Bounty Contract available: 15-20 minutes (lane 6).
+- Ship's Bearing unlock: 20-30 minutes (lane 5).
+- Cartography tab unlock: 30-40 minutes (lane 7).
+- First Wanted bounty hunter encounter: after first contract completes.
+- Stormwall hit: 60-90 minutes.
 - First Return to Port: 2-4 hours for an idle player, faster for active optimization.
+- Second run reaches previous best lane: in 50% of original time.
 
 ## Risks
 
 - Too much theme text can slow comprehension. Keep flavor in names, tooltips, and events, but make button labels operational.
-- Too many resources early can overwhelm. Start with salvage, doubloons, ether brine, charts, and relic fragments.
-- Prestige can feel bad if it resets solved setup. Add loadouts and automation early.
+- Too many resources early can overwhelm. Start with only salvage and doubloons; add craft materials at lane 2, relic fragments at lane 3, charts at lane 7. Ether brine is post-MVP.
+- Prestige can feel bad if it resets solved setup. Add loadouts and auto-advance as first-prestige unlocks.
+- Bounty Contracts must have clearly readable objectives. Ambiguous contract text is a legibility failure.
+- Infamy escalation (bounty hunters) must be paced so it feels exciting, not punishing. Bounty hunters should arrive after the player is stable in a lane, not during a wall.
 - The pirate skin can drift generic. Every system should answer a specific captain fantasy.
 - Data-driven systems can become over-abstracted. Keep definitions simple until patterns prove themselves.
 
 ## Next Agent Checklist
 
-1. Create a minimal Godot project if none exists.
-2. Implement saveable `GameState` and fixed-step `Sim`.
-3. Add Sea Lane combat with one lane, one enemy, one boss, and one upgrade.
-4. Add resource formatting and offline snapshot.
-5. Add data definitions for 10 lanes, 4 enemy families, and 4 weapon types.
-6. Add UI shell with tabs even if most tabs are locked.
-7. Add unlock notifications and source-breakdown tooltips.
-8. Only then add Artificing, Relics, and Chartwork.
+1. Write the Lane Content Map for lanes 1-20 before any implementation (see missing specs in doc 05).
+2. Write the Bounty Contract table for lanes 1-20 (contract targets, objectives, rewards).
+3. Create a minimal Godot project if none exists.
+4. Implement saveable `GameState` and fixed-step `Sim`.
+5. Add Sea Lane combat with one lane, one enemy, one boss, and one Arsenal upgrade.
+6. Add resource formatting and offline snapshot.
+7. Add data definitions for 20 lanes, 4 enemy families, 4 weapon types, and the bearing stances.
+8. Add UI shell with tabs; locked tabs visible but greyed out.
+9. Add unlock notifications and source-breakdown tooltips.
+10. Only then add Relic Compass, then Artificing, then Bearing, then Contracts.
+11. Do not implement Stormheart, Haven, Trials, or Maelstrom until all MVP systems above are playtested.
 

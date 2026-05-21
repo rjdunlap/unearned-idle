@@ -1,6 +1,10 @@
 ; Engine configuration file.
 ; It's best edited using the editor UI and not directly,
-; since the properties are of different types (int, string, etc.).
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
 
 config_version=5
 
@@ -25,11 +29,10 @@ SaveSystem="*res://autoload/SaveSystem.gd"
 
 window/size/viewport_width=360
 window/size/viewport_height=800
+window/stretch/mode="canvas_items"
+window/handheld/orientation=1
 window/size/min_width=320
 window/size/min_height=600
-window/handheld/orientation=1
-window/stretch/mode="canvas_items"
-window/stretch/aspect="keep"
 
 [rendering]
 

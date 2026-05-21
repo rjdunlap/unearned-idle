@@ -1,0 +1,271 @@
+:root {
+  --bg:     #172033;
+  --ocean:  #0F3442;
+  --copper: #B96E35;
+  --red:    #E0443E;
+  --gold:   #F2B134;
+  --teal:   #22A6A1;
+  --text:   #E8D8B8;
+  --silver: #CDD9D9;
+  --green:  #6BC56B;
+  --violet: #7B4FA3;
+  --dark:   #101216;
+  --panel2: #0A1A26;
+  --card:   #1C2A3E;
+  --btn:    #243048;
+  --btnhov: #2E3D5C;
+}
+
+/* ── Panels ─────────────────────────────── */
+.panel-ocean {
+  background: var(--ocean);
+  padding: 8px;
+  flex-shrink: 0;
+}
+.panel-bg {
+  background: var(--bg);
+  padding: 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.status-strip {
+  background: var(--panel2);
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  flex-shrink: 0;
+}
+
+/* ── Typography ─────────────────────────── */
+.c-copper { color: var(--copper); }
+.c-gold   { color: var(--gold);   }
+.c-teal   { color: var(--teal);   }
+.c-text   { color: var(--text);   }
+.c-silver { color: var(--silver); }
+.c-green  { color: var(--green);  }
+.c-red    { color: var(--red);    }
+
+.bold { font-weight: 700; }
+.sz-10 { font-size: 10px; }
+.sz-11 { font-size: 11px; }
+.sz-12 { font-size: 12px; }
+.sz-13 { font-size: 13px; }
+.sz-14 { font-size: 14px; }
+.sz-15 { font-size: 15px; }
+.sz-16 { font-size: 16px; }
+
+/* ── Lane title row ─────────────────────── */
+.lane-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.lane-label  { flex: 1; font-size: 16px; font-weight: 700; color: var(--teal); }
+.wave-label  { font-size: 13px; color: var(--silver); }
+.boss-banner { font-size: 14px; font-weight: 700; color: var(--gold); }
+
+/* ── Combat row ─────────────────────────── */
+.combat-row {
+  display: flex;
+  gap: 6px;
+  min-height: 120px;
+  margin-bottom: 6px;
+  position: relative;
+}
+.ship-block {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.vs-label {
+  font-size: 12px;
+  color: var(--silver);
+  align-self: center;
+}
+.ship-rect {
+  flex: 1;
+  min-height: 60px;
+  border-radius: 3px;
+  transition: background-color 0.18s;
+  position: relative;
+}
+.ship-rect-player { background: var(--teal); }
+.ship-rect-enemy  { background: var(--red);  }
+.ship-rect-boss   { background: var(--gold); }
+
+/* ── HP bars ────────────────────────────── */
+.hp-bar {
+  height: 10px;
+  background: rgba(16, 18, 22, 0.8);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.hp-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.1s linear, background-color 0.3s;
+}
+.hp-fill-green  { background: var(--green); }
+.hp-fill-red    { background: var(--red);   }
+.hp-fill-gold   { background: var(--gold);  }
+.hp-fill-orange { background: #E07830; }
+
+/* ── Combat log ─────────────────────────── */
+.combat-log-wrap {
+  background: var(--bg);
+  flex: 1;
+  border-radius: 3px;
+  overflow: hidden;
+  min-height: 60px;
+}
+.combat-log {
+  padding: 4px 6px;
+  font-size: 12px;
+  color: var(--silver);
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.combat-log p { line-height: 1.4; }
+.log-gold    { color: var(--gold);   }
+.log-green   { color: var(--green);  }
+.log-teal    { color: var(--teal);   }
+.log-silver  { color: var(--silver); }
+.log-red     { color: var(--red);    }
+
+/* ── Counter hint ───────────────────────── */
+.counter-hint {
+  font-size: 12px;
+  color: var(--gold);
+  margin-bottom: 2px;
+}
+
+/* ── Status strip ───────────────────────── */
+.vsep {
+  width: 1px;
+  height: 28px;
+  background: rgba(205, 217, 217, 0.25);
+}
+.flex-grow { flex: 1; }
+
+/* ── Buttons ────────────────────────────── */
+.btn {
+  background: var(--btn);
+  color: var(--text);
+  border: none;
+  border-radius: 4px;
+  padding: 0 12px;
+  height: 40px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.1s;
+}
+.btn:hover  { background: var(--btnhov); }
+.btn:active { background: #38507A; }
+.btn:disabled { opacity: 0.4; cursor: default; }
+.btn-lg {
+  height: 52px;
+  font-size: 15px;
+  width: 100%;
+}
+.btn-advance {
+  height: 56px;
+  font-size: 16px;
+  color: var(--gold);
+  width: 100%;
+  margin-top: auto;
+}
+
+/* ── Tab row ────────────────────────────── */
+.tab-row {
+  display: flex;
+  gap: 4px;
+}
+.tab-row .btn { height: 44px; }
+
+/* ── Arsenal card ───────────────────────── */
+.arsenal-header {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+.card {
+  background: var(--card);
+  border-radius: 6px;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.card-name-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.upgrade-name  { font-size: 14px; font-weight: 700; color: var(--text); }
+.upgrade-level { font-size: 13px; color: var(--silver); }
+.upgrade-desc  { font-size: 12px; color: var(--silver); line-height: 1.4; }
+.upgrade-cost  { font-size: 13px; color: var(--copper); }
+hr { border: none; border-top: 1px solid rgba(205,217,217,0.15); }
+
+/* ── Debug overlay ──────────────────────── */
+.debug-overlay {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(16, 18, 22, 0.95);
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 100;
+  border-top: 1px solid rgba(242,177,52,0.3);
+}
+.debug-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.debug-row span {
+  font-size: 12px;
+  color: var(--silver);
+  white-space: nowrap;
+}
+.debug-row .btn {
+  height: 44px;
+  min-width: 50px;
+  font-size: 13px;
+  padding: 0 8px;
+}
+.btn-reset { color: var(--red); }
+
+/* ── VFX ────────────────────────────────── */
+.projectile {
+  position: absolute;
+  width: 12px;
+  height: 4px;
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 20;
+  transition: left 130ms linear, top 130ms linear;
+}
+.dmg-number {
+  position: absolute;
+  font-size: 15px;
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 25;
+  transition: top 750ms ease-out, opacity 750ms ease-out;
+}
+
+/* ── Utility ────────────────────────────── */
+.hidden { display: none !important; }

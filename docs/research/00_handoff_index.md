@@ -9,9 +9,15 @@ Important local-context note: at research time the project folder contained only
 ## Files
 
 - [01_unnamed_space_idle_breakdown.md](01_unnamed_space_idle_breakdown.md): source-based breakdown of Unnamed Space Idle mechanics, pacing, UI, automation, and lessons.
-- [../design/02_pirate_unfolding_idle_concept.md](../design/02_pirate_unfolding_idle_concept.md): translation of USI systems into an original mystical pirate framework.
-- [../design/03_mvp_and_technical_plan.md](../design/03_mvp_and_technical_plan.md): practical Godot-first prototype plan and implementation notes.
-- [../design/04_progression_content_taxonomy.md](../design/04_progression_content_taxonomy.md): proposed resources, unlocks, content categories, formulas, and data tables.
+- [../design/02_pirate_unfolding_idle_concept.md](../design/02_pirate_unfolding_idle_concept.md): translation of USI systems into an original mystical pirate framework, including Ship's Bearing, Bounty/Infamy, and revised crew names.
+- [../design/03_mvp_and_technical_plan.md](../design/03_mvp_and_technical_plan.md): practical Godot-first prototype plan scoped to the revised 5-system MVP.
+- [../design/04_progression_content_taxonomy.md](../design/04_progression_content_taxonomy.md): proposed resources, unlocks, content categories, formulas, and data tables with Infamy/Bounty economy.
+- [../design/05_senior_design_review.md](../design/05_senior_design_review.md): full design critique, system-by-system notes, revised MVP scope, first-hour sketch, balance guidance, and prioritized next specs.
+- [../design/06_visual_design_bible.md](../design/06_visual_design_bible.md): visual direction based on Unearned Bounty, Richard Pince's concept work, and the revised idle/mobile design needs.
+- [../project_management/07_mvp_pm_handoff.md](../project_management/07_mvp_pm_handoff.md): execution handoff for a project management agent to start MVP development, including milestones, scope lock, backlog, acceptance criteria, and first sprint.
+- [../project_management/08_mvp_execution_board.md](../project_management/08_mvp_execution_board.md): task board, scope guardrails, parked post-MVP systems, and milestone-level acceptance checks.
+- [../project_management/09_sprint_01_lane_1_playable.md](../project_management/09_sprint_01_lane_1_playable.md): first sprint plan for the Lane 1 playable slice, including Godot version lock, folder conventions, demo script, and combat readability checklist.
+- [../project_management/10_development_start_prompt.md](../project_management/10_development_start_prompt.md): copy-ready prompt for handing Sprint 01 implementation to a development agent.
 
 ## One-Page Direction
 
@@ -63,4 +69,3 @@ For the pirate game, the first prototype should target:
 - April 28, 2026 content update notes via SteamDB: https://steamdb.info/patchnotes/22996983/
 - Unnamed Space Idle V0.80 Reddit announcement: https://www.reddit.com/r/incremental_games/comments/1syedx6/unnamed_space_idle_major_content_update_v080/
 - Idle design overview from Machinations: https://machinations.io/articles/idle-games-and-how-to-design-them
-

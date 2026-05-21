@@ -13,16 +13,26 @@ This document proposes names, resources, unlocks, and early balance structures f
 
 ## Early Resources
 
-| Resource | Source | Primary use |
+Resources are introduced strictly in this order. Do not show a resource to the player before its unlock lane.
+
+| Resource | Introduced | Source | Primary use |
+| --- | --- | --- | --- |
+| Salvage | Lane 1 | Defeated ships, salvage nets | Arsenal upgrades |
+| Doubloons | Lane 1 boss | Boss prizes, trade lanes, contracts | Harbor services, crew, Infamy rewards |
+| Craft Materials | Lane 2 (Artificing) | Generic enemy drops | Artificing recipes and modules |
+| Relic Fragments | Lane 3 (Relic Compass) | Reef Beasts and Hexed Corsairs only | Relic Compass resonance |
+| Charts | Lane 7 (Cartography) | Lane progress, storm lanes, lore events | Cartography research nodes |
+| Infamy | Lane 6 (first contract) | Contracts, bosses, bounty hunters | Prestige currency (Infamy Marks) |
+
+Resources deferred to post-MVP:
+
+| Resource | When | Purpose |
 | --- | --- | --- |
-| Salvage | Defeated ships, wreckage clicks, salvage nets | Arsenal upgrades |
-| Doubloons | Prizes, trade lanes, bounties | Harbor services, crew, market upgrades |
-| Ether Brine | Cursed enemies, storm lanes | Stormheart fuel |
-| Charts | Lane progress, scouts, cartography | Chartwork power and route unlocks |
-| Lore | ruins, spirits, bosses | Research branches |
-| Relic Fragments | enemy drops by lane | Relic Compass resonance |
-| Craft Materials | Artificing recipes | Modules and recipe mastery |
-| Haven Materials | Hidden Haven production | Grid slots, buildings, prestige bonuses |
+| Ether Brine | Post-MVP (Stormheart) | Furnace fuel |
+| Haven Materials | Post-MVP (Haven) | Haven grid construction |
+| Grand Charts | Post-Grand Expedition | Second prestige currency |
+
+Note: Lore is no longer a separate resource. Boss kills and ruin encounters trigger a "Lore event" that grants a large batch of Charts and a flavor text entry, making lore feel like a memorable moment rather than a routine drop.
 
 ## Enemy Families
 
@@ -49,23 +59,28 @@ This document proposes names, resources, unlocks, and early balance structures f
 
 ## System Unlock Table
 
+MVP lanes are marked **[MVP]**. Post-MVP lanes are marked [post].
+
 | Lane / milestone | Unlock | What changes |
 | --- | --- | --- |
-| 1 | Sea Lane, Salvage, Arsenal | Core auto-combat and upgrades |
-| 2 | Artificing | Crafting starts, first module |
-| 3 | Relic Compass | Relic drops and resonance |
-| 5 | Stormheart Furnace | Ether brine becomes boost fuel |
-| 7 | Cartography and Lore | Permanent research branches |
-| 10 | Arsenal Milestones | Upgrade choices on weapons/hull |
-| 13 | Hidden Haven 1 | Grid building and prestige bonus |
-| 18 | Trials | System-focused challenge runs |
-| 22 | Maelstrom Voyages | Charged side gauntlets |
-| 30 | First Return to Port target | Prestige with preserved discoveries |
-| 35 | Second ship hull | New loadout identity |
-| 45 | Crew teaser | First recruitable officer |
-| 50 | Legendary Crew | Crew XP/rank layer fully opens |
-| 60+ | Second Haven, deeper trials | Midgame expansion |
-| 75+ | Grand Expedition prep | Second reset layer setup |
+| 1 | Sea Lane, Salvage, Arsenal | Core auto-combat and upgrades **[MVP]** |
+| 2 | Artificing | Crafting starts, first module **[MVP]** |
+| 3 | Relic Compass | Relic drops, resonance, constellation previews **[MVP]** |
+| 5 | Ship's Bearing | Operational stances, momentum buildup **[MVP]** |
+| 6 | Bounty Contracts | First contract, Infamy counter, faction tabs **[MVP]** |
+| 7 | Cartography | Permanent chart research (1 branch in MVP) **[MVP]** |
+| 10 | Arsenal Milestones | Upgrade choices on weapons/hull **[MVP]** |
+| ~15-20 | First Return to Port | Prestige with Infamy Marks, new unlocks **[MVP]** |
+| Post-first-prestige | 3 new Cartography branches | Research tree expands |
+| Post-MVP | Stormheart Furnace | Ether brine becomes boost fuel [post] |
+| Post-MVP | Hidden Haven 1 | Grid building and prestige bonus [post] |
+| 18 | Trials | System-focused challenge runs [post] |
+| 22 | Maelstrom Voyages | Charged side gauntlets [post] |
+| 35 | Second ship hull | New loadout identity [post] |
+| 45 | Crew teaser | First recruitable officer (The Rope-Father) [post] |
+| 50 | Legendary Crew | Full crew XP/rank layer [post] |
+| 60+ | Second Haven, deeper trials | Midgame expansion [post] |
+| 75+ | Grand Expedition prep | Second reset layer setup [post] |
 
 ## Ship Arsenal Content
 
@@ -100,24 +115,32 @@ This document proposes names, resources, unlocks, and early balance structures f
 | Shrine Bell | ward, lore, spirit encounter bonuses |
 | Cartographer's Table | charts, lane speed, research density |
 
-## Chartwork Bars
+## Ship's Bearing Stances
 
-| Bar | Effect | Notes |
-| --- | --- | --- |
-| Gunnery Solution | damage multiplier | first damage focus |
-| Hull Discipline | hull and ward multiplier | defense focus |
-| Sail Trim | lane traversal speed | improves sector-like speed |
-| Boarding Drills | crew XP and prize loot | better after crew unlock |
-| Powder Economy | salvage efficiency and fire rate | midgame efficiency |
-| Signal Flags | fleet support and automation | late unlock |
+| Bearing | Primary effect | Secondary effect | Momentum bonus |
+| --- | --- | --- | --- |
+| Hunter | +30% damage | -10% lane speed | Each 60s held: +2% more damage, stacking to +60% cap |
+| Iron | +25% hull and ward | -20% damage | Each 60s held: +3% more defense, stacking to +75% cap |
+| Scout | +30% lane speed, +15% chart gain | -15% damage | Each 60s held: +2% more speed, stacking to +50% cap |
+| Salvage | +40% salvage from kills, +20% relic drop chance | -25% damage | Each 60s held: +3% more salvage, stacking to +90% cap |
 
-Possible compute-like formula:
+Momentum formula:
 
 ```text
-bar_progress_per_second = chart_power * chart_speed * allocation_percent
-levels_gained = floor(progress / threshold)
-effect = 1 + (levels ^ exponent) * coefficient
+momentum_stacks = floor(time_in_bearing_seconds / 60)
+momentum_stacks = clamp(momentum_stacks, 0, momentum_cap)
+bearing_bonus = base_effect * (1 + momentum_stacks * stack_rate)
 ```
+
+Switching bearing resets momentum_stacks to 0.
+
+Mastery levels (purchased from Infamy Tree) raise the momentum cap and the stack rate independently, so players can specialize in a preferred bearing or generalize.
+
+Late unlock — Second Bearing Slot:
+- Runs two bearings simultaneously.
+- Each bearing builds momentum at 60% of normal rate.
+- Combined effect is slightly less than the sum of two full bearings (cap is reduced).
+- Makes the system more complex without invalidating single-bearing play.
 
 ## Artificing Recipes
 
@@ -178,7 +201,7 @@ Starter relics:
 | Stormglass Eye | ether and storm power | pink: ward damage, blue: maelstrom charge |
 | Wreck-King's Nail | hull and armor pierce | red: harpoon, green: boarding |
 | Siren Thread | crew XP and lure | green: crew, pink: occult |
-| Cartographer's Bone | chart speed and lane data | blue: chartwork, gold: rare drops |
+| Cartographer's Bone | chart speed and lane data | blue: cartography research, gold: rare drops |
 
 Resonance rule:
 
@@ -205,6 +228,81 @@ Generation:
 storm_power_per_second = ether_loaded * furnace_efficiency
 boost_drain = base_drain * boost_level_scale * over_limit_penalty
 ```
+
+## Infamy and Bounty Contracts
+
+### Infamy
+
+Infamy is a rising permanent number. It does not fully reset on Return to Port — 20% carries forward. It accumulates from:
+
+| Source | Infamy gained |
+| --- | --- |
+| Defeating a lane boss for the first time | 30 |
+| Each repeat lane boss kill | 5 |
+| Completing a Bounty Contract | 20-80 (by tier) |
+| Killing a Wanted bounty hunter | 15 |
+| Reaching a new best lane | 10 per lane beyond previous best |
+| Surviving a Stormwall push | 25 |
+
+Infamy Marks at prestige:
+
+```
+infamy_marks_gained = floor(current_run_infamy * 0.4)
+```
+
+Marks are permanent and accumulate across all prestiges. They are spent on the Infamy Tree — a permanent upgrade web separate from run upgrades.
+
+### Infamy Tree (MVP nodes)
+
+| Node | Cost (marks) | Effect |
+| --- | --- | --- |
+| Notorious Captain | 10 | +10% doubloon prizes from all enemies |
+| Relic Hunter | 15 | Second relic slot unlocked |
+| Three-Branch Chart | 20 | Unlocks Occult Lore and Natural Philosophy research branches |
+| The Persistent Contract | 25 | One active contract survives Return to Port |
+| Iron Reputation | 30 | +15% hull permanently |
+| Bearing Master I | 35 | All bearing momentum builds 20% faster |
+| Fearsome Colors | 40 | Bounty hunters appear more often, rewards increased |
+| Fourth Contract Slot | 50 | Unlocks a fourth active contract slot |
+
+### Bounty Contract Tiers
+
+Contracts are tiered by difficulty and Infamy requirement to unlock.
+
+| Tier | Infamy required | Reward magnitude | Example |
+| --- | --- | --- | --- |
+| 1 — Open Waters | 0 | Minor: salvage, doubloons, 20 Infamy | Kill 20 Privateers |
+| 2 — Dangerous Crossing | 30 | Moderate: relic fragments, 40 Infamy | Defeat The Iron Tithe |
+| 3 — Wanted | 80 | Major: rare materials, 60 Infamy, 1 constellation unlock | Hunt Admiral Vey of the Pale Flag |
+| 4 — Cursed Bounty | 200 | Large: permanent node, 80 Infamy, faction standing | The Drowned Courts' Retrieval |
+
+### Contract Catalog (MVP, Lanes 1-20)
+
+| Contract | Tier | Faction | Objective | Primary reward |
+| --- | --- | --- | --- | --- |
+| Ironclad Clearance | 1 | Freebooters Guild | Kill 30 Ironclad Cutters | 500 salvage, 20 Infamy |
+| Prize Day | 1 | Independent Merchants | Collect 200 doubloons in one run | Doubloon rate +5% (run) |
+| First Blood | 1 | Freebooters Guild | Defeat any lane boss | Relic fragment ×5, 20 Infamy |
+| Hex Hunt | 1 | Shattered Crown | Kill 20 Hexed Corsairs | Ether Brine preview ×10, 25 Infamy |
+| The Iron Tithe | 2 | Shattered Crown | Defeat lane 10 boss | Rare craft material, 40 Infamy |
+| Reef Beast Trophies | 2 | Drowned Courts | Kill 15 Reef Beasts | Relic fragment ×10, resonance bonus, 35 Infamy |
+| Relic Recovery | 2 | Drowned Courts | Fill one relic to 80% resonance | Constellation unlock preview, 40 Infamy |
+| Admiral Vey's Colors | 3 | Shattered Crown | Defeat Admiral Vey | Doubloon jackpot, constellation unlock, 60 Infamy |
+| The Bell-Reef Saint | 3 | Drowned Courts | Defeat the Bell Reef boss | Permanent ward +10%, 65 Infamy |
+| Dead Reckoning | 3 | Freebooters Guild | Reach lane 15 without switching bearing | Bearing Mastery level, 55 Infamy |
+
+### Wanted Bounty Hunters
+
+After the player completes their first contract, bounty hunters begin appearing. A hunter is a special enemy that replaces a random enemy in a wave.
+
+| Hunter name | Appears when | Stats | Trophy relic drop |
+| --- | --- | --- | --- |
+| Scatterwick | Infamy 20+ | +50% hull vs lane average | Scatterwick's Flintlock (red slot, fire rate) |
+| The Pale Creditor | Infamy 50+ | High armor, self-repair | Creditor's Ledger (gold slot, doubloons) |
+| Mother Mast | Infamy 100+ | High ward, occult attacks | Mast-Bone (pink slot, ward pierce) |
+| The Iron Collector | Infamy 200+ | All defenses elevated | Collector's Spike (red slot, armor pierce) |
+
+Each hunter killed increases the Infamy total and triggers the next-tier hunter eventually. The escalation creates a soft prestige pressure — the player can keep hunting to build Infamy, but hunters get harder over time.
 
 ## Research Branches
 
@@ -245,73 +343,99 @@ Grid rule seed:
 
 ## Prestige: Return to Port
 
-Resets:
+### What Resets
 
 - Current lane progress.
-- Run resources.
+- Run resources (salvage, doubloons, craft materials, relic fragments).
 - Arsenal upgrade levels.
-- Active modules.
-- Stormheart loaded fuel and power.
-- Some crew assignment state, later.
+- Active Artificing modules (recipe levels persist).
+- Active Bounty Contracts (except the "Persistent Contract" Infamy Tree node).
+- Current Infamy (80% is consumed; 20% carries forward).
 
-Persists:
+### What Persists
 
-- Best lane.
-- Research nodes/progress.
-- Recipe levels and infinite recipes.
-- Relic library and resonance.
-- Haven buildings, slots, and one-time upgrades.
-- Quartermaster automation.
-- Captain reputation or bounty tier.
+- Best lane reached (displayed on prestige preview).
+- Cartography research nodes and progress.
+- Recipe mastery levels and infinite recipes.
+- Relic library, resonance values, and discovered constellations.
+- Faction standing.
+- Haven buildings, slots, and one-time unlocks (post-MVP).
+- All Infamy Tree node purchases (permanent).
+- Quartermaster automation purchases.
 
-Rewards:
+### Prestige Currency and Rewards
 
-- Infamy Marks based on best lane, bosses beaten, trials, and bounty value.
-- New ship hull options.
-- Permanent global multipliers.
-- More automation and loadouts.
-- Access to deeper lanes.
+Infamy Marks are the prestige currency. They are earned on Return to Port:
 
-Preview must show:
+```
+infamy_marks_gained = floor(current_run_infamy * 0.4)
+```
 
-- What will reset.
-- What will be gained.
-- What will unlock.
-- Estimated time to recover previous best lane.
+Marks accumulate permanently and are spent in the Infamy Tree. The tree contains:
+- Permanent combat multipliers.
+- New relic slots.
+- New research branches.
+- Additional contract slots.
+- Bearing mastery levels.
+- New ship hull options (post-MVP).
+- Access to deeper lane tiers.
+
+### Prestige Preview Screen
+
+Must show:
+- What will reset (bullet list with icons).
+- What will persist (bullet list).
+- Infamy Marks to be gained from this return.
+- Which Infamy Tree nodes are now affordable.
+- Estimated time to recover previous best lane (calculated from current run speed).
+- Any new content that unlocks for the first time after this return.
 
 ## Automation: Quartermaster Logbook
 
-| Upgrade | Effect | Suggested unlock |
-| --- | --- | --- |
-| Auto Advance | automatically sails to next lane | very early |
-| Arsenal Auto Buy | buys selected upgrades | after first Return |
-| Chartwork Optimize | distributes chart focus | after Chartwork |
-| Research Auto Select | starts next selected research | after research |
-| Smart Craft | auto-crafts recipe dependencies | after Artificing |
-| Relic Auto Merge | merges relic fragments | after Relic Compass |
-| Stormheart Manager | sets boosts based on positive power | after Furnace |
-| Haven Auto Build | buys selected building upgrades | after Haven |
-| Loadout Slot | saves Arsenal/Relic/Boost setups | early prestige reward |
-| Offline Cap Increase | increases maximum offline time | achievement/QoL |
+Automation unlocks are ordered deliberately. A player should manually perform an action many times before it can be automated. Never automate a system the player has not yet mastered.
+
+| Upgrade | Effect | Suggested unlock | Priority |
+| --- | --- | --- | --- |
+| Auto Advance | Automatically sails to next lane when clear | First prestige reward (free) | 1 — highest |
+| Loadout Slot | Saves Arsenal and Relic Compass configuration | First prestige reward | 2 |
+| Research Auto Select | Queues next Cartography node automatically | After Cartography + second prestige | 3 |
+| Relic Auto Merge | Merges relic fragments toward selected relic | After Relic Compass is established | 4 |
+| Bearing Auto-Hold | Locks bearing during specific situations (boss wave, farming lane) | After Bearing is well understood | 5 |
+| Arsenal Auto Buy | Purchases cheapest unlocked Arsenal upgrade | After second or third prestige | 6 |
+| Smart Craft | Auto-crafts recipe dependencies when materials allow | After player has crafted 10+ times | 7 |
+| Contract Auto-Refresh | Replaces expired contracts without opening the tab | After Contracts tab is familiar | 8 |
+| Stormheart Manager | Sets furnace patterns based on positive power | After Stormheart (post-MVP) | 9 |
+| Haven Auto Build | Purchases queued Haven building upgrades | After Haven (post-MVP) | 10 |
+| Offline Cap Increase | Increases maximum offline calculation window | Achievement / QoL reward | Any |
 
 ## Early MVP Content Set
 
-Minimum viable content for lanes 1-30:
+Minimum viable content for lanes 1-20 (revised MVP scope):
 
-- 30 Sea Lanes.
-- 6 enemy families.
-- 10 enemy variants.
-- 6 weapons.
-- 4 defenses.
-- 6 fittings.
-- 12 Artificing recipes.
-- 10 modules.
-- 10 relics.
-- 24 research nodes across 4 branches.
-- 1 Haven grid with 8 building types.
-- 3 Trials.
-- 3 Maelstrom Voyages.
-- 12 automation upgrades.
+- 20 Sea Lanes.
+- 4 enemy families (Privateers, Ironclads, Hexed Corsairs, Reef Beasts).
+- 8 enemy variants (2 per family).
+- 4 weapons (Long Nine Cannons, Harpoon Battery, Firepot Mortar, Shrine Lantern).
+- 3 defenses (Ironwood Hull, Saltward Plating, Nimble Rigging).
+- 2 fittings (Salvage Nets, Crow's Nest Glass).
+- 4 bearing stances (Hunter, Iron, Scout, Salvage).
+- 5 Artificing recipes (Refined Timber, Brass Gear, Sailcloth Sigil, Powder Core, Stormglass Lens).
+- 4 modules (Hull Warding, Broadside Efficiency, Salvage Nets, Relic Lens).
+- 6 relics (Kraken Tooth, Saint's Coin, Stormglass Eye, Wreck-King's Nail, Siren Thread, Cartographer's Bone).
+- 6 constellations (one per relic pair with natural affinity).
+- 10 Cartography research nodes (1 branch).
+- 10 Bounty Contracts (across tiers 1-3, 4 factions).
+- 4 Wanted bounty hunters.
+- 2 automation upgrades in MVP (auto-advance, loadout slot).
+- Infamy Tree: 8 nodes for MVP.
+
+Content deferred to post-MVP:
+- Trials (design now, build later).
+- Maelstrom Voyages.
+- 3 additional Cartography branches.
+- Full Haven grid and buildings.
+- Stormheart Furnace.
+- Remaining 6 automation upgrades.
 
 This is enough to test the structure without attempting USI-scale content.
 

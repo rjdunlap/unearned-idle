@@ -1,0 +1,20 @@
+{
+  "items": [
+    {
+      "id": "salvage",
+      "display_name": "Salvage",
+      "color": "#B96E35",
+      "persistence_tier": "run",
+      "icon": "placeholder_salvage",
+      "description": "Scrap metal and timber from defeated ships. Spent on Arsenal upgrades."
+    },
+    {
+      "id": "doubloons",
+      "display_name": "Doubloons",
+      "color": "#F2B134",
+      "persistence_tier": "run",
+      "icon": "placeholder_doubloons",
+      "description": "Prize coins from boss kills and trade routes. Spent on harbor services."
+    }
+  ]
+}

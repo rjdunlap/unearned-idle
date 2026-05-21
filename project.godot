@@ -1,0 +1,37 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the properties are of different types (int, string, etc.).
+
+config_version=5
+
+[application]
+
+config/name="Unearned Bounty Idle"
+config/description="A mystical pirate unfolding idle game. Sprint 01 build."
+config/version="0.1.0-sprint01"
+run/main_scene="res://scenes/main/Main.tscn"
+config/features=PackedStringArray("4.6", "Mobile")
+config/icon="res://icon.svg"
+
+[autoload]
+
+Definitions="*res://autoload/Definitions.gd"
+Balance="*res://autoload/Balance.gd"
+GameState="*res://autoload/GameState.gd"
+Sim="*res://autoload/Sim.gd"
+SaveSystem="*res://autoload/SaveSystem.gd"
+
+[display]
+
+window/size/viewport_width=360
+window/size/viewport_height=800
+window/size/min_width=320
+window/size/min_height=600
+window/handheld/orientation=1
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep"
+
+[rendering]
+
+renderer/rendering_method="mobile"
+renderer/rendering_method.mobile="gl_compatibility"

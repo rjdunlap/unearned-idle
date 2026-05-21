@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+  <title id="title">Unearned Bounty Idle Visual Palette</title>
+  <desc id="desc">Color swatches for the visual design bible.</desc>
+  <rect width="1200" height="520" fill="#101216"/>
+  <text x="48" y="64" fill="#E8D8B8" font-family="Arial, sans-serif" font-size="34" font-weight="700">Unearned Bounty Idle Palette</text>
+  <text x="48" y="98" fill="#CDD9D9" font-family="Arial, sans-serif" font-size="18">Deep nautical UI, bright combat accents, restrained parchment, visible infamy.</text>
+
+  <g font-family="Arial, sans-serif">
+    <g transform="translate(48 140)">
+      <rect width="170" height="110" rx="8" fill="#172033"/>
+      <text x="16" y="138" fill="#E8D8B8" font-size="18" font-weight="700">Ink Navy</text>
+      <text x="16" y="164" fill="#CDD9D9" font-size="16">#172033</text>
+    </g>
+    <g transform="translate(236 140)">
+      <rect width="170" height="110" rx="8" fill="#0F3442"/>
+      <text x="16" y="138" fill="#E8D8B8" font-size="18" font-weight="700">Deep Sea</text>
+      <text x="16" y="164" fill="#CDD9D9" font-size="16">#0F3442</text>
+    </g>
+    <g transform="translate(424 140)">
+      <rect width="170" height="110" rx="8" fill="#22A6A1"/>
+      <text x="16" y="138" fill="#E8D8B8" font-size="18" font-weight="700">Saltglass Teal</text>
+      <text x="16" y="164" fill="#CDD9D9" font-size="16">#22A6A1</text>
+    </g>
+    <g transform="translate(612 140)">
+      <rect width="170" height="110" rx="8" fill="#69D2E7"/>
+      <text x="16" y="138" fill="#E8D8B8" font-size="18" font-weight="700">Storm Cyan</text>
+      <text x="16" y="164" fill="#CDD9D9" font-size="16">#69D2E7</text>
+    </g>
+    <g transform="translate(800 140)">
+      <rect width="170" height="110" rx="8" fill="#B96E35"/>
+      <text x="16" y="138" fill="#E8D8B8" font-size="18" font-weight="700">Oxidized Copper</text>
+      <text x="16" y="164" fill="#CDD9D9" font-size="16">#B96E35</text>
+    </g>
+    <g transform="translate(988 140)">
+      <rect width="170" height="110" rx="8" fill="#E0443E"/>
+      <text x="16" y="138" fill="#E8D8B8" font-size="18" font-weight="700">Signal Red</text>
+      <text x="16" y="164" fill="#CDD9D9" font-size="16">#E0443E</text>
+    </g>
+
+    <g transform="translate(48 330)">
+      <rect width="170" height="110" rx="8" fill="#F2B134"/>
+      <text x="16" y="138" fill="#E8D8B8" font-size="18" font-weight="700">Bounty Gold</text>
+      <text x="16" y="164" fill="#CDD9D9" font-size="16">#F2B134</text>
+    </g>
+    <g transform="translate(236 330)">
+      <rect width="170" height="110" rx="8" fill="#E8D8B8"/>
+      <text x="16" y="138" fill="#E8D8B8" font-size="18" font-weight="700">Bone Parchment</text>
+      <text x="16" y="164" fill="#CDD9D9" font-size="16">#E8D8B8</text>
+    </g>
+    <g transform="translate(424 330)">
+      <rect width="170" height="110" rx="8" fill="#CDD9D9"/>
+      <text x="16" y="138" fill="#E8D8B8" font-size="18" font-weight="700">Moon Silver</text>
+      <text x="16" y="164" fill="#CDD9D9" font-size="16">#CDD9D9</text>
+    </g>
+    <g transform="translate(612 330)">
+      <rect width="170" height="110" rx="8" fill="#7B4FA3"/>
+      <text x="16" y="138" fill="#E8D8B8" font-size="18" font-weight="700">Ritual Violet</text>
+      <text x="16" y="164" fill="#CDD9D9" font-size="16">#7B4FA3</text>
+    </g>
+    <g transform="translate(800 330)">
+      <rect width="170" height="110" rx="8" fill="#6BC56B"/>
+      <text x="16" y="138" fill="#E8D8B8" font-size="18" font-weight="700">Lantern Green</text>
+      <text x="16" y="164" fill="#CDD9D9" font-size="16">#6BC56B</text>
+    </g>
+    <g transform="translate(988 330)">
+      <rect width="170" height="110" rx="8" fill="#101216" stroke="#CDD9D9" stroke-width="2"/>
+      <text x="16" y="138" fill="#E8D8B8" font-size="18" font-weight="700">Blackwake</text>
+      <text x="16" y="164" fill="#CDD9D9" font-size="16">#101216</text>
+    </g>
+  </g>
+</svg>
+

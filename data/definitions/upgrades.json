@@ -1,0 +1,28 @@
+{
+  "items": [
+    {
+      "id": "long_nine_upgrade",
+      "display_name": "Long Nine: Powder Charge",
+      "description": "Heavier powder loads for the Long Nine Cannons. +20% cannon damage per level.",
+      "target_weapon": "long_nine_cannons",
+      "cost_resource": "salvage",
+      "base_cost": 50.0,
+      "cost_scale": 2.0,
+      "max_level": 10,
+      "effect": "weapon_damage",
+      "effect_note": "Damage scales via Balance.weapon_damage(weapon_def, level)"
+    },
+    {
+      "id": "harpoon_upgrade",
+      "display_name": "Harpoon: Barbed Tips",
+      "description": "Barbed harpoon tips. +22% harpoon damage per level.",
+      "target_weapon": "harpoon_battery",
+      "cost_resource": "salvage",
+      "base_cost": 75.0,
+      "cost_scale": 2.0,
+      "max_level": 10,
+      "effect": "weapon_damage",
+      "effect_note": "Only applies when Harpoon Battery is the active weapon"
+    }
+  ]
+}

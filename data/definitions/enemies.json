@@ -1,0 +1,49 @@
+{
+  "items": [
+    {
+      "id": "privateer_cutter",
+      "display_name": "Privateer Cutter",
+      "family": "Privateers",
+      "hull": 40.0,
+      "armor_reduction": 0.10,
+      "ward_reduction": 0.0,
+      "evasion": 0.05,
+      "damage": 4.0,
+      "fire_rate_ticks": 15,
+      "rewards": {
+        "salvage": 8.0
+      },
+      "description": "A trim, fast cutter. Light armor, balanced attack. Countered by cannon broadsides."
+    },
+    {
+      "id": "privateer_sloop",
+      "display_name": "Privateer Sloop",
+      "family": "Privateers",
+      "hull": 55.0,
+      "armor_reduction": 0.15,
+      "ward_reduction": 0.0,
+      "evasion": 0.08,
+      "damage": 6.0,
+      "fire_rate_ticks": 12,
+      "rewards": {
+        "salvage": 12.0
+      },
+      "description": "A heavier sloop. More hull and armor than the cutter. Faster fire rate."
+    },
+    {
+      "id": "ironclad_cutter",
+      "display_name": "Ironclad Cutter",
+      "family": "Ironclads",
+      "hull": 80.0,
+      "armor_reduction": 0.40,
+      "ward_reduction": 0.0,
+      "evasion": 0.0,
+      "damage": 8.0,
+      "fire_rate_ticks": 18,
+      "rewards": {
+        "salvage": 20.0
+      },
+      "description": "Low, armored, heavy prow. Cannon damage barely scratches it. Use Harpoons."
+    }
+  ]
+}

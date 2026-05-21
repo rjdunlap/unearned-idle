@@ -1,0 +1,13 @@
+# Godot 4 editor-generated files
+.godot/
+*.uid
+
+# macOS
+.DS_Store
+
+# User save data (never commit save files)
+*.save.json
+
+# Export builds
+builds/
+export/

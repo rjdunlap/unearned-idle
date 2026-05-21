@@ -1,0 +1,13 @@
+{
+  "items": [
+    {
+      "id": "starter_ship",
+      "display_name": "The Saltwind Drifter",
+      "hull": 120.0,
+      "ward_reduction": 0.0,
+      "speed": 1.0,
+      "weapon_id": "long_nine_cannons",
+      "description": "A patched but proud brigantine. High stern, broad sail. Upgradeable from the start."
+    }
+  ]
+}

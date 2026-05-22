@@ -1,5 +1,6 @@
 import type { CourseMode, RouteState, RunState, PersistentState, Settings } from './types'
 import { Definitions } from './definitions'
+import { Balance } from './balance'
 
 type Listener = (...args: unknown[]) => void
 
@@ -38,8 +39,10 @@ function defaultRun(): RunState {
 }
 
 function defaultPersistent(): PersistentState {
-  return { unlocked_lanes: ['lane_01'], best_lane: 'lane_01', best_distance: 0 }
+  return { unlocked_lanes: ['lane_01'], best_lane: 'lane_01', best_distance: 0, muster: { gunnery: 0, seamanship: 0 } }
 }
+
+export const MUSTER_CAP = 40
 
 export const GameState = new class extends Emitter {
   run:        RunState        = defaultRun()
@@ -166,5 +169,26 @@ export const GameState = new class extends Emitter {
       this.getCourseMode(),
       this.isAutoProgress(),
     )
+  }
+
+  private _muster() {
+    if (!this.persistent.muster) this.persistent.muster = { gunnery: 0, seamanship: 0 }
+    return this.persistent.muster
+  }
+
+  getMusterGunnery():   number { return this._muster().gunnery }
+  getMusterSeamanship(): number { return this._muster().seamanship }
+
+  trainMuster(stat: 'gunnery' | 'seamanship', salvageAmount: number): number {
+    const levels = Balance.musterLevels(salvageAmount)
+    if (levels <= 0) return 0
+    const muster = this._muster()
+    const current = muster[stat]
+    const gain = Math.min(levels, MUSTER_CAP - current)
+    if (gain <= 0) return 0
+    if (!this.spendResource('salvage', salvageAmount)) return 0
+    muster[stat] = current + gain
+    this.emit('muster_changed', stat, muster[stat])
+    return gain
   }
 }

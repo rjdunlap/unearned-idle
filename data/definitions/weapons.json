@@ -7,6 +7,7 @@
       "base_damage": 12.0,
       "damage_scale_per_level": 0.20,
       "fire_rate_ticks": 10,
+      "range_nmi": 18,
       "strong_vs": ["hull", "general"],
       "weak_vs": ["armor"],
       "description": "Steady broadside cannon. +20% base damage per upgrade level. Strong vs hull, reduced by heavy armor."
@@ -18,6 +19,7 @@
       "base_damage": 10.0,
       "damage_scale_per_level": 0.22,
       "fire_rate_ticks": 14,
+      "range_nmi": 14,
       "strong_vs": ["armor", "monster"],
       "weak_vs": ["swarms"],
       "description": "Precision harpoon fire. Ignores 50% of enemy armor. Essential against Ironclads."
@@ -29,6 +31,7 @@
       "base_damage": 8.0,
       "damage_scale_per_level": 0.25,
       "fire_rate_ticks": 18,
+      "range_nmi": 22,
       "strong_vs": ["wood", "regeneration"],
       "weak_vs": ["storm"],
       "description": "Burning pitch. Slower fire rate, effective vs wooden hulls and regenerating enemies."
@@ -40,6 +43,7 @@
       "base_damage": 9.0,
       "damage_scale_per_level": 0.20,
       "fire_rate_ticks": 12,
+      "range_nmi": 16,
       "strong_vs": ["ward", "spirit"],
       "weak_vs": ["mundane_hull"],
       "description": "Occult ward-piercing light. Effective vs warded enemies and spirits. Less effective vs plain hull."

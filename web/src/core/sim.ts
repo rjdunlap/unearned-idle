@@ -8,6 +8,8 @@ const ENCOUNTER_DISTANCE = 30
 const RETREAT_DISTANCE = 45
 const FLEE_RECOVERY_SECONDS = 2.4
 const SHIELD_REGEN_PER_SECOND = 2.2
+// Enemy closes ~2.8 nmi/sec; a 20 nmi range takes ~7 s to close (matches vanguard CSS travel)
+const APPROACH_NMI_PER_TICK = 0.28
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyDef = Record<string, any>
@@ -19,18 +21,25 @@ export class Sim {
   private _lastTime     = 0
   private _raf          = 0
 
-  private _enemy:           AnyDef = {}
-  private _enemyHull       = 0
-  private _enemyMaxHull    = 0
-  private _playerFireTimer = 0
-  private _enemyFireTimer  = 0
-  private _encounter       = 0
-  private _bossActive      = false
-  private _recoveryTicks   = 0
+  private _enemy:            AnyDef = {}
+  private _enemyHull        = 0
+  private _enemyMaxHull     = 0
+  private _enemyScaledDmg   = 0
+  private _playerFireTimer  = 0
+  private _enemyFireTimer   = 0
+  private _encounter        = 0
+  private _bossActive       = false
+  private _recoveryTicks    = 0
+  // Approach range tracking
+  private _combatRange      = 0
+  private _maxCombatRange   = 0
+  private _playerWeaponRange = 18
+  private _enemyWeaponRange  = 16
 
   // Mirrors Godot signals as optional callbacks
   // isSquadMember is kept for old UI compatibility; distance encounters pass false.
   onEnemySpawned?:      (def: AnyDef, maxHull: number, isSquadMember: boolean) => void
+  onEnemyApproaching?:  (rangeNmi: number, maxRange: number) => void
   onEnemyDamaged?:      (hull: number, maxHull: number, dmg: number, evaded: boolean) => void
   // isLastInSquad is kept for old UI compatibility; distance encounters pass true.
   onEnemyDefeated?:     (def: AnyDef, rewards: Record<string, number>, isLastInSquad: boolean) => void
@@ -73,14 +82,17 @@ export class Sim {
   }
 
   private _reset(): void {
-    this._enemy           = {}
-    this._enemyHull       = 0
-    this._enemyMaxHull    = 0
-    this._playerFireTimer = 0
-    this._enemyFireTimer  = 0
-    this._accumulator     = 0
-    this._encounter       = 0
-    this._recoveryTicks   = 0
+    this._enemy            = {}
+    this._enemyHull        = 0
+    this._enemyMaxHull     = 0
+    this._enemyScaledDmg   = 0
+    this._playerFireTimer  = 0
+    this._enemyFireTimer   = 0
+    this._accumulator      = 0
+    this._encounter        = 0
+    this._recoveryTicks    = 0
+    this._combatRange      = 0
+    this._maxCombatRange   = 0
   }
 
   private _initCombat(): void {
@@ -106,34 +118,50 @@ export class Sim {
     }
 
     if (!this._enemy['id']) return
-    const ship      = Definitions.getShip('starter_ship')
-    const weaponId  = ship?.['weapon_id'] ?? 'long_nine_cannons'
-    const weapon    = Definitions.getWeapon(weaponId)
-    const upgLevel  = this._getUpgradeLevel(weaponId)
-    const fireRate  = Balance.weaponFireRate(weapon?.['fire_rate_ticks'] ?? 10)
 
-    this._playerFireTimer++
-    if (this._playerFireTimer >= fireRate) {
-      this._playerFireTimer -= fireRate
-      this._playerFires(weapon, upgLevel)
-      if (this._enemyHull <= 0) {
-        this._onEnemyDefeated(Definitions.getLane(GameState.getCurrentLane())!)
-        return
+    // Close approach distance each tick
+    if (this._combatRange > 0) {
+      this._combatRange = Math.max(0, this._combatRange - APPROACH_NMI_PER_TICK)
+      this.onEnemyApproaching?.(this._combatRange, this._maxCombatRange)
+    }
+
+    const playerCanFire = this._combatRange <= this._playerWeaponRange
+    const enemyCanFire  = this._combatRange <= this._enemyWeaponRange
+    if (!playerCanFire && !enemyCanFire) return
+
+    const ship     = Definitions.getShip('starter_ship')
+    const weaponId = ship?.['weapon_id'] ?? 'long_nine_cannons'
+    const weapon   = Definitions.getWeapon(weaponId)
+    const upgLevel = this._getUpgradeLevel(weaponId)
+    const fireRate = Balance.weaponFireRate(weapon?.['fire_rate_ticks'] ?? 10)
+
+    if (playerCanFire) {
+      this._playerFireTimer++
+      if (this._playerFireTimer >= fireRate) {
+        this._playerFireTimer -= fireRate
+        this._playerFires(weapon, upgLevel)
+        if (this._enemyHull <= 0) {
+          this._onEnemyDefeated(Definitions.getLane(GameState.getCurrentLane())!)
+          return
+        }
       }
     }
 
-    this._enemyFireTimer++
     const enemyRate = this._enemy['fire_rate_ticks'] ?? 15
-    if (this._enemyFireTimer >= enemyRate) {
-      this._enemyFireTimer -= enemyRate
-      this._enemyFires(ship)
+    if (enemyCanFire) {
+      this._enemyFireTimer++
+      if (this._enemyFireTimer >= enemyRate) {
+        this._enemyFireTimer -= enemyRate
+        this._enemyFires(ship)
+      }
     }
   }
 
   private _playerFires(weapon: AnyDef | undefined, upgradeLevel: number): void {
-    const base   = weapon?.['base_damage']           ?? 1
-    const scale  = weapon?.['damage_scale_per_level'] ?? 0.2
-    const baseDmg = Balance.weaponDamage(base, scale, upgradeLevel)
+    const base    = weapon?.['base_damage']           ?? 1
+    const scale   = weapon?.['damage_scale_per_level'] ?? 0.2
+    const gunnery = GameState.getMusterGunnery()
+    const baseDmg = Balance.weaponDamage(base, scale, upgradeLevel) * Balance.gunneryBonus(gunnery)
     const dtype   = (weapon?.['damage_type'] ?? 'cannon') as DamageType
     const evasion = this._enemy['evasion'] ?? 0
     const evaded  = evasion > 0 && Math.random() < evasion
@@ -148,17 +176,26 @@ export class Sim {
   }
 
   private _enemyFires(ship: AnyDef | undefined): void {
-    const raw = this._enemy['damage'] ?? 5
-    const dmg = Balance.calcPlayerDamageTaken(raw, ship?.['ward_reduction'] ?? 0)
+    const raw        = this._enemyScaledDmg > 0 ? this._enemyScaledDmg : (this._enemy['damage'] ?? 5)
+    const seamanship = GameState.getMusterSeamanship()
+    const reduction  = Balance.seamanshipReduction(seamanship)
+    const dmg        = Balance.calcPlayerDamageTaken(raw, ship?.['ward_reduction'] ?? 0) * (1 - reduction)
     GameState.setPlayerHull(GameState.getPlayerHull() - dmg)
     this.onPlayerDamaged?.(GameState.getPlayerHull(), GameState.getPlayerMaxHull(), dmg)
     if (GameState.getPlayerHull() <= 0) this._onPlayerDefeated()
   }
 
+  private _scaleRewards(base: Record<string, number>): Record<string, number> {
+    const scalar = Balance.rewardScalar(GameState.getRouteDistance())
+    const out: Record<string, number> = {}
+    for (const [id, amt] of Object.entries(base)) out[id] = Math.round((amt as number) * scalar)
+    return out
+  }
+
   private _onEnemyDefeated(lane: AnyDef): void {
     if (this._bossActive) {
-      const rewards: Record<string, number> = this._enemy['rewards'] ?? {}
-      for (const [id, amt] of Object.entries(rewards)) GameState.addResource(id, amt as number)
+      const rewards = this._scaleRewards(this._enemy['rewards'] ?? {})
+      for (const [id, amt] of Object.entries(rewards)) GameState.addResource(id, amt)
       this.onEnemyDefeated?.(this._enemy, rewards, true)
       const rewardStr = Object.entries(rewards).map(([id, a]) => `${Balance.formatNumber(a as number)} ${id}`).join(', ')
       this.onCombatLog?.(`${this._enemy['display_name'] ?? 'Enemy'} defeated! +${rewardStr}`)
@@ -166,8 +203,8 @@ export class Sim {
       return
     }
 
-    const rewards: Record<string, number> = this._enemy['rewards'] ?? {}
-    for (const [id, amt] of Object.entries(rewards)) GameState.addResource(id, amt as number)
+    const rewards = this._scaleRewards(this._enemy['rewards'] ?? {})
+    for (const [id, amt] of Object.entries(rewards)) GameState.addResource(id, amt)
     this.onEnemyDefeated?.(this._enemy, rewards, true)
     const rewardStr = Object.entries(rewards).map(([id, a]) => `${Balance.formatNumber(a as number)} ${id}`).join(', ')
     this.onCombatLog?.(`${this._enemy['display_name'] ?? 'Enemy'} defeated! +${rewardStr}`)
@@ -242,11 +279,21 @@ export class Sim {
   }
 
   private _setEnemy(def: AnyDef): void {
-    this._enemy           = def
-    this._enemyMaxHull    = def['hull'] ?? 30
-    this._enemyHull       = this._enemyMaxHull
-    this._playerFireTimer = 0
-    this._enemyFireTimer  = 0
+    const scalar           = Balance.distanceScalar(GameState.getRouteDistance())
+    this._enemy            = def
+    this._enemyMaxHull     = Math.round((def['hull'] ?? 30) * scalar)
+    this._enemyHull        = this._enemyMaxHull
+    this._enemyScaledDmg   = (def['damage'] ?? 5) * scalar
+    this._playerFireTimer  = 0
+    this._enemyFireTimer   = 0
+
+    // Set up approach ranges
+    const ship   = Definitions.getShip('starter_ship')
+    const weapon = Definitions.getWeapon(ship?.['weapon_id'] ?? 'long_nine_cannons')
+    this._playerWeaponRange = weapon?.['range_nmi'] ?? 18
+    this._enemyWeaponRange  = def['range_nmi'] ?? 16
+    this._maxCombatRange    = Math.max(this._playerWeaponRange, this._enemyWeaponRange)
+    this._combatRange       = this._maxCombatRange
   }
 
   private _getUpgradeLevel(weaponId: string): number {

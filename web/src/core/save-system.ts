@@ -61,6 +61,7 @@ export const SaveSystem = {
       unlocked_lanes: [...GameState.persistent.unlocked_lanes],
       best_lane:      GameState.persistent.best_lane,
       best_distance:  GameState.persistent.best_distance,
+      muster:         { ...GameState.persistent.muster },
     }
   },
 
@@ -86,6 +87,7 @@ export const SaveSystem = {
     GameState.persistent.unlocked_lanes = d.unlocked_lanes ?? ['lane_01']
     GameState.persistent.best_lane      = d.best_lane      ?? 'lane_01'
     GameState.persistent.best_distance  = d.best_distance  ?? 0
+    GameState.persistent.muster         = d.muster         ?? { gunnery: 0, seamanship: 0 }
   },
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -46,6 +46,32 @@ export const Balance = {
     return ''
   },
 
+  // Progressive difficulty: +8% hull/damage per 30 nmi band
+  distanceScalar(distance: number): number {
+    return 1 + Math.floor(distance / 30) * 0.08
+  },
+
+  // Rewards scale faster than difficulty: +12% per 30 nmi band
+  rewardScalar(distance: number): number {
+    return 1 + Math.floor(distance / 30) * 0.12
+  },
+
+  // Muster conversion: 1→1, 10→2, 100→3 levels
+  musterLevels(salvage: number): number {
+    if (salvage < 1) return 0
+    return Math.floor(Math.log10(Math.max(1, salvage))) + 1
+  },
+
+  // +3% weapon damage per gunnery level
+  gunneryBonus(levels: number): number {
+    return 1 + levels * 0.03
+  },
+
+  // Up to 60% incoming damage reduction from seamanship
+  seamanshipReduction(levels: number): number {
+    return Math.min(0.6, levels * 0.015)
+  },
+
   formatNumber(value: number): string {
     if (value >= 1_000_000) return (value / 1_000_000).toFixed(2) + 'M'
     if (value >= 10_000)    return (value / 1_000).toFixed(1) + 'K'

@@ -1,5 +1,10 @@
 export type CourseMode = 'forward' | 'hold' | 'retreat'
 
+export interface MusterState {
+  gunnery: number
+  seamanship: number
+}
+
 export interface RouteState {
   distance: number
   best_distance: number
@@ -21,6 +26,7 @@ export interface PersistentState {
   unlocked_lanes: string[]
   best_lane: string
   best_distance: number
+  muster: MusterState
 }
 
 export interface Settings {

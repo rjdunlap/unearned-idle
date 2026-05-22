@@ -1,5 +1,5 @@
 import './styles.css'
-import { GameState } from '../core/game-state'
+import { GameState, MUSTER_CAP } from '../core/game-state'
 import { sim } from '../core/sim'
 import { Definitions } from '../core/definitions'
 import { Balance } from '../core/balance'
@@ -46,8 +46,20 @@ let doubloonsLabel:  HTMLElement
 let arsenalHeader:   HTMLElement
 let arsenalSummary:  HTMLElement
 let arsenalList:     HTMLElement
+let arsenalSection:  HTMLElement
 let arsenalCards:    ArsenalCardRefs[] = []
 let arsenalWeaponId = ''
+let musterSection:   HTMLElement
+let musterGunneryBar:  HTMLElement
+let musterGunneryLabel: HTMLElement
+let musterGunneryBonus: HTMLElement
+let musterSeamanshipBar: HTMLElement
+let musterSeamanshipLabel: HTMLElement
+let musterSeamanshipBonus: HTMLElement
+let musterInput:     HTMLInputElement
+let musterPreview:   HTMLElement
+let musterGunneryBtn: HTMLButtonElement
+let musterSeamanshipBtn: HTMLButtonElement
 let advanceBtn:      HTMLButtonElement
 let statusRailBtn:   HTMLButtonElement
 let deskRailBtn:     HTMLButtonElement
@@ -63,9 +75,10 @@ let visualWaveStartedAt = 0
 let visualWaveSerial = 0
 let playerFleeing = false
 
-let currentLaneId = 'lane_01'
-let nextLaneId    = ''
-let laneCleared   = false
+let currentLaneId  = 'lane_01'
+let nextLaneId     = ''
+let laneCleared    = false
+let activeTab: 'arsenal' | 'muster' = 'arsenal'
 const LOG_MAX     = 8
 const logLines: string[] = []
 const VISUAL_WAVE_INTERVAL_MS = 30_000
@@ -317,8 +330,14 @@ function buildBottomPanel(root: HTMLElement): void {
   arsenalTab.style.minWidth = '100px'
   arsenalTab.style.height = '44px'
   arsenalTab.classList.add('is-active')
-  arsenalTab.addEventListener('click', () => arsenalTab.classList.add('is-active'))
+  arsenalTab.addEventListener('click', () => setActiveTab('arsenal', arsenalTab, musterTab))
   tabRow.appendChild(arsenalTab)
+
+  const musterTab = btn('MUSTER', 'tab-btn sz-14') as HTMLButtonElement
+  musterTab.style.minWidth = '90px'
+  musterTab.style.height = '44px'
+  musterTab.addEventListener('click', () => setActiveTab('muster', arsenalTab, musterTab))
+  tabRow.appendChild(musterTab)
 
   const debugTab = btn('DEBUG', 'sz-14')
   debugTab.style.minWidth = '80px'
@@ -330,6 +349,7 @@ function buildBottomPanel(root: HTMLElement): void {
   panel.appendChild(el('hr'))
 
   buildArsenalPanel(panel)
+  buildMusterPanel(panel)
 
   advanceBtn = btn('▶  CHART NEXT WATERS', 'btn-advance sz-16 c-gold') as HTMLButtonElement
   advanceBtn.classList.add('hidden')
@@ -338,13 +358,94 @@ function buildBottomPanel(root: HTMLElement): void {
 }
 
 function buildArsenalPanel(parent: HTMLElement): void {
-  const panel = el('section', 'arsenal-panel')
+  arsenalSection = el('section', 'arsenal-panel')
   arsenalHeader = el('span', 'arsenal-header')
   arsenalSummary = el('div', 'arsenal-summary')
   arsenalList = el('div', 'arsenal-grid')
-  panel.append(arsenalHeader, arsenalSummary, arsenalList)
-  parent.appendChild(panel)
+  arsenalSection.append(arsenalHeader, arsenalSummary, arsenalList)
+  parent.appendChild(arsenalSection)
   refreshArsenalUI()
+}
+
+function buildMusterPanel(parent: HTMLElement): void {
+  musterSection = el('section', 'muster-panel hidden')
+
+  const header = el('div', 'muster-header-row')
+  header.appendChild(el('span', 'arsenal-header', 'MUSTER'))
+  header.appendChild(el('span', 'sz-11 c-silver', 'Drill your crew to improve combat effectiveness'))
+  musterSection.appendChild(header)
+
+  // Stat bars
+  const stats = el('div', 'muster-stats')
+
+  const gStat = el('div', 'muster-stat')
+  const gTop = el('div', 'muster-stat-top')
+  gTop.appendChild(el('span', 'loadout-kicker', 'GUNNERY'))
+  musterGunneryLabel = el('span', 'muster-level-label')
+  gTop.appendChild(musterGunneryLabel)
+  gStat.appendChild(gTop)
+  const gMeter = el('div', 'upgrade-meter')
+  musterGunneryBar = el('div', 'upgrade-meter-fill')
+  gMeter.appendChild(musterGunneryBar)
+  gStat.appendChild(gMeter)
+  musterGunneryBonus = el('span', 'muster-bonus-label')
+  gStat.appendChild(musterGunneryBonus)
+  stats.appendChild(gStat)
+
+  const sStat = el('div', 'muster-stat')
+  const sTop = el('div', 'muster-stat-top')
+  sTop.appendChild(el('span', 'loadout-kicker', 'SEAMANSHIP'))
+  musterSeamanshipLabel = el('span', 'muster-level-label')
+  sTop.appendChild(musterSeamanshipLabel)
+  sStat.appendChild(sTop)
+  const sMeter = el('div', 'upgrade-meter')
+  musterSeamanshipBar = el('div', 'upgrade-meter-fill')
+  sMeter.appendChild(musterSeamanshipBar)
+  sStat.appendChild(sMeter)
+  musterSeamanshipBonus = el('span', 'muster-bonus-label')
+  sStat.appendChild(musterSeamanshipBonus)
+  stats.appendChild(sStat)
+
+  musterSection.appendChild(stats)
+
+  // Drill controls
+  const drillRow = el('div', 'muster-drill-row')
+  const inputWrap = el('div', 'muster-input-wrap')
+  inputWrap.appendChild(el('span', 'sz-12 c-silver', 'Salvage to convert:'))
+  musterInput = document.createElement('input')
+  musterInput.type = 'number'
+  musterInput.min = '1'
+  musterInput.step = '1'
+  musterInput.value = '10'
+  musterInput.className = 'muster-input'
+  musterInput.addEventListener('input', refreshMusterPreview)
+  inputWrap.appendChild(musterInput)
+  musterPreview = el('span', 'muster-preview')
+  inputWrap.appendChild(musterPreview)
+  drillRow.appendChild(inputWrap)
+
+  const btnWrap = el('div', 'muster-btn-wrap')
+  musterGunneryBtn = btn('DRILL GUNNERY', 'btn-lg sz-14 c-gold') as HTMLButtonElement
+  musterGunneryBtn.addEventListener('click', () => onDrillMuster('gunnery'))
+  musterSeamanshipBtn = btn('DRILL SEAMANSHIP', 'btn-lg sz-14 c-teal') as HTMLButtonElement
+  musterSeamanshipBtn.addEventListener('click', () => onDrillMuster('seamanship'))
+  btnWrap.append(musterGunneryBtn, musterSeamanshipBtn)
+  drillRow.appendChild(btnWrap)
+
+  musterSection.appendChild(drillRow)
+  parent.appendChild(musterSection)
+  refreshMusterUI()
+}
+
+function setActiveTab(tab: 'arsenal' | 'muster', arsenalBtn: HTMLButtonElement, musterBtn: HTMLButtonElement): void {
+  activeTab = tab
+  arsenalSection.classList.toggle('hidden', tab !== 'arsenal')
+  musterSection.classList.toggle('hidden', tab !== 'muster')
+  arsenalBtn.classList.toggle('is-active', tab === 'arsenal')
+  musterBtn.classList.toggle('is-active', tab === 'muster')
+  arsenalBtn.classList.toggle('c-gold', tab === 'arsenal')
+  musterBtn.classList.toggle('c-teal', tab === 'muster')
+  if (tab === 'muster') refreshMusterUI()
 }
 
 function buildDebugOverlay(root: HTMLElement): void {
@@ -409,6 +510,7 @@ function buildDebugOverlay(root: HTMLElement): void {
 // ── Signal wiring (mirrors _connect_signals) ──────────────────────────────────
 function connectSignals(): void {
   sim.onEnemySpawned       = (def, maxHull, isSquadMember) => onEnemySpawned(def, maxHull, isSquadMember)
+  sim.onEnemyApproaching   = onEnemyApproaching
   sim.onEnemyDamaged       = onEnemyDamaged
   sim.onEnemyDefeated      = (def, rewards, isLastInSquad) => onEnemyDefeated(def, rewards, isLastInSquad)
   sim.onPlayerDamaged      = onPlayerDamaged
@@ -422,6 +524,7 @@ function connectSignals(): void {
   sim.onCounterHint        = onCounterHint
 
   GameState.on('resource_changed',  (id, amount) => onResourceChanged(id as string, amount as number))
+  GameState.on('muster_changed',    () => refreshMusterUI())
   GameState.on('player_hull_changed', (hull, maxHull) => updatePlayerHullUI(hull as number, maxHull as number))
   GameState.on('route_changed', () => {
     refreshRouteUI()
@@ -468,7 +571,18 @@ function onEnemySpawned(def: AnyDef, maxHull: number, isSquadMember: boolean): v
   flashTarget(getCurrentSeaTarget() ?? enemyRect, '#333', getComputedStyle(document.documentElement).getPropertyValue('--red').trim(), 250)
 }
 
+function onEnemyApproaching(rangeNmi: number, maxRange: number): void {
+  const pct = maxRange > 0 ? Math.max(0, (rangeNmi / maxRange) * 100) : 0
+  waveLabel.textContent = rangeNmi > 0.3
+    ? `${rangeNmi.toFixed(1)} nmi out`
+    : 'ENGAGING'
+  // Dim the enemy block while out of range
+  enemyRect.style.opacity = `${0.45 + 0.55 * (1 - pct / 100)}`
+  void pct
+}
+
 function onEnemyDamaged(hull: number, maxHull: number, dmg: number, evaded: boolean): void {
+  enemyRect.style.opacity = ''  // restore after approach
   currentEnemyHull = hull
   currentEnemyMaxHull = maxHull
   setHpBar(enemyHpFill, enemyHpLabel, hull, maxHull, 'red')
@@ -563,7 +677,7 @@ function onCounterHint(hint: string): void {
 
 // ── GameState handlers ────────────────────────────────────────────────────────
 function onResourceChanged(id: string, amount: number): void {
-  if (id === 'salvage')   { salvageLabel.textContent   = Balance.formatNumber(amount); refreshArsenalUI() }
+  if (id === 'salvage')   { salvageLabel.textContent = Balance.formatNumber(amount); refreshArsenalUI(); if (activeTab === 'muster') refreshMusterUI() }
   if (id === 'doubloons') { doubloonsLabel.textContent = Balance.formatNumber(amount) }
 }
 
@@ -587,6 +701,55 @@ function onBuyUpgrade(upg: AnyDef): void {
   GameState.spendResource(resourceId, cost)
   GameState.setUpgradeLevel(upgradeId, level + 1)
   appendLog(`<span class="log-gold">${upg['display_name'] ?? 'Upgrade'} Lv.${level + 1}!</span>`)
+}
+
+function onDrillMuster(stat: 'gunnery' | 'seamanship'): void {
+  const amount = Math.max(1, Math.floor(Number(musterInput.value) || 0))
+  const levels = Balance.musterLevels(amount)
+  if (levels <= 0) { appendLog('Enter at least 1 salvage to muster.'); return }
+  if (!GameState.canAfford('salvage', amount)) {
+    appendLog(`Need ${Balance.formatNumber(amount)} salvage to muster.`)
+    return
+  }
+  const cap = MUSTER_CAP
+  const current = stat === 'gunnery' ? GameState.getMusterGunnery() : GameState.getMusterSeamanship()
+  if (current >= cap) { appendLog(`${stat === 'gunnery' ? 'Gunnery' : 'Seamanship'} already at cap (${cap}).`); return }
+  const gained = GameState.trainMuster(stat, amount)
+  if (gained > 0) {
+    const name = stat === 'gunnery' ? 'Gunnery' : 'Seamanship'
+    appendLog(`<span class="log-gold">Muster: ${name} Lv.${current + gained} (+${gained})</span>`)
+    refreshMusterUI()
+  }
+}
+
+function refreshMusterUI(): void {
+  if (!musterGunneryBar) return
+  const cap = 40
+  const g = GameState.getMusterGunnery()
+  const s = GameState.getMusterSeamanship()
+  musterGunneryBar.style.width    = `${(g / cap) * 100}%`
+  musterGunneryLabel.textContent  = `${g} / ${cap}`
+  musterGunneryBonus.textContent  = `+${(g * 3).toFixed(0)}% weapon damage`
+  musterSeamanshipBar.style.width   = `${(s / cap) * 100}%`
+  musterSeamanshipLabel.textContent = `${s} / ${cap}`
+  musterSeamanshipBonus.textContent = `-${Math.round(Balance.seamanshipReduction(s) * 100)}% incoming damage`
+
+  const amount = Math.max(1, Math.floor(Number(musterInput?.value) || 0))
+  const salvage = GameState.getResource('salvage')
+  const canAfford = salvage >= amount
+  musterGunneryBtn.disabled    = !canAfford || g >= cap
+  musterSeamanshipBtn.disabled = !canAfford || s >= cap
+  refreshMusterPreview()
+}
+
+function refreshMusterPreview(): void {
+  if (!musterPreview) return
+  const amount = Math.max(1, Math.floor(Number(musterInput.value) || 0))
+  const levels = Balance.musterLevels(amount)
+  const salvage = GameState.getResource('salvage')
+  const canAfford = salvage >= amount
+  musterPreview.textContent = `→ ${levels} level${levels !== 1 ? 's' : ''}`
+  musterPreview.className = `muster-preview${canAfford ? '' : ' muster-preview-warn'}`
 }
 
 function refreshArsenalUI(): void {
@@ -1101,6 +1264,10 @@ function isContactSpawned(contact: HTMLElement): boolean {
   return performance.now() >= Number(contact.dataset.spawnedAt ?? 0)
 }
 
+function isContactArrived(contact: HTMLElement): boolean {
+  return performance.now() >= Number(contact.dataset.arrivesAt ?? 0)
+}
+
 function applyContactDamage(contact: HTMLElement, amount: number): boolean {
   const state = getContactState(contact)
   if (!state || state.hull <= 0) return false
@@ -1120,6 +1287,13 @@ function getVisibleEnemyContacts(selector = '.sea-contact:not(.is-sinking)'): HT
   if (!seaContactLayer) return []
   return Array.from(seaContactLayer.querySelectorAll(selector)).filter((node): node is HTMLElement => (
     node instanceof HTMLElement && isContactSpawned(node)
+  ))
+}
+
+function getArrivedEnemyContacts(selector = '.sea-contact:not(.is-sinking)'): HTMLElement[] {
+  if (!seaContactLayer) return []
+  return Array.from(seaContactLayer.querySelectorAll(selector)).filter((node): node is HTMLElement => (
+    node instanceof HTMLElement && isContactArrived(node)
   ))
 }
 
@@ -1212,6 +1386,7 @@ function debugLoad(): void {
   refreshLaneLabel()
   refreshAllResources()
   refreshArsenalUI()
+  refreshMusterUI()
   sim.restoreCombatState()
   appendLog('<span class="log-teal">Game loaded.</span>')
 }
@@ -1224,6 +1399,7 @@ export function refreshAll(): void {
   refreshLaneLabel()
   refreshAllResources()
   refreshArsenalUI()
+  refreshMusterUI()
 }
 
 function refreshAllResources(): void {
@@ -1262,7 +1438,7 @@ function tickFleetContactSim(): void {
     return
   }
 
-  const contacts = getVisibleEnemyContacts('.sea-contact:not(.is-sinking)')
+  const contacts = getArrivedEnemyContacts('.sea-contact:not(.is-sinking)')
   for (const contact of contacts) {
     const state = getContactState(contact)
     if (!state || state.hull <= 0 || now < state.nextFireAt) continue

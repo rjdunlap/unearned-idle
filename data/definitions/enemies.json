@@ -10,6 +10,7 @@
       "evasion": 0.05,
       "damage": 4.0,
       "fire_rate_ticks": 15,
+      "range_nmi": 16,
       "rewards": {
         "salvage": 8.0
       },
@@ -25,6 +26,7 @@
       "evasion": 0.08,
       "damage": 6.0,
       "fire_rate_ticks": 12,
+      "range_nmi": 14,
       "rewards": {
         "salvage": 12.0
       },
@@ -40,6 +42,7 @@
       "evasion": 0.0,
       "damage": 8.0,
       "fire_rate_ticks": 18,
+      "range_nmi": 12,
       "rewards": {
         "salvage": 20.0
       },

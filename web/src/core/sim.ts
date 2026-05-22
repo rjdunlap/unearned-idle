@@ -4,6 +4,10 @@ import { Balance, type DamageType } from './balance'
 
 const TICK_RATE  = 10
 const TICK_DELTA = 1 / TICK_RATE
+const ENCOUNTER_DISTANCE = 30
+const RETREAT_DISTANCE = 45
+const FLEE_RECOVERY_SECONDS = 2.4
+const SHIELD_REGEN_PER_SECOND = 2.2
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyDef = Record<string, any>
@@ -15,24 +19,27 @@ export class Sim {
   private _lastTime     = 0
   private _raf          = 0
 
-  private _enemy:          AnyDef = {}
-  private _enemyHull      = 0
-  private _enemyMaxHull   = 0
+  private _enemy:           AnyDef = {}
+  private _enemyHull       = 0
+  private _enemyMaxHull    = 0
   private _playerFireTimer = 0
   private _enemyFireTimer  = 0
-  private _wavesInLane     = 3
-  private _wave            = 0
+  private _encounter       = 0
   private _bossActive      = false
+  private _recoveryTicks   = 0
 
   // Mirrors Godot signals as optional callbacks
-  onEnemySpawned?:      (def: AnyDef, maxHull: number) => void
+  // isSquadMember is kept for old UI compatibility; distance encounters pass false.
+  onEnemySpawned?:      (def: AnyDef, maxHull: number, isSquadMember: boolean) => void
   onEnemyDamaged?:      (hull: number, maxHull: number, dmg: number, evaded: boolean) => void
-  onEnemyDefeated?:     (def: AnyDef, rewards: Record<string, number>) => void
+  // isLastInSquad is kept for old UI compatibility; distance encounters pass true.
+  onEnemyDefeated?:     (def: AnyDef, rewards: Record<string, number>, isLastInSquad: boolean) => void
   onPlayerDamaged?:     (hull: number, maxHull: number, dmg: number) => void
   onPlayerHullRestored?:(hull: number, maxHull: number) => void
+  onPlayerFled?:        (distance: number, goal: number) => void
   onBossSpawned?:       (def: AnyDef, maxHull: number) => void
   onBossDefeated?:      (def: AnyDef) => void
-  onWaveCompleted?:     (waveIndex: number) => void
+  onWaveCompleted?:     (encounterIndex: number) => void
   onLaneCompleted?:     (laneId: string, nextLaneId: string) => void
   onCombatLog?:         (msg: string) => void
   onCounterHint?:       (hint: string) => void
@@ -72,20 +79,32 @@ export class Sim {
     this._playerFireTimer = 0
     this._enemyFireTimer  = 0
     this._accumulator     = 0
+    this._encounter       = 0
+    this._recoveryTicks   = 0
   }
 
   private _initCombat(): void {
     const laneId = GameState.getCurrentLane()
     const lane   = Definitions.getLane(laneId)
     if (!lane) { console.error(`Sim: no lane '${laneId}'`); return }
-    this._wavesInLane = lane['wave_count'] ?? 3
-    this._wave        = GameState.getWaveIndex()
-    this._bossActive  = GameState.isBossPhase()
+    this._encounter  = GameState.getWaveIndex()
+    this._bossActive = GameState.isBossPhase() || GameState.getRouteDistance() >= this._routeGoal(lane)
     if (GameState.getPlayerHull() <= 0) GameState.setPlayerHull(GameState.getPlayerMaxHull())
-    this._bossActive ? this._spawnBoss(lane) : this._spawnWave(lane)
+    GameState.setBossPhase(this._bossActive)
+    this._bossActive ? this._spawnBoss(lane) : this._spawnEncounter(lane)
   }
 
   private _tick(): void {
+    this._regenerateShield()
+    if (this._recoveryTicks > 0) {
+      this._recoveryTicks--
+      if (this._recoveryTicks <= 0) {
+        const lane = Definitions.getLane(GameState.getCurrentLane())
+        if (lane) this._spawnEncounter(lane)
+      }
+      return
+    }
+
     if (!this._enemy['id']) return
     const ship      = Definitions.getShip('starter_ship')
     const weaponId  = ship?.['weapon_id'] ?? 'long_nine_cannons'
@@ -137,49 +156,81 @@ export class Sim {
   }
 
   private _onEnemyDefeated(lane: AnyDef): void {
+    if (this._bossActive) {
+      const rewards: Record<string, number> = this._enemy['rewards'] ?? {}
+      for (const [id, amt] of Object.entries(rewards)) GameState.addResource(id, amt as number)
+      this.onEnemyDefeated?.(this._enemy, rewards, true)
+      const rewardStr = Object.entries(rewards).map(([id, a]) => `${Balance.formatNumber(a as number)} ${id}`).join(', ')
+      this.onCombatLog?.(`${this._enemy['display_name'] ?? 'Enemy'} defeated! +${rewardStr}`)
+      this._onBossCleared(lane)
+      return
+    }
+
     const rewards: Record<string, number> = this._enemy['rewards'] ?? {}
     for (const [id, amt] of Object.entries(rewards)) GameState.addResource(id, amt as number)
-    this.onEnemyDefeated?.(this._enemy, rewards)
-    const rewardStr = Object.entries(rewards)
-      .map(([id, a]) => `${Balance.formatNumber(a as number)} ${id}`)
-      .join(', ')
+    this.onEnemyDefeated?.(this._enemy, rewards, true)
+    const rewardStr = Object.entries(rewards).map(([id, a]) => `${Balance.formatNumber(a as number)} ${id}`).join(', ')
     this.onCombatLog?.(`${this._enemy['display_name'] ?? 'Enemy'} defeated! +${rewardStr}`)
-    if (this._bossActive) { this._onBossCleared(lane); return }
-    this._wave++
+
+    this._encounter++
     GameState.advanceWave()
-    this.onWaveCompleted?.(this._wave)
-    if (this._wave >= this._wavesInLane) {
+    this._moveAlongCourse()
+    this.onWaveCompleted?.(this._encounter)
+    if (GameState.getRouteDistance() >= this._routeGoal(lane)) {
       GameState.setBossPhase(true)
       this._bossActive = true
       this._spawnBoss(lane)
     } else {
-      this._spawnWave(lane)
+      this._spawnEncounter(lane)
     }
   }
 
   private _onBossCleared(lane: AnyDef): void {
     this.onBossDefeated?.(lane['boss'])
     this.onCombatLog?.(`BOSS defeated: ${lane['boss']?.['display_name'] ?? '?'}!`)
+    GameState.setRouteDistance(this._routeGoal(lane))
     const next: string = lane['unlocks_lane'] ?? ''
-    if (next) { GameState.unlockLane(next); this.onCombatLog?.(`Lane unlocked: ${next}`) }
-    this._running = false
+    if (next) {
+      GameState.unlockLane(next)
+      const nextName = Definitions.getLane(next)?.['display_name'] ?? next
+      this.onCombatLog?.(`Waters charted: ${nextName}`)
+    }
     this.onLaneCompleted?.(GameState.getCurrentLane(), next)
+    if (next && GameState.isAutoProgress()) {
+      GameState.setCurrentLane(next)
+      this._reset()
+      this._initCombat()
+      return
+    }
+    this._running = false
   }
 
   private _onPlayerDefeated(): void {
-    this.onCombatLog?.('Ship critically damaged! Rallying crew...')
-    GameState.setPlayerHull(GameState.getPlayerMaxHull())
+    this.onCombatLog?.('Shield collapsed! Falling back to safer water...')
+    this._enemy = {}
+    this._enemyHull = 0
+    this._enemyMaxHull = 0
+    this._bossActive = false
+    GameState.setBossPhase(false)
+    GameState.addRouteDistance(-RETREAT_DISTANCE)
+    GameState.setPlayerHull(GameState.getPlayerMaxHull() * 0.55)
     this.onPlayerHullRestored?.(GameState.getPlayerHull(), GameState.getPlayerMaxHull())
+    const lane = Definitions.getLane(GameState.getCurrentLane())
+    this.onPlayerFled?.(GameState.getRouteDistance(), lane ? this._routeGoal(lane) : GameState.getRouteDistanceGoal())
+    this._recoveryTicks = Math.round(FLEE_RECOVERY_SECONDS * TICK_RATE)
   }
 
-  private _spawnWave(lane: AnyDef): void {
+  private _spawnEncounter(lane: AnyDef): void {
     const waveEnemies: string[] = lane['wave_enemies'] ?? []
-    const enemyId = waveEnemies[this._wave % waveEnemies.length]
+    const distanceBand = Math.floor(GameState.getRouteDistance() / ENCOUNTER_DISTANCE)
+    const enemyId = waveEnemies[(distanceBand + this._encounter) % Math.max(1, waveEnemies.length)]
     const def = Definitions.getEnemy(enemyId)
     if (!def) { console.error(`Sim: no enemy '${enemyId}'`); return }
+    this._bossActive = false
+    GameState.setBossPhase(false)
     this._setEnemy(def)
-    this.onCombatLog?.(`Wave ${this._wave + 1}: ${def['display_name'] ?? '?'}`)
-    this.onEnemySpawned?.(this._enemy, this._enemyMaxHull)
+    this.onCombatLog?.(`${Math.floor(GameState.getRouteDistance())} nmi: ${def['display_name'] ?? '?'} sighted`)
+    this.onEnemySpawned?.(this._enemy, this._enemyMaxHull, false)
   }
 
   private _spawnBoss(lane: AnyDef): void {
@@ -201,6 +252,26 @@ export class Sim {
   private _getUpgradeLevel(weaponId: string): number {
     const upg = Definitions.getUpgradeForWeapon(weaponId)
     return upg ? GameState.getUpgradeLevel(upg['id'] ?? '') : 0
+  }
+
+  private _moveAlongCourse(): void {
+    const mode = GameState.getCourseMode()
+    if (!GameState.isAutoProgress() || mode === 'hold') return
+    const delta = mode === 'retreat' ? -ENCOUNTER_DISTANCE : ENCOUNTER_DISTANCE
+    GameState.addRouteDistance(delta)
+  }
+
+  private _routeGoal(lane: AnyDef): number {
+    const explicit = Number(lane['distance'] ?? lane['route_distance'] ?? 0)
+    if (explicit > 0) return explicit
+    return GameState.getRouteDistanceGoal()
+  }
+
+  private _regenerateShield(): void {
+    const cur = GameState.getPlayerHull()
+    const max = GameState.getPlayerMaxHull()
+    if (cur <= 0 || cur >= max) return
+    GameState.setPlayerHull(Math.min(max, cur + SHIELD_REGEN_PER_SECOND * TICK_DELTA))
   }
 }
 

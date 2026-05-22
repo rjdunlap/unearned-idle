@@ -1,4 +1,4 @@
-import type { RunState, PersistentState, Settings } from './types'
+import type { CourseMode, RouteState, RunState, PersistentState, Settings } from './types'
 import { Definitions } from './definitions'
 
 type Listener = (...args: unknown[]) => void
@@ -16,10 +16,20 @@ class Emitter {
   }
 }
 
+function defaultRoute(): RouteState {
+  return {
+    distance: 0,
+    best_distance: 0,
+    auto_progress: true,
+    course_mode: 'forward',
+  }
+}
+
 function defaultRun(): RunState {
   return {
     lane_id: 'lane_01',
     wave_index: 0,
+    route: defaultRoute(),
     resources: { salvage: 0, doubloons: 0 },
     upgrade_levels: {},
     combat: { player_hull: 0, boss_phase: false },
@@ -28,7 +38,7 @@ function defaultRun(): RunState {
 }
 
 function defaultPersistent(): PersistentState {
-  return { unlocked_lanes: ['lane_01'], best_lane: 'lane_01' }
+  return { unlocked_lanes: ['lane_01'], best_lane: 'lane_01', best_distance: 0 }
 }
 
 export const GameState = new class extends Emitter {
@@ -38,6 +48,11 @@ export const GameState = new class extends Emitter {
 
   initRunState():        void { this.run        = defaultRun() }
   initPersistentState(): void { this.persistent = defaultPersistent() }
+
+  private _route(): RouteState {
+    if (!this.run.route) this.run.route = defaultRoute()
+    return this.run.route
+  }
 
   getResource(id: string): number { return this.run.resources[id] ?? 0 }
 
@@ -67,10 +82,14 @@ export const GameState = new class extends Emitter {
   getCurrentLane(): string { return this.run.lane_id }
 
   setCurrentLane(id: string): void {
+    const route = this._route()
     this.run.lane_id             = id
     this.run.wave_index          = 0
     this.run.combat.boss_phase   = false
+    route.distance               = 0
+    route.best_distance          = 0
     this.emit('lane_changed', id)
+    this.emitRouteChanged()
     if (id > this.persistent.best_lane) this.persistent.best_lane = id
   }
 
@@ -99,4 +118,53 @@ export const GameState = new class extends Emitter {
   advanceWave():                void    { this.run.wave_index++ }
   isBossPhase():                boolean { return this.run.combat.boss_phase }
   setBossPhase(active: boolean): void   { this.run.combat.boss_phase = active }
+
+  getRouteDistance(): number { return this._route().distance }
+
+  getRouteBestDistance(): number { return this._route().best_distance }
+
+  getRouteDistanceGoal(): number {
+    const lane = Definitions.getLane(this.getCurrentLane())
+    const explicit = Number(lane?.['distance'] ?? lane?.['route_distance'] ?? 0)
+    if (explicit > 0) return explicit
+    const fallbackThreats = Number(lane?.['wave_count'] ?? 4)
+    return Math.max(180, fallbackThreats * 90)
+  }
+
+  setRouteDistance(value: number): void {
+    const route = this._route()
+    route.distance = Math.max(0, value)
+    route.best_distance = Math.max(route.best_distance, route.distance)
+    this.persistent.best_distance = Math.max(this.persistent.best_distance ?? 0, route.distance)
+    this.emitRouteChanged()
+  }
+
+  addRouteDistance(delta: number): void {
+    this.setRouteDistance(this.getRouteDistance() + delta)
+  }
+
+  getCourseMode(): CourseMode { return this._route().course_mode }
+
+  setCourseMode(mode: CourseMode): void {
+    this._route().course_mode = mode
+    this.emitRouteChanged()
+  }
+
+  isAutoProgress(): boolean { return this._route().auto_progress }
+
+  setAutoProgress(active: boolean): void {
+    this._route().auto_progress = active
+    this.emitRouteChanged()
+  }
+
+  emitRouteChanged(): void {
+    this.emit(
+      'route_changed',
+      this.getRouteDistance(),
+      this.getRouteBestDistance(),
+      this.getRouteDistanceGoal(),
+      this.getCourseMode(),
+      this.isAutoProgress(),
+    )
+  }
 }

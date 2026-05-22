@@ -4,6 +4,7 @@
       "id": "lane_01",
       "display_name": "Saltglass Shallows",
       "region": "Saltglass Expanse",
+      "distance": 240,
       "wave_count": 3,
       "wave_enemies": ["privateer_cutter", "privateer_sloop", "privateer_cutter"],
       "boss": {
@@ -23,12 +24,13 @@
         "description": "A veteran privateer captain. Faster fire rate than her crew. Defeat her to enter Widow's Crossing."
       },
       "unlocks_lane": "lane_02",
-      "description": "Sun-bright shallows patrolled by Privateer cutters. Lane 1 of the Saltglass Expanse."
+      "description": "Sun-bright shallows patrolled by Privateer cutters in the Saltglass Expanse."
     },
     {
       "id": "lane_02",
       "display_name": "Widow's Crossing",
       "region": "Saltglass Expanse",
+      "distance": 320,
       "wave_count": 3,
       "wave_enemies": ["privateer_sloop", "ironclad_cutter", "privateer_sloop"],
       "boss": {

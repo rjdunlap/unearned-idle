@@ -46,6 +46,7 @@ export const SaveSystem = {
       timestamp:      Date.now(),
       lane_id:        GameState.getCurrentLane(),
       wave_index:     GameState.getWaveIndex(),
+      route:          { ...GameState.run.route },
       boss_phase:     GameState.isBossPhase(),
       resources:      { ...GameState.run.resources },
       upgrade_levels: { ...GameState.run.upgrade_levels },
@@ -59,6 +60,7 @@ export const SaveSystem = {
       timestamp:      Date.now(),
       unlocked_lanes: [...GameState.persistent.unlocked_lanes],
       best_lane:      GameState.persistent.best_lane,
+      best_distance:  GameState.persistent.best_distance,
     }
   },
 
@@ -66,6 +68,12 @@ export const SaveSystem = {
   _applyRun(d: any): void {
     GameState.run.lane_id              = d.lane_id              ?? 'lane_01'
     GameState.run.wave_index           = d.wave_index           ?? 0
+    GameState.run.route                = d.route                ?? {
+      distance: 0,
+      best_distance: 0,
+      auto_progress: true,
+      course_mode: 'forward',
+    }
     GameState.run.combat.boss_phase    = d.boss_phase           ?? false
     GameState.run.resources            = d.resources            ?? { salvage: 0, doubloons: 0 }
     GameState.run.upgrade_levels       = d.upgrade_levels       ?? {}
@@ -77,6 +85,7 @@ export const SaveSystem = {
     if (!d || !Object.keys(d).length) return
     GameState.persistent.unlocked_lanes = d.unlocked_lanes ?? ['lane_01']
     GameState.persistent.best_lane      = d.best_lane      ?? 'lane_01'
+    GameState.persistent.best_distance  = d.best_distance  ?? 0
   },
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

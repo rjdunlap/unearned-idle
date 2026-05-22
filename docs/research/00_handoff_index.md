@@ -41,6 +41,7 @@ These files are useful background, not implementation orders. Prefer the synthes
 - [04_external_bullet_heaven_research_handoff.md](04_external_bullet_heaven_research_handoff.md): copy-ready prompt for asking Gemini, Claude, or another model for broader genre research.
 - [claude_review_prompt.md](claude_review_prompt.md): older Claude review prompt. Use only if you need the original review framing.
 - [../project_management/10_development_start_prompt.md](../project_management/10_development_start_prompt.md): older implementation-start prompt for a development agent.
+- [../project_management/11_open_sea_combat_ui_handoff_prompt.md](../project_management/11_open_sea_combat_ui_handoff_prompt.md): current copy-ready prompt for continuing the open-sea combat UI prototype.
 
 ## Broader Design Docs
 

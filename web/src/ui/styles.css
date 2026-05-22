@@ -17,6 +17,12 @@
 }
 
 /* ── Panels ─────────────────────────────── */
+#app.ub-shell {
+  transition: grid-template-columns 0.22s ease;
+}
+#app.ub-shell.mechanics-collapsed {
+  grid-template-columns: minmax(0, 1fr) 72px;
+}
 .panel-ocean {
   grid-area: ocean;
   background:
@@ -31,16 +37,17 @@
   min-height: 0;
   overflow: hidden;
   position: relative;
+  transition: padding 0.22s ease;
 }
 .panel-ocean::before {
   content: "";
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(160deg, transparent 0 44%, rgba(205, 217, 217, 0.12) 45%, transparent 47%),
-    linear-gradient(200deg, transparent 0 54%, rgba(242, 177, 52, 0.14) 55%, transparent 56%),
-    repeating-linear-gradient(172deg, rgba(205, 217, 217, 0.08) 0 1px, transparent 1px 38px);
-  opacity: 0.48;
+    radial-gradient(ellipse at 10% 34%, rgba(205, 217, 217, 0.08), transparent 24%),
+    radial-gradient(ellipse at 88% 70%, rgba(34, 166, 161, 0.08), transparent 30%),
+    linear-gradient(180deg, rgba(205, 217, 217, 0.05), transparent 42%, rgba(16, 18, 22, 0.2));
+  opacity: 0.72;
   pointer-events: none;
 }
 .panel-ocean > * {
@@ -60,6 +67,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  transition: padding 0.22s ease;
 }
 .status-strip {
   grid-area: status;
@@ -71,6 +79,24 @@
   align-items: center;
   gap: 10px;
   min-height: 54px;
+}
+.ub-shell.mechanics-collapsed .panel-ocean {
+  padding: 14px;
+}
+.ub-shell.mechanics-collapsed .panel-bg {
+  padding: 8px;
+  align-items: center;
+  overflow: hidden;
+}
+.ub-shell.mechanics-collapsed .panel-bg > :not(.desk-rail-toggle) {
+  display: none !important;
+}
+.ub-shell.mechanics-collapsed .status-strip {
+  padding: 8px;
+  justify-content: center;
+}
+.ub-shell.mechanics-collapsed .status-strip > :not(.status-rail-toggle) {
+  display: none !important;
 }
 
 /* ── Typography ─────────────────────────── */
@@ -94,7 +120,7 @@
 /* ── Lane title row ─────────────────────── */
 .lane-title-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   align-items: center;
   gap: 8px;
 }
@@ -109,6 +135,64 @@
 }
 .wave-label  { font-size: 12px; color: var(--silver); white-space: nowrap; }
 .boss-banner { font-size: 13px; font-weight: 700; color: var(--gold); white-space: nowrap; }
+.title-focus-btn {
+  height: 30px;
+  padding: 0 10px;
+  border-color: rgba(34, 166, 161, 0.36);
+  background: rgba(10, 26, 38, 0.5);
+}
+.title-focus-btn[aria-pressed="true"] {
+  border-color: rgba(242, 177, 52, 0.78);
+  background: rgba(242, 177, 52, 0.14);
+}
+.route-nav {
+  display: grid;
+  grid-template-columns: minmax(92px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+}
+.route-meter {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgba(16, 18, 22, 0.72);
+}
+.route-meter-fill {
+  display: block;
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--teal), var(--gold));
+  transition: width 0.28s ease-out;
+}
+.route-distance-label {
+  min-width: 84px;
+  color: rgba(232, 216, 184, 0.82);
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+.course-controls {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+.course-btn {
+  height: 28px;
+  min-width: 0;
+  padding: 0 6px;
+  font-size: 11px;
+  color: rgba(232, 216, 184, 0.78);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.course-btn.is-active {
+  border-color: rgba(242, 177, 52, 0.74);
+  color: var(--gold);
+  background: rgba(242, 177, 52, 0.13);
+}
 
 /* ── Combat sea ─────────────────────────── */
 .combat-row {
@@ -120,20 +204,42 @@
   overflow: hidden;
   border: 1px solid rgba(205, 217, 217, 0.08);
   background:
-    linear-gradient(180deg, rgba(205, 217, 217, 0.08) 0 1px, transparent 1px 24%, rgba(205, 217, 217, 0.12) 24.3%, transparent 24.7%),
-    radial-gradient(ellipse at 26% 76%, rgba(34, 166, 161, 0.26), transparent 22%),
-    radial-gradient(ellipse at 76% 28%, rgba(224, 68, 62, 0.17), transparent 18%),
+    radial-gradient(ellipse at 50% 84%, rgba(34, 166, 161, 0.28), transparent 30%),
+    radial-gradient(ellipse at 16% 52%, rgba(224, 68, 62, 0.12), transparent 22%),
+    radial-gradient(ellipse at 86% 50%, rgba(224, 68, 62, 0.12), transparent 22%),
+    radial-gradient(ellipse at 54% 8%, rgba(242, 177, 52, 0.12), transparent 24%),
+    linear-gradient(180deg, rgba(205, 217, 217, 0.08), transparent 24%, rgba(10, 26, 38, 0.22)),
     rgba(10, 26, 38, 0.18);
+}
+.ub-shell.mechanics-collapsed .combat-row {
+  min-height: calc(100vh - 156px);
+}
+.ub-shell.mechanics-collapsed .combat-log-wrap {
+  flex-basis: 72px;
+  min-height: 64px;
+}
+.ub-shell.mechanics-collapsed .ship-block-player {
+  left: 50%;
+  bottom: 18%;
+}
+.ub-shell.mechanics-collapsed .ship-block-enemy {
+  left: 60%;
+  top: 30%;
+}
+.combat-row.is-fleeing .sea-contact-layer {
+  opacity: 0;
+}
+.combat-row.is-fleeing .ship-block-player {
+  animation: player-flee-back 1.5s ease-out both;
 }
 .combat-row::before {
   content: "";
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(148deg, transparent 0 38%, rgba(205, 217, 217, 0.16) 39%, transparent 41%),
-    linear-gradient(150deg, transparent 0 54%, rgba(34, 166, 161, 0.18) 55%, transparent 57%),
-    linear-gradient(345deg, transparent 0 62%, rgba(242, 177, 52, 0.12) 63%, transparent 65%);
-  opacity: 0.76;
+    radial-gradient(ellipse at 50% 48%, rgba(205, 217, 217, 0.07), transparent 48%),
+    linear-gradient(180deg, rgba(10, 26, 38, 0), rgba(10, 26, 38, 0.2));
+  opacity: 0.9;
   pointer-events: none;
 }
 .combat-row::after {
@@ -141,9 +247,503 @@
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse at 72% 31%, rgba(224, 68, 62, 0.14), transparent 17%),
-    radial-gradient(ellipse at 28% 75%, rgba(34, 166, 161, 0.14), transparent 19%);
+    radial-gradient(ellipse at 50% 76%, rgba(205, 217, 217, 0.1), transparent 18%),
+    linear-gradient(180deg, rgba(10, 26, 38, 0) 0 58%, rgba(10, 26, 38, 0.28) 100%);
   pointer-events: none;
+}
+.sea-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    radial-gradient(ellipse at 28% 54%, rgba(205, 217, 217, 0.08), transparent 18%),
+    radial-gradient(ellipse at 70% 62%, rgba(205, 217, 217, 0.06), transparent 20%),
+    linear-gradient(180deg, rgba(205, 217, 217, 0.04), transparent 64%);
+  pointer-events: none;
+}
+.sea-horizon {
+  position: absolute;
+  top: 58px;
+  left: 14px;
+  right: 14px;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+.sea-horizon-kicker {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(242, 177, 52, 0.82);
+}
+.sea-horizon-line {
+  display: none;
+}
+.sea-contact-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+.fleet-wave {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.fleet-wave::before {
+  display: none;
+}
+.fleet-wave::after {
+  display: none;
+}
+.fleet-wave-label {
+  display: none;
+}
+.ub-shell.mechanics-collapsed .fleet-wave-label {
+  display: block;
+  position: absolute;
+  z-index: 4;
+  padding: 2px 5px;
+  border: 1px solid rgba(242, 177, 52, 0.18);
+  background: rgba(10, 26, 38, 0.56);
+  color: rgba(242, 177, 52, 0.72);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.ub-shell.mechanics-collapsed .fleet-wave.is-port-wave .fleet-wave-label      { left: 4%;  top: 28%; }
+.ub-shell.mechanics-collapsed .fleet-wave.is-starboard-wave .fleet-wave-label { right: 4%; top: 34%; }
+.ub-shell.mechanics-collapsed .fleet-wave.is-horizon-wave .fleet-wave-label   { left: 42%; top: 6%;  }
+.ub-shell.mechanics-collapsed .fleet-wave.is-vanguard-wave .fleet-wave-label  { left: 55%; top: 16%; }
+.ub-shell.mechanics-collapsed .fleet-wave.is-cross-wave .fleet-wave-label     { left: 18%; top: 18%; }
+.ub-shell.mechanics-collapsed .fleet-wave.is-wreckage-wave .fleet-wave-label  { left: 8%;  top: 34%; }
+.sea-contact {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  --spawn-delay: 0ms;
+  --travel-ms: 6200ms;
+  width: 104px;
+  height: 82px;
+  transform: translate(-50%, -50%) scale(var(--scale));
+  opacity: 0;
+  transition: opacity 0.45s ease-out, filter 0.28s, transform 0.45s ease-out;
+  animation: fleet-idle 5.2s ease-in-out infinite;
+  animation-delay: calc(var(--spawn-delay) + var(--travel-ms));
+  animation-fill-mode: both;
+}
+
+/* Fleets spawn across a short window, travel in, then keep fighting in place. */
+.fleet-wave.is-port-wave .sea-contact {
+  animation-name: fleet-arrive-port, fleet-idle;
+  animation-duration: var(--travel-ms), 5.2s;
+  animation-delay: var(--spawn-delay), calc(var(--spawn-delay) + var(--travel-ms));
+  animation-timing-function: ease-out, ease-in-out;
+  animation-fill-mode: both, both;
+  animation-iteration-count: 1, infinite;
+}
+
+.fleet-wave.is-starboard-wave .sea-contact {
+  animation-name: fleet-arrive-starboard, fleet-idle;
+  animation-duration: var(--travel-ms), 5.2s;
+  animation-delay: var(--spawn-delay), calc(var(--spawn-delay) + var(--travel-ms));
+  animation-timing-function: ease-out, ease-in-out;
+  animation-fill-mode: both, both;
+  animation-iteration-count: 1, infinite;
+}
+
+.fleet-wave.is-horizon-wave .sea-contact {
+  animation-name: fleet-arrive-horizon, fleet-idle;
+  animation-duration: var(--travel-ms), 5.2s;
+  animation-delay: var(--spawn-delay), calc(var(--spawn-delay) + var(--travel-ms));
+  animation-timing-function: ease-out, ease-in-out;
+  animation-fill-mode: both, both;
+  animation-iteration-count: 1, infinite;
+}
+
+.fleet-wave.is-vanguard-wave .sea-contact.is-current {
+  animation-name: fleet-arrive-horizon, active-contact-broadside;
+  animation-duration: var(--travel-ms), 11s;
+  animation-delay: var(--spawn-delay), calc(var(--spawn-delay) + var(--travel-ms));
+  animation-timing-function: ease-out, ease-in-out;
+  animation-fill-mode: both, both;
+  animation-iteration-count: 1, infinite;
+}
+
+.fleet-wave.is-horizon-wave .sea-contact.is-boss {
+  animation-name: fleet-arrive-horizon, active-boss-bearing-down;
+  animation-duration: var(--travel-ms), 14s;
+  animation-delay: var(--spawn-delay), calc(var(--spawn-delay) + var(--travel-ms));
+  animation-timing-function: ease-out, ease-in-out;
+  animation-fill-mode: both, both;
+  animation-iteration-count: 1, infinite;
+}
+
+/* Sinking — freeze animation and fade out */
+.sea-contact.is-sinking {
+  animation: none !important;
+  opacity: 0.28 !important;
+  filter: grayscale(0.7) drop-shadow(0 0 8px rgba(185, 110, 53, 0.18)) !important;
+  transform: translate(-50%, calc(-50% + 12px)) scale(calc(var(--scale) * 0.76)) !important;
+}
+.sea-contact.is-sinking .contact-ship {
+  background: rgba(185, 110, 53, 0.48);
+}
+.sea-contact.is-sinking .contact-sail,
+.sea-contact.is-sinking .contact-muzzle,
+.sea-contact.is-sinking .enemy-fleet-shot,
+.sea-contact.is-sinking .contact-hp,
+.sea-contact.is-sinking .contact-label {
+  display: none;
+}
+.contact-wake {
+  position: absolute;
+  left: 7px;
+  top: 46px;
+  width: 62px;
+  height: 10px;
+  border: none;
+  border-radius: 0;
+  background:
+    linear-gradient(90deg, rgba(205, 217, 217, 0), rgba(205, 217, 217, 0.32), rgba(34, 166, 161, 0.18), transparent);
+  clip-path: polygon(0 44%, 100% 0, 92% 100%, 0 64%);
+  transform: rotate(var(--rot));
+  opacity: 0.74;
+}
+.contact-ship {
+  position: absolute;
+  left: 31px;
+  top: 30px;
+  width: 58px;
+  height: 28px;
+  clip-path: polygon(8% 44%, 68% 34%, 100% 60%, 82% 86%, 22% 90%, 0 62%);
+  background:
+    linear-gradient(90deg, rgba(232, 216, 184, 0.88), rgba(224, 68, 62, 0.94) 54%, #7a2827);
+  box-shadow: 0 0 10px rgba(224, 68, 62, 0.28);
+  transform: rotate(var(--rot));
+}
+.contact-sail {
+  position: absolute;
+  left: 51px;
+  top: 15px;
+  width: 25px;
+  height: 34px;
+  transform: rotate(var(--rot));
+  transform-origin: 50% 80%;
+  background: rgba(232, 216, 184, 0.82);
+  filter: drop-shadow(0 0 5px rgba(205, 217, 217, 0.14));
+}
+.contact-sail-main {
+  clip-path: polygon(50% 0, 88% 100%, 12% 100%);
+}
+.contact-sail-jib {
+  left: 39px;
+  top: 21px;
+  width: 17px;
+  height: 26px;
+  opacity: 0.82;
+  clip-path: polygon(74% 0, 100% 100%, 10% 92%);
+}
+.contact-muzzle {
+  position: absolute;
+  left: 72px;
+  top: 42px;
+  width: 7px;
+  height: 7px;
+  border-radius: 1px;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  background: rgba(242, 177, 52, 0.86);
+  box-shadow: 0 0 12px rgba(242, 177, 52, 0.62);
+  opacity: 0;
+  animation: enemy-muzzle-flash 4.8s steps(1, end) infinite;
+  animation-delay: calc(var(--delay) * -620ms);
+}
+.enemy-fleet-shot {
+  --shot-rot: 24deg;
+  --shot-scale: 0.28;
+  position: absolute;
+  left: 76px;
+  top: 45px;
+  width: 52px;
+  height: 2px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, rgba(242, 177, 52, 0), rgba(242, 177, 52, 0.82), rgba(224, 68, 62, 0));
+  box-shadow: 0 0 8px rgba(242, 177, 52, 0.34);
+  opacity: 0;
+  transform-origin: left center;
+  transform: rotate(var(--shot-rot)) scaleX(0);
+  animation: enemy-fleet-shot 4.8s ease-out infinite;
+  animation-delay: calc(var(--delay) * -620ms);
+}
+.fleet-wave.is-starboard-wave .contact-muzzle {
+  left: 26px;
+}
+.fleet-wave.is-starboard-wave .enemy-fleet-shot {
+  left: 22px;
+  transform-origin: right center;
+}
+.fleet-wave.is-port-wave .enemy-fleet-shot {
+  --shot-rot: 24deg;
+  --shot-scale: 0.28;
+}
+.fleet-wave.is-starboard-wave .enemy-fleet-shot {
+  --shot-rot: 156deg;
+  --shot-scale: 0.28;
+}
+.fleet-wave.is-horizon-wave .enemy-fleet-shot,
+.fleet-wave.is-vanguard-wave .enemy-fleet-shot,
+.fleet-wave.is-cross-wave .enemy-fleet-shot {
+  --shot-rot: 92deg;
+  --shot-scale: 0.24;
+  left: 52px;
+  top: 55px;
+}
+.fleet-wave.is-horizon-wave .contact-muzzle,
+.fleet-wave.is-vanguard-wave .contact-muzzle,
+.fleet-wave.is-cross-wave .contact-muzzle {
+  left: 55px;
+  top: 51px;
+}
+.sea-contact.is-ironclad .contact-ship {
+  background:
+    linear-gradient(90deg, rgba(205, 217, 217, 0.84), rgba(94, 102, 112, 0.92) 52%, #303843);
+  box-shadow: 0 0 16px rgba(205, 217, 217, 0.24);
+}
+.sea-contact.is-ironclad .contact-sail {
+  background: rgba(205, 217, 217, 0.76);
+}
+.sea-contact.is-current,
+.sea-contact.is-boss {
+  opacity: 1;
+  filter: drop-shadow(0 0 14px rgba(242, 177, 52, 0.32));
+}
+.sea-contact.is-current {
+  width: 118px;
+  height: 94px;
+}
+.sea-contact.is-current .contact-ship {
+  outline: 3px solid rgba(242, 177, 52, 0.52);
+}
+.sea-contact.is-boss {
+  width: 132px;
+  height: 104px;
+}
+.sea-contact.is-boss .contact-ship {
+  width: 74px;
+  height: 36px;
+  background:
+    linear-gradient(90deg, rgba(232, 216, 184, 0.92), rgba(242, 177, 52, 0.9) 48%, #8a561b);
+  box-shadow: 0 0 22px rgba(242, 177, 52, 0.38);
+}
+.fleet-wave.is-horizon-wave .contact-ship {
+  width: 50px;
+  height: 24px;
+}
+.fleet-wave.is-horizon-wave .contact-wake {
+  width: 84px;
+  opacity: 0.52;
+}
+.fleet-wave.is-horizon-wave .sea-contact.is-boss .contact-ship {
+  width: 74px;
+  height: 36px;
+}
+.sea-contact.is-looming .contact-ship {
+  background: rgba(242, 177, 52, 0.38);
+}
+.sea-contact.is-looming .contact-sail {
+  background: rgba(242, 177, 52, 0.5);
+}
+.sea-contact.is-wreck {
+  opacity: 0.42;
+  filter: grayscale(0.55);
+}
+.sea-contact.is-wreck .contact-ship {
+  transform: rotate(18deg);
+  background: rgba(185, 110, 53, 0.56);
+}
+.sea-contact.is-wreck .contact-sail,
+.sea-contact.is-wreck .contact-muzzle,
+.sea-contact.is-wreck .enemy-fleet-shot,
+.sea-contact.is-wreck .contact-hp,
+.sea-contact.is-wreck .contact-label {
+  display: none;
+}
+.contact-label {
+  position: absolute;
+  left: 50%;
+  top: 54px;
+  width: 124px;
+  transform: translateX(-50%);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  text-align: center;
+}
+.sea-contact.is-looming .contact-label {
+  display: none;
+}
+.sea-contact.is-current .contact-label,
+.sea-contact.is-boss .contact-label {
+  display: flex;
+  top: 64px;
+}
+.sea-contact.is-current .contact-caption,
+.sea-contact.is-boss .contact-caption {
+  display: none;
+}
+.sea-contact.is-hit-flash {
+  filter: brightness(1.65) drop-shadow(0 0 16px var(--hit-color, rgba(242, 177, 52, 0.8))) !important;
+}
+.contact-caption {
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(242, 177, 52, 0.82);
+  text-transform: uppercase;
+}
+.contact-name {
+  max-width: 100%;
+  font-size: 10px;
+  color: rgba(232, 216, 184, 0.84);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.contact-hp {
+  position: absolute;
+  left: 18px;
+  top: 5px;
+  width: 92px;
+  height: 6px;
+  background: rgba(16, 18, 22, 0.78);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.contact-hp-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--red);
+  transition: width 0.1s linear;
+}
+/* Background contact idle drift */
+@keyframes fleet-idle {
+  0%, 100% { transform: translate(-50%, -50%) scale(var(--scale)); }
+  35% { transform: translate(calc(-50% + 8px), calc(-50% - 6px)) scale(calc(var(--scale) * 1.02)); }
+  72% { transform: translate(calc(-50% - 6px), calc(-50% + 7px)) scale(calc(var(--scale) * 1.01)); }
+}
+
+@keyframes enemy-muzzle-flash {
+  0%, 84%, 100% { opacity: 0; transform: scale(0.55); }
+  85%, 88% { opacity: 1; transform: scale(1.15); }
+  89% { opacity: 0; transform: scale(0.7); }
+}
+
+@keyframes enemy-fleet-shot {
+  0%, 82%, 100% {
+    opacity: 0;
+    transform: rotate(var(--shot-rot)) scaleX(0);
+  }
+  84% {
+    opacity: 0.86;
+    transform: rotate(var(--shot-rot)) scaleX(var(--shot-scale));
+  }
+  91% {
+    opacity: 0;
+    transform: rotate(var(--shot-rot)) translateX(18px) scaleX(0.05);
+  }
+}
+
+@keyframes active-contact-broadside {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(var(--scale));
+    opacity: 1;
+  }
+  16% {
+    opacity: 1;
+  }
+  38% {
+    transform: translate(calc(-50% + 6px), calc(-50% - 4px)) scale(var(--scale));
+    opacity: 1;
+  }
+  62% {
+    transform: translate(calc(-50% - 42px), calc(-50% + 34px)) scale(calc(var(--scale) * 1.08));
+    opacity: 1;
+  }
+  84% {
+    transform: translate(calc(-50% + 28px), calc(-50% + 8px)) scale(calc(var(--scale) * 0.94));
+    opacity: 0.95;
+  }
+}
+
+@keyframes active-boss-bearing-down {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(var(--scale));
+    opacity: 1;
+  }
+  34% {
+    transform: translate(calc(-50% - 8px), calc(-50% - 8px)) scale(var(--scale));
+    opacity: 1;
+  }
+  58% {
+    transform: translate(calc(-50% + 18px), calc(-50% + 58px)) scale(calc(var(--scale) * 1.12));
+    opacity: 1;
+  }
+  82% {
+    transform: translate(calc(-50% - 18px), calc(-50% + 18px)) scale(calc(var(--scale) * 1.02));
+    opacity: 0.96;
+  }
+}
+
+/* Port raiders: enter from the edge and press toward the flagship. */
+@keyframes fleet-arrive-port {
+  0% {
+    transform: translate(calc(-50% - 210px), calc(-50% - 14px)) scale(calc(var(--scale) * 0.72));
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.9;
+  }
+  72% {
+    transform: translate(calc(-50% + 34px), calc(-50% + 16px)) scale(calc(var(--scale) * 1.05));
+    opacity: 0.96;
+  }
+  100% { transform: translate(-50%, -50%) scale(var(--scale)); opacity: 0.94; }
+}
+
+/* Starboard cutters: enter from the edge and press toward the flagship. */
+@keyframes fleet-arrive-starboard {
+  0% {
+    transform: translate(calc(-50% + 210px), calc(-50% - 14px)) scale(calc(var(--scale) * 0.72));
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.9;
+  }
+  72% {
+    transform: translate(calc(-50% - 34px), calc(-50% + 16px)) scale(calc(var(--scale) * 1.05));
+    opacity: 0.96;
+  }
+  100% { transform: translate(-50%, -50%) scale(var(--scale)); opacity: 0.94; }
+}
+
+/* Horizon fleet: emerge from above/front and settle into the fight. */
+@keyframes fleet-arrive-horizon {
+  0% {
+    transform: translate(-50%, calc(-50% - 180px)) scale(calc(var(--scale) * 0.58));
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.6;
+  }
+  74% {
+    transform: translate(calc(-50% + 4px), calc(-50% + 46px)) scale(calc(var(--scale) * 1.1));
+    opacity: 0.82;
+  }
+  100% { transform: translate(-50%, -50%) scale(var(--scale)); opacity: 0.78; }
 }
 .ship-block {
   position: absolute;
@@ -153,15 +753,31 @@
   flex-direction: column;
   align-items: center;
   gap: 5px;
-  z-index: 3;
+  z-index: 5;
 }
 .ship-block-enemy {
-  top: 74px;
-  right: 28px;
+  top: 30%;
+  left: 60%;
+  right: auto;
+  transform: translate(-50%, -50%);
+  animation: enemy-target-broadside 11s ease-in-out infinite;
+  display: none;
 }
 .ship-block-player {
-  bottom: 24px;
-  left: 28px;
+  bottom: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.ship-block-enemy > .c-copper:not(.target-kicker) {
+  display: none;
+}
+.ship-block-enemy .target-kicker {
+  color: rgba(242, 177, 52, 0.78);
+}
+.target-kicker {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
 }
 .ship-name {
   max-width: 100%;
@@ -205,12 +821,16 @@
   background: rgba(232, 216, 184, 0.9);
 }
 .ship-rect-player {
+  --power-level: 0;
   transform: rotate(16deg);
-  filter: drop-shadow(0 0 16px rgba(34, 166, 161, 0.44));
+  filter: drop-shadow(0 0 calc(16px + var(--power-level) * 2px) rgba(34, 166, 161, 0.44));
 }
 .ship-rect-player::before {
   background:
     linear-gradient(180deg, rgba(232, 216, 184, 0.9), rgba(34, 166, 161, 0.88) 44%, #16726f);
+}
+.ship-rect-player::after {
+  filter: drop-shadow(0 0 calc(var(--power-level) * 1px) rgba(242, 177, 52, 0.55));
 }
 .ship-rect-enemy {
   transform: rotate(198deg);
@@ -228,31 +848,90 @@
     linear-gradient(180deg, rgba(232, 216, 184, 0.9), rgba(242, 177, 52, 0.92) 46%, #9c6420);
 }
 
+@keyframes enemy-target-broadside {
+  0%, 100% {
+    transform: translate(calc(-50% + 86px), calc(-50% - 30px)) scale(0.86);
+    opacity: 0.78;
+  }
+  16% {
+    opacity: 1;
+  }
+  38% {
+    transform: translate(calc(-50% + 12px), calc(-50% - 4px)) scale(1);
+    opacity: 1;
+  }
+  62% {
+    transform: translate(calc(-50% - 48px), calc(-50% + 36px)) scale(1.08);
+    opacity: 1;
+  }
+  84% {
+    transform: translate(calc(-50% + 34px), calc(-50% + 8px)) scale(0.94);
+    opacity: 0.9;
+  }
+}
+
+.combat-row.is-boss-fight .ship-block-enemy {
+  animation: enemy-boss-bearing-down 14s ease-in-out infinite;
+}
+
+@keyframes enemy-boss-bearing-down {
+  0%, 100% {
+    transform: translate(calc(-50% + 24px), calc(-50% - 80px)) scale(0.78);
+    opacity: 0.86;
+  }
+  34% {
+    transform: translate(calc(-50% - 8px), calc(-50% - 10px)) scale(1);
+    opacity: 1;
+  }
+  58% {
+    transform: translate(calc(-50% + 18px), calc(-50% + 56px)) scale(1.14);
+    opacity: 1;
+  }
+  82% {
+    transform: translate(calc(-50% - 18px), calc(-50% + 16px)) scale(1.02);
+    opacity: 0.94;
+  }
+}
+
+@keyframes player-flee-back {
+  0% {
+    transform: translateX(-50%) translateY(0) scale(1);
+    opacity: 1;
+  }
+  68% {
+    transform: translateX(-50%) translateY(54px) scale(0.86);
+    opacity: 0.82;
+  }
+  100% {
+    transform: translateX(-50%) translateY(24px) scale(0.94);
+    opacity: 1;
+  }
+}
+
 /* ── Fleet track ────────────────────────── */
 .fleet-track {
   position: absolute;
-  top: 16px;
+  top: 12px;
   left: 14px;
-  right: 14px;
+  right: auto;
   width: auto;
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  gap: 5px;
+  gap: 7px;
   z-index: 4;
 }
 .fleet-marker {
-  flex: 1 1 0;
+  flex: 0 0 auto;
   min-width: 0;
-  min-height: 34px;
+  min-height: 20px;
   border: 1px solid rgba(205, 217, 217, 0.08);
-  background: rgba(10, 26, 38, 0.34);
+  background: rgba(10, 26, 38, 0.18);
   border-radius: 4px;
-  padding: 4px;
+  padding: 3px;
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr);
+  grid-template-columns: 20px;
   align-items: center;
-  gap: 5px;
   opacity: 0.58;
 }
 .fleet-marker.is-current {
@@ -278,8 +957,8 @@
   box-shadow: 0 0 12px rgba(224, 68, 62, 0.32);
 }
 .fleet-text {
+  display: none;
   min-width: 0;
-  display: flex;
   flex-direction: column;
   gap: 2px;
 }
@@ -295,6 +974,20 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.ub-shell.mechanics-collapsed .fleet-track {
+  right: auto;
+}
+.ub-shell.mechanics-collapsed .fleet-marker {
+  grid-template-columns: 20px;
+  flex: 0 0 auto;
+  min-height: 20px;
+  padding: 3px;
+  gap: 0;
+  background: rgba(10, 26, 38, 0.18);
+}
+.ub-shell.mechanics-collapsed .fleet-text {
+  display: none;
 }
 
 /* ── HP bars ────────────────────────────── */
@@ -354,6 +1047,30 @@
   background: rgba(205, 217, 217, 0.25);
 }
 .flex-grow { flex: 1; }
+.status-rail-toggle {
+  display: none;
+  width: 100%;
+  height: 38px;
+  padding: 0 4px;
+  justify-content: center;
+}
+.desk-rail-toggle {
+  display: none;
+  width: 48px;
+  min-height: 220px;
+  padding: 12px 0;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  letter-spacing: 0;
+}
+.ub-shell.mechanics-collapsed .status-rail-toggle,
+.ub-shell.mechanics-collapsed .desk-rail-toggle {
+  display: inline-flex;
+  align-items: center;
+}
+.ub-shell.mechanics-collapsed .desk-rail-toggle {
+  justify-content: center;
+}
 
 /* ── Buttons ────────────────────────────── */
 .btn {
@@ -565,7 +1282,26 @@ hr { border: none; border-top: 1px solid rgba(205,217,217,0.15); }
   pointer-events: none;
   z-index: 20;
   box-shadow: 0 0 12px currentColor;
-  transition: left 160ms linear, top 160ms linear;
+  transition: left 310ms linear, top 310ms linear;
+  transform-origin: center;
+}
+.projectile.is-suppression {
+  opacity: 0.66;
+  width: 3px;
+  box-shadow: 0 0 8px currentColor;
+  transition: left 370ms linear, top 370ms linear;
+}
+.enemy-projectile {
+  position: absolute;
+  width: 4px;
+  height: 18px;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 20;
+  background: var(--red);
+  box-shadow: 0 0 12px rgba(224, 68, 62, 0.78);
+  transition: left 390ms linear, top 390ms linear;
+  transform-origin: center;
 }
 .dmg-number {
   position: absolute;
@@ -575,11 +1311,50 @@ hr { border: none; border-top: 1px solid rgba(205,217,217,0.15); }
   z-index: 25;
   transition: top 750ms ease-out, opacity 750ms ease-out;
 }
+.smoke-puff {
+  position: absolute;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, rgba(232, 216, 184, 0.58), rgba(205, 217, 217, 0.22) 46%, transparent 70%);
+  pointer-events: none;
+  z-index: 19;
+  opacity: 0.82;
+  transform: translate(0, 0) scale(0.7);
+  transition: transform 680ms ease-out, opacity 680ms ease-out;
+}
+.impact-splash {
+  position: absolute;
+  border: none;
+  border-radius: 0;
+  background:
+    radial-gradient(circle at 50% 50%, currentColor 0 8%, transparent 9%),
+    linear-gradient(90deg, transparent 0 36%, currentColor 37% 48%, transparent 49% 100%),
+    linear-gradient(0deg, transparent 0 36%, currentColor 37% 48%, transparent 49% 100%);
+  clip-path: polygon(50% 0, 58% 36%, 100% 42%, 63% 55%, 74% 100%, 50% 64%, 24% 100%, 36% 56%, 0 42%, 42% 36%);
+  pointer-events: none;
+  z-index: 21;
+  opacity: 0.74;
+  transform: scale(0.35);
+  box-shadow: 0 0 18px currentColor;
+  transition: transform 460ms ease-out, opacity 460ms ease-out;
+}
+.impact-splash.is-suppression {
+  opacity: 0.5;
+  box-shadow: 0 0 10px currentColor;
+}
 
 /* ── Utility ────────────────────────────── */
 .hidden { display: none !important; }
 
 @media (max-width: 760px) {
+  #app.ub-shell.mechanics-collapsed {
+    grid-template-columns: none;
+  }
+  .title-focus-btn,
+  .status-rail-toggle,
+  .desk-rail-toggle {
+    display: none !important;
+  }
   .panel-ocean {
     padding: 8px;
     gap: 7px;
@@ -596,21 +1371,99 @@ hr { border: none; border-top: 1px solid rgba(205,217,217,0.15); }
     border-top: 1px solid rgba(205, 217, 217, 0.12);
   }
   .lane-label { font-size: 16px; }
+  .route-nav {
+    grid-template-columns: minmax(72px, 1fr) auto;
+    gap: 6px;
+  }
+  .course-controls {
+    gap: 4px;
+  }
+  .course-btn {
+    height: 27px;
+    padding: 0 4px;
+    font-size: 10px;
+  }
   .combat-row {
     min-height: 438px;
     padding: 0;
+  }
+  .sea-horizon {
+    top: 50px;
+    left: 8px;
+    right: 8px;
+  }
+  .sea-contact {
+    width: 70px;
+    height: 58px;
+  }
+  .contact-label {
+    top: 46px;
+    width: 96px;
+  }
+  .contact-caption { font-size: 8px; }
+  .contact-name { font-size: 9px; }
+  .contact-wake {
+    width: 62px;
+    left: 12px;
+  }
+  .contact-ship {
+    width: 40px;
+    height: 20px;
+    left: 22px;
+    top: 24px;
+  }
+  .contact-sail {
+    left: 36px;
+    top: 10px;
+    width: 18px;
+    height: 25px;
+  }
+  .contact-sail-jib {
+    left: 28px;
+    top: 15px;
+    width: 12px;
+    height: 19px;
+  }
+  .contact-muzzle {
+    left: 50px;
+    top: 32px;
+  }
+  .enemy-fleet-shot {
+    left: 54px;
+    top: 35px;
+    width: 40px;
+  }
+  .fleet-wave.is-starboard-wave .contact-muzzle {
+    left: 20px;
+  }
+  .fleet-wave.is-starboard-wave .enemy-fleet-shot {
+    left: 18px;
+  }
+  .fleet-wave.is-horizon-wave .enemy-fleet-shot,
+  .fleet-wave.is-vanguard-wave .enemy-fleet-shot,
+  .fleet-wave.is-cross-wave .enemy-fleet-shot {
+    left: 36px;
+    top: 40px;
+  }
+  .fleet-wave.is-horizon-wave .contact-muzzle,
+  .fleet-wave.is-vanguard-wave .contact-muzzle,
+  .fleet-wave.is-cross-wave .contact-muzzle {
+    left: 39px;
+    top: 37px;
   }
   .ship-block {
     width: min(160px, 48%);
     min-width: 124px;
   }
   .ship-block-enemy {
-    top: 70px;
-    right: 14px;
+    top: 32%;
+    left: 62%;
+    right: auto;
   }
   .ship-block-player {
-    bottom: 18px;
-    left: 16px;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
   }
   .ship-rect {
     width: 92px;
@@ -624,8 +1477,8 @@ hr { border: none; border-top: 1px solid rgba(205,217,217,0.15); }
     gap: 4px;
   }
   .fleet-marker {
-    grid-template-columns: 16px minmax(0, 1fr);
-    min-height: 32px;
+    grid-template-columns: 16px;
+    min-height: 22px;
     padding: 3px;
   }
   .fleet-dot {

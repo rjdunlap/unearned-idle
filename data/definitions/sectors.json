@@ -1,0 +1,56 @@
+{
+  "items": [
+    {
+      "id": "sector_001",
+      "display_name": "Saltglass Shallows",
+      "region": "Saltglass Expanse",
+      "route": "A",
+      "distance": 240,
+      "wave_enemies": ["privateer_cutter", "privateer_sloop", "privateer_cutter"],
+      "first_clear_unlocks": [],
+      "boss": {
+        "id": "lane_01_boss",
+        "display_name": "The Salt Widow",
+        "family": "Privateers",
+        "hull": 200.0,
+        "armor_reduction": 0.20,
+        "ward_reduction": 0.0,
+        "evasion": 0.05,
+        "damage": 10.0,
+        "fire_rate_ticks": 10,
+        "range_nmi": 20,
+        "rewards": {
+          "salvage": 80.0,
+          "doubloons": 30.0
+        },
+        "description": "A veteran privateer captain. Faster fire rate than her crew. Defeat her to enter Widow's Crossing."
+      }
+    },
+    {
+      "id": "sector_002",
+      "display_name": "Widow's Crossing",
+      "region": "Saltglass Expanse",
+      "route": "A",
+      "distance": 320,
+      "wave_enemies": ["privateer_sloop", "ironclad_cutter", "privateer_sloop"],
+      "first_clear_unlocks": [],
+      "boss": {
+        "id": "lane_02_boss",
+        "display_name": "The Cracked Bell",
+        "family": "Ironclads",
+        "hull": 350.0,
+        "armor_reduction": 0.40,
+        "ward_reduction": 0.0,
+        "evasion": 0.0,
+        "damage": 14.0,
+        "fire_rate_ticks": 12,
+        "range_nmi": 14,
+        "rewards": {
+          "salvage": 150.0,
+          "doubloons": 60.0
+        },
+        "description": "An armored ironclad brig. Cannon damage barely dents it. Switch to Harpoon Battery to pierce its armor."
+      }
+    }
+  ]
+}

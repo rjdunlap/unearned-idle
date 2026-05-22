@@ -1,18 +1,29 @@
 import { GameState } from './game-state'
 import { Definitions } from './definitions'
 import { Balance, type DamageType } from './balance'
+import { SectorPlan } from './sector-plan'
+import type { DoctrineMode } from './types'
 
 const TICK_RATE  = 10
 const TICK_DELTA = 1 / TICK_RATE
-const ENCOUNTER_DISTANCE = 30
 const RETREAT_DISTANCE = 45
 const FLEE_RECOVERY_SECONDS = 2.4
 const SHIELD_REGEN_PER_SECOND = 2.2
 // Enemy closes ~2.8 nmi/sec; a 20 nmi range takes ~7 s to close (matches vanguard CSS travel)
 const APPROACH_NMI_PER_TICK = 0.28
+// Ship sails 2 nmi/sec = 240 nmi sector clears in ~2 min at 1x speed
+const TRAVEL_NMI_PER_TICK = 0.2
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyDef = Record<string, any>
+
+interface SimTarget {
+  def:       AnyDef
+  hull:      number
+  maxHull:   number
+  scaledDmg: number
+  fireTimer: number
+}
 
 export class Sim {
   private _initialized  = false
@@ -35,6 +46,9 @@ export class Sim {
   private _maxCombatRange   = 0
   private _playerWeaponRange = 18
   private _enemyWeaponRange  = 16
+  // Multi-ship targeting
+  private _escorts:     SimTarget[] = []
+  private _doctrineShot = 0
 
   // Mirrors Godot signals as optional callbacks
   // isSquadMember is kept for old UI compatibility; distance encounters pass false.
@@ -52,6 +66,9 @@ export class Sim {
   onLaneCompleted?:     (laneId: string, nextLaneId: string) => void
   onCombatLog?:         (msg: string) => void
   onCounterHint?:       (hint: string) => void
+  onEscortSpawned?:     (index: number, def: AnyDef, maxHull: number) => void
+  onEscortDamaged?:     (index: number, hull: number, maxHull: number, dmg: number, evaded: boolean) => void
+  onEscortDefeated?:    (index: number, def: AnyDef, rewards: Record<string, number>) => void
 
   startCombat(): void {
     cancelAnimationFrame(this._raf)
@@ -93,28 +110,36 @@ export class Sim {
     this._recoveryTicks    = 0
     this._combatRange      = 0
     this._maxCombatRange   = 0
+    this._escorts          = []
+    this._doctrineShot     = 0
   }
 
   private _initCombat(): void {
-    const laneId = GameState.getCurrentLane()
-    const lane   = Definitions.getLane(laneId)
-    if (!lane) { console.error(`Sim: no lane '${laneId}'`); return }
     this._encounter  = GameState.getWaveIndex()
-    this._bossActive = GameState.isBossPhase() || GameState.getRouteDistance() >= this._routeGoal(lane)
+    this._bossActive = GameState.isBossPhase() || GameState.getRouteDistance() >= this._routeGoal()
     if (GameState.getPlayerHull() <= 0) GameState.setPlayerHull(GameState.getPlayerMaxHull())
     GameState.setBossPhase(this._bossActive)
-    this._bossActive ? this._spawnBoss(lane) : this._spawnEncounter(lane)
+    this._bossActive ? this._spawnBoss() : this._spawnEncounter()
   }
 
   private _tick(): void {
+    GameState.tickAbilities()
     this._regenerateShield()
+    this._processRepairAbility()
+    this._processMusterLevels()
     if (this._recoveryTicks > 0) {
       this._recoveryTicks--
       if (this._recoveryTicks <= 0) {
-        const lane = Definitions.getLane(GameState.getCurrentLane())
-        if (lane) this._spawnEncounter(lane)
+        this._spawnEncounter()
       }
       return
+    }
+
+    // Continuous travel: ship moves every tick regardless of combat outcome
+    const courseMode = GameState.getCourseMode()
+    if (GameState.isAutoProgress() && courseMode !== 'hold') {
+      const dir = courseMode === 'retreat' ? -1 : 1
+      GameState.addRouteDistance(TRAVEL_NMI_PER_TICK * dir)
     }
 
     if (!this._enemy['id']) return
@@ -129,11 +154,11 @@ export class Sim {
     const enemyCanFire  = this._combatRange <= this._enemyWeaponRange
     if (!playerCanFire && !enemyCanFire) return
 
-    const ship     = Definitions.getShip('starter_ship')
-    const weaponId = ship?.['weapon_id'] ?? 'long_nine_cannons'
+    const ship     = Definitions.getShip(GameState.getSelectedShip())
+    const weaponId = GameState.getSelectedWeapon()
     const weapon   = Definitions.getWeapon(weaponId)
     const upgLevel = this._getUpgradeLevel(weaponId)
-    const fireRate = Balance.weaponFireRate(weapon?.['fire_rate_ticks'] ?? 10)
+    const fireRate = Balance.weaponFireRate(weapon?.['fire_rate_ticks'] ?? 10) * GameState.abilityFireRateMultiplier()
 
     if (playerCanFire) {
       this._playerFireTimer++
@@ -141,7 +166,7 @@ export class Sim {
         this._playerFireTimer -= fireRate
         this._playerFires(weapon, upgLevel)
         if (this._enemyHull <= 0) {
-          this._onEnemyDefeated(Definitions.getLane(GameState.getCurrentLane())!)
+          this._onEnemyDefeated()
           return
         }
       }
@@ -154,15 +179,57 @@ export class Sim {
         this._enemyFireTimer -= enemyRate
         this._enemyFires(ship)
       }
+
+      for (let i = 0; i < this._escorts.length; i++) {
+        const escort = this._escorts[i]
+        if (escort.hull <= 0) continue
+        escort.fireTimer++
+        const escortRate = escort.def['fire_rate_ticks'] ?? 15
+        if (escort.fireTimer >= escortRate) {
+          escort.fireTimer -= escortRate
+          const raw = escort.scaledDmg
+          const dmg = Balance.calcPlayerDamageTaken(raw, ship?.['ward_reduction'] ?? 0)
+          GameState.setPlayerHull(GameState.getPlayerHull() - dmg)
+          this.onPlayerDamaged?.(GameState.getPlayerHull(), GameState.getPlayerMaxHull(), dmg)
+          if (GameState.getPlayerHull() <= 0) { this._onPlayerDefeated(); return }
+        }
+      }
     }
   }
 
   private _playerFires(weapon: AnyDef | undefined, upgradeLevel: number): void {
-    const base    = weapon?.['base_damage']           ?? 1
-    const scale   = weapon?.['damage_scale_per_level'] ?? 0.2
-    const gunnery = GameState.getMusterGunnery()
-    const baseDmg = Balance.weaponDamage(base, scale, upgradeLevel) * Balance.gunneryBonus(gunnery)
-    const dtype   = (weapon?.['damage_type'] ?? 'cannon') as DamageType
+    const base      = weapon?.['base_damage'] ?? 1
+    const upgrade   = Definitions.getUpgradeForWeapon(weapon?.['id'] ?? '')
+    const increment = Number(upgrade?.['effect_scale'] ?? base * (weapon?.['damage_scale_per_level'] ?? 0.2))
+    const gunnery   = GameState.getMusterGunnery()
+    const muls      = upgrade ? GameState.getMilestoneMuls(upgrade['id'] ?? '') : []
+    const baseDmg   = Balance.weaponDamage(base, increment, upgradeLevel, muls)
+      * Balance.gunneryBonus(gunnery)
+      * GameState.abilityDamageMultiplier()
+    const dtype     = (weapon?.['damage_type'] ?? 'cannon') as DamageType
+
+    const escortIdx = this._pickDoctrineTarget(GameState.getDoctrine())
+    if (escortIdx >= 0) {
+      const escort = this._escorts[escortIdx]
+      if (!escort || escort.hull <= 0) {
+        this._fireAtPrimary(baseDmg, dtype)
+        return
+      }
+      const evasion = escort.def['evasion'] ?? 0
+      const evaded  = evasion > 0 && Math.random() < evasion
+      let effective = 0
+      if (!evaded) {
+        effective = Balance.calcEffectiveDamage(baseDmg, dtype, escort.def)
+        escort.hull = Math.max(0, escort.hull - effective)
+      }
+      this.onEscortDamaged?.(escortIdx, escort.hull, escort.maxHull, effective, evaded)
+      if (escort.hull <= 0) this._onEscortDefeated(escortIdx)
+    } else {
+      this._fireAtPrimary(baseDmg, dtype)
+    }
+  }
+
+  private _fireAtPrimary(baseDmg: number, dtype: DamageType): void {
     const evasion = this._enemy['evasion'] ?? 0
     const evaded  = evasion > 0 && Math.random() < evasion
     let effective = 0
@@ -175,11 +242,43 @@ export class Sim {
     if (hint) this.onCounterHint?.(hint)
   }
 
+  private _pickDoctrineTarget(doctrine: DoctrineMode): number {
+    const activeEscorts = this._escorts.filter(e => e.hull > 0)
+    if (activeEscorts.length === 0 || doctrine === 'focus') return -1
+
+    if (doctrine === 'scatter') {
+      const pick = Math.floor(Math.random() * (1 + activeEscorts.length))
+      if (pick === 0) return -1
+      let count = 0
+      for (let i = 0; i < this._escorts.length; i++) {
+        if (this._escorts[i].hull > 0 && ++count === pick) return i
+      }
+      return -1
+    }
+
+    // suppression: cycle primary → escorts → primary → …
+    this._doctrineShot = (this._doctrineShot + 1) % (1 + activeEscorts.length)
+    if (this._doctrineShot === 0) return -1
+    let count = 0
+    for (let i = 0; i < this._escorts.length; i++) {
+      if (this._escorts[i].hull > 0 && ++count === this._doctrineShot) return i
+    }
+    return -1
+  }
+
+  private _onEscortDefeated(index: number): void {
+    const escort = this._escorts[index]
+    if (!escort) return
+    const rewards = this._scaleRewards(escort.def['rewards'] ?? { salvage: 10 })
+    for (const [id, amt] of Object.entries(rewards)) GameState.addResource(id, amt)
+    this.onEscortDefeated?.(index, escort.def, rewards)
+    const rewardStr = Object.entries(rewards).map(([id, a]) => `${Balance.formatNumber(a as number)} ${id}`).join(', ')
+    this.onCombatLog?.(`${escort.def['display_name'] ?? 'Escort'} sunk! +${rewardStr}`)
+  }
+
   private _enemyFires(ship: AnyDef | undefined): void {
-    const raw        = this._enemyScaledDmg > 0 ? this._enemyScaledDmg : (this._enemy['damage'] ?? 5)
-    const seamanship = GameState.getMusterSeamanship()
-    const reduction  = Balance.seamanshipReduction(seamanship)
-    const dmg        = Balance.calcPlayerDamageTaken(raw, ship?.['ward_reduction'] ?? 0) * (1 - reduction)
+    const raw = this._enemyScaledDmg > 0 ? this._enemyScaledDmg : (this._enemy['damage'] ?? 5)
+    const dmg = Balance.calcPlayerDamageTaken(raw, ship?.['ward_reduction'] ?? 0)
     GameState.setPlayerHull(GameState.getPlayerHull() - dmg)
     this.onPlayerDamaged?.(GameState.getPlayerHull(), GameState.getPlayerMaxHull(), dmg)
     if (GameState.getPlayerHull() <= 0) this._onPlayerDefeated()
@@ -192,49 +291,54 @@ export class Sim {
     return out
   }
 
-  private _onEnemyDefeated(lane: AnyDef): void {
+  private _onEnemyDefeated(): void {
+    this._escorts      = []
+    this._doctrineShot = 0
     if (this._bossActive) {
       const rewards = this._scaleRewards(this._enemy['rewards'] ?? {})
       for (const [id, amt] of Object.entries(rewards)) GameState.addResource(id, amt)
+      this._awardMusterProgress(true)
       this.onEnemyDefeated?.(this._enemy, rewards, true)
       const rewardStr = Object.entries(rewards).map(([id, a]) => `${Balance.formatNumber(a as number)} ${id}`).join(', ')
       this.onCombatLog?.(`${this._enemy['display_name'] ?? 'Enemy'} defeated! +${rewardStr}`)
-      this._onBossCleared(lane)
+      this._onBossCleared()
       return
     }
 
     const rewards = this._scaleRewards(this._enemy['rewards'] ?? {})
     for (const [id, amt] of Object.entries(rewards)) GameState.addResource(id, amt)
+    this._awardMusterProgress(false)
     this.onEnemyDefeated?.(this._enemy, rewards, true)
     const rewardStr = Object.entries(rewards).map(([id, a]) => `${Balance.formatNumber(a as number)} ${id}`).join(', ')
     this.onCombatLog?.(`${this._enemy['display_name'] ?? 'Enemy'} defeated! +${rewardStr}`)
 
     this._encounter++
     GameState.advanceWave()
-    this._moveAlongCourse()
     this.onWaveCompleted?.(this._encounter)
-    if (GameState.getRouteDistance() >= this._routeGoal(lane)) {
+    if (GameState.getRouteDistance() >= this._routeGoal()) {
       GameState.setBossPhase(true)
       this._bossActive = true
-      this._spawnBoss(lane)
+      this._spawnBoss()
     } else {
-      this._spawnEncounter(lane)
+      this._spawnEncounter()
     }
   }
 
-  private _onBossCleared(lane: AnyDef): void {
-    this.onBossDefeated?.(lane['boss'])
-    this.onCombatLog?.(`BOSS defeated: ${lane['boss']?.['display_name'] ?? '?'}!`)
-    GameState.setRouteDistance(this._routeGoal(lane))
-    const next: string = lane['unlocks_lane'] ?? ''
-    if (next) {
-      GameState.unlockLane(next)
-      const nextName = Definitions.getLane(next)?.['display_name'] ?? next
-      this.onCombatLog?.(`Waters charted: ${nextName}`)
+  private _onBossCleared(): void {
+    const sector = SectorPlan.getSector(GameState.getCurrentSector())
+    this.onBossDefeated?.(this._enemy)
+    this.onCombatLog?.(`BOSS defeated: ${this._enemy['display_name'] ?? '?'}!`)
+    const bossId = this._enemy['id'] ?? ''
+    const milestone = bossId ? GameState.recordBossDefeated(bossId) : { firstClear: false, unlocked: [] }
+    if (milestone.firstClear) {
+      this.onCombatLog?.(`<span class="log-gold">Milestone charted: ${this._enemy['display_name'] ?? 'Boss'} defeated.</span>`)
     }
-    this.onLaneCompleted?.(GameState.getCurrentLane(), next)
-    if (next && GameState.isAutoProgress()) {
-      GameState.setCurrentLane(next)
+    GameState.setRouteDistance(this._routeGoal())
+    const nextSector = SectorPlan.nextSector(sector.sector)
+    const nextId = nextSector > sector.sector ? `sector_${nextSector}` : ''
+    this.onLaneCompleted?.(`sector_${sector.sector}`, nextId)
+    if (nextId && GameState.isAutoProgress()) {
+      GameState.advanceSector()
       this._reset()
       this._initCombat()
       return
@@ -242,39 +346,77 @@ export class Sim {
     this._running = false
   }
 
+  private _awardMusterProgress(isBoss: boolean): void {
+    const progress = Balance.musterProgressReward(this._enemyMaxHull, isBoss)
+    GameState.addMusterProgress(progress)
+  }
+
+  private _processMusterLevels(): void {
+    const result = GameState.processMusterProgress(TICK_DELTA)
+    if (result.gunneryLevels === 0 && result.seamanshipLevels === 0) return
+    const parts: string[] = []
+    if (result.gunneryLevels > 0) parts.push(`Gunnery +${result.gunneryLevels}`)
+    if (result.seamanshipLevels > 0) parts.push(`Seamanship +${result.seamanshipLevels}`)
+    this.onCombatLog?.(`<span class="log-teal">Muster advanced: ${parts.join(', ')}</span>`)
+  }
+
   private _onPlayerDefeated(): void {
     this.onCombatLog?.('Shield collapsed! Falling back to safer water...')
-    this._enemy = {}
-    this._enemyHull = 0
+    this._enemy        = {}
+    this._enemyHull    = 0
     this._enemyMaxHull = 0
-    this._bossActive = false
+    this._bossActive   = false
+    this._escorts      = []
+    this._doctrineShot = 0
     GameState.setBossPhase(false)
     GameState.addRouteDistance(-RETREAT_DISTANCE)
     GameState.setPlayerHull(GameState.getPlayerMaxHull() * 0.55)
     this.onPlayerHullRestored?.(GameState.getPlayerHull(), GameState.getPlayerMaxHull())
-    const lane = Definitions.getLane(GameState.getCurrentLane())
-    this.onPlayerFled?.(GameState.getRouteDistance(), lane ? this._routeGoal(lane) : GameState.getRouteDistanceGoal())
+    this.onPlayerFled?.(GameState.getRouteDistance(), this._routeGoal())
     this._recoveryTicks = Math.round(FLEE_RECOVERY_SECONDS * TICK_RATE)
   }
 
-  private _spawnEncounter(lane: AnyDef): void {
-    const waveEnemies: string[] = lane['wave_enemies'] ?? []
-    const distanceBand = Math.floor(GameState.getRouteDistance() / ENCOUNTER_DISTANCE)
-    const enemyId = waveEnemies[(distanceBand + this._encounter) % Math.max(1, waveEnemies.length)]
-    const def = Definitions.getEnemy(enemyId)
-    if (!def) { console.error(`Sim: no enemy '${enemyId}'`); return }
-    this._bossActive = false
+  private _spawnEncounter(): void {
+    const sector = GameState.getCurrentSector()
+    const def = SectorPlan.enemyForEncounter(sector, this._encounter, GameState.getRouteDistance())
+    if (!def) { console.error(`Sim: no enemy for sector '${sector}'`); return }
+    this._bossActive   = false
+    this._escorts      = []
+    this._doctrineShot = 0
     GameState.setBossPhase(false)
     this._setEnemy(def)
-    this.onCombatLog?.(`${Math.floor(GameState.getRouteDistance())} nmi: ${def['display_name'] ?? '?'} sighted`)
+    this._spawnEscorts()
+    this.onCombatLog?.(`Sector ${sector}, ${Math.floor(GameState.getRouteDistance())} nmi: ${def['display_name'] ?? '?'} sighted`)
     this.onEnemySpawned?.(this._enemy, this._enemyMaxHull, false)
   }
 
-  private _spawnBoss(lane: AnyDef): void {
-    const boss = lane['boss']
-    if (!boss) { console.error(`Sim: lane '${lane['id']}' has no boss`); return }
+  private _spawnEscorts(): void {
+    const sectorDef = SectorPlan.getSector(GameState.getCurrentSector())
+    const allIds    = sectorDef.enemyIds
+    if (allIds.length < 2) return
+    const primaryId = this._enemy['id'] ?? ''
+    const escortId  = allIds.find(id => id !== primaryId) ?? allIds[0]
+    const escortDef = Definitions.getEnemy(escortId)
+    if (!escortDef) return
+    const scalar   = Balance.distanceScalar(GameState.getRouteDistance())
+    const hull     = Math.round((escortDef['hull'] ?? 20) * scalar * 0.7)
+    const escort: SimTarget = {
+      def:       escortDef,
+      hull,
+      maxHull:   hull,
+      scaledDmg: (escortDef['damage'] ?? 3) * scalar * 0.5,
+      fireTimer: Math.floor(Math.random() * 5),
+    }
+    this._escorts.push(escort)
+    this.onEscortSpawned?.(0, escortDef, hull)
+  }
+
+  private _spawnBoss(): void {
+    const sector = SectorPlan.getSector(GameState.getCurrentSector())
+    const boss = sector.boss
+    if (!boss) { console.error(`Sim: sector '${sector.sector}' has no boss`); return }
     this._setEnemy(boss)
-    this.onCombatLog?.(`BOSS: ${boss['display_name'] ?? '?'} appears!`)
+    this.onCombatLog?.(`SECTOR ${sector.sector} BOSS: ${boss['display_name'] ?? '?'} appears!`)
     this.onBossSpawned?.(this._enemy, this._enemyMaxHull)
   }
 
@@ -288,8 +430,7 @@ export class Sim {
     this._enemyFireTimer   = 0
 
     // Set up approach ranges
-    const ship   = Definitions.getShip('starter_ship')
-    const weapon = Definitions.getWeapon(ship?.['weapon_id'] ?? 'long_nine_cannons')
+    const weapon = Definitions.getWeapon(GameState.getSelectedWeapon())
     this._playerWeaponRange = weapon?.['range_nmi'] ?? 18
     this._enemyWeaponRange  = def['range_nmi'] ?? 16
     this._maxCombatRange    = Math.max(this._playerWeaponRange, this._enemyWeaponRange)
@@ -301,16 +442,7 @@ export class Sim {
     return upg ? GameState.getUpgradeLevel(upg['id'] ?? '') : 0
   }
 
-  private _moveAlongCourse(): void {
-    const mode = GameState.getCourseMode()
-    if (!GameState.isAutoProgress() || mode === 'hold') return
-    const delta = mode === 'retreat' ? -ENCOUNTER_DISTANCE : ENCOUNTER_DISTANCE
-    GameState.addRouteDistance(delta)
-  }
-
-  private _routeGoal(lane: AnyDef): number {
-    const explicit = Number(lane['distance'] ?? lane['route_distance'] ?? 0)
-    if (explicit > 0) return explicit
+  private _routeGoal(): number {
     return GameState.getRouteDistanceGoal()
   }
 
@@ -319,6 +451,16 @@ export class Sim {
     const max = GameState.getPlayerMaxHull()
     if (cur <= 0 || cur >= max) return
     GameState.setPlayerHull(Math.min(max, cur + SHIELD_REGEN_PER_SECOND * TICK_DELTA))
+  }
+
+  private _processRepairAbility(): void {
+    if (!GameState.isAbilityActive('repair')) return
+    const max = GameState.getPlayerMaxHull()
+    const cur = GameState.getPlayerHull()
+    if (cur <= 0 || cur >= max) return
+    const repairPerTick = max * 0.018
+    GameState.setPlayerHull(Math.min(max, cur + repairPerTick))
+    this.onPlayerHullRestored?.(GameState.getPlayerHull(), max)
   }
 }
 

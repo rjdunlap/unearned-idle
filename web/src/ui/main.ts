@@ -1,9 +1,11 @@
 import './styles.css'
-import { GameState, MUSTER_CAP } from '../core/game-state'
+import { ABILITY_ACTIVE_TICKS, ABILITY_COOLDOWN_TICKS, GameState, MUSTER_MAX_LEVELS_PER_SECOND } from '../core/game-state'
 import { sim } from '../core/sim'
 import { Definitions } from '../core/definitions'
 import { Balance } from '../core/balance'
 import { SaveSystem } from '../core/save-system'
+import { SectorPlan } from '../core/sector-plan'
+import type { AbilityId } from '../core/types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyDef = Record<string, any>
@@ -14,7 +16,9 @@ type ArsenalCardRefs = {
   cost: HTMLElement
   progress: HTMLElement
   button: HTMLButtonElement
+  milestoneContainer: HTMLElement
 }
+type DeskTab = 'arsenal' | 'prestige' | 'muster'
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 let shellRoot:       HTMLElement
@@ -44,26 +48,42 @@ let combatRow:       HTMLElement   // positioned container for VFX
 let salvageLabel:    HTMLElement
 let doubloonsLabel:  HTMLElement
 let arsenalHeader:   HTMLElement
-let arsenalSummary:  HTMLElement
+let arsenalAbilityRow: HTMLElement
 let arsenalList:     HTMLElement
 let arsenalSection:  HTMLElement
 let arsenalCards:    ArsenalCardRefs[] = []
+const abilityButtons = new Map<AbilityId, HTMLButtonElement>()
 let arsenalWeaponId = ''
+let arsenalTabBtn: HTMLButtonElement
+let prestigeTabBtn: HTMLButtonElement
+let musterTabBtn: HTMLButtonElement
+let prestigeSection: HTMLElement
+let prestigeMilestoneList: HTMLElement
+let prestigeLoadoutList: HTMLElement
+let returnPortBtn: HTMLButtonElement
+let returnPortNote: HTMLElement
 let musterSection:   HTMLElement
 let musterGunneryBar:  HTMLElement
 let musterGunneryLabel: HTMLElement
 let musterGunneryBonus: HTMLElement
+let musterGunneryProgress: HTMLElement
 let musterSeamanshipBar: HTMLElement
 let musterSeamanshipLabel: HTMLElement
 let musterSeamanshipBonus: HTMLElement
-let musterInput:     HTMLInputElement
-let musterPreview:   HTMLElement
-let musterGunneryBtn: HTMLButtonElement
-let musterSeamanshipBtn: HTMLButtonElement
+let musterSeamanshipProgress: HTMLElement
+let musterAllocationSlider: HTMLInputElement
+let musterAllocationLabel: HTMLElement
+let musterGunneryPowerLabel: HTMLElement
+let musterSeamanshipPowerLabel: HTMLElement
+let musterPowerFill: HTMLElement
 let advanceBtn:      HTMLButtonElement
 let statusRailBtn:   HTMLButtonElement
 let deskRailBtn:     HTMLButtonElement
 let debugOverlay:    HTMLElement
+let doctrineFocusBtn:       HTMLButtonElement
+let doctrineSuppressionBtn: HTMLButtonElement
+let doctrineScatterBtn:     HTMLButtonElement
+const simEscorts: (HTMLElement | null)[] = []
 let currentEnemyDef: AnyDef | undefined
 let currentEnemyHull = 0
 let currentEnemyMaxHull = 0
@@ -71,6 +91,8 @@ let currentContactHpFill: HTMLElement | null = null
 let playerShotCursor = 0
 let enemyShotCursor = 0
 let fleetContactTimer = 0
+let nextLootDropAt = 0
+let lootDropSerial = 0
 let visualWaveStartedAt = 0
 let visualWaveSerial = 0
 let playerFleeing = false
@@ -78,13 +100,14 @@ let playerFleeing = false
 let currentLaneId  = 'lane_01'
 let nextLaneId     = ''
 let laneCleared    = false
-let activeTab: 'arsenal' | 'muster' = 'arsenal'
 const LOG_MAX     = 8
 const logLines: string[] = []
 const VISUAL_WAVE_INTERVAL_MS = 30_000
 const VISUAL_WAVE_SPAWN_WINDOW_MS = 10_000
 const FLEET_CONTACT_DAMAGE = 1
-const CONTACT_DISTANCE_STEP = 30
+const CONTACT_DISTANCE_STEP = SectorPlan.encounterDistance
+const MAX_LOOT_DROPS = 6
+const LOOT_DROP_LIFETIME_MS = 7200
 
 type SeaContactStatus = 'current' | 'escort' | 'incoming' | 'looming' | 'boss'
 type SeaContactSlot = {
@@ -188,6 +211,7 @@ function buildSeaLanePanel(root: HTMLElement): void {
   panel.appendChild(titleRow)
 
   buildCourseControls(panel)
+  buildDoctrineControls(panel)
 
   // Combat row (positioned container for VFX projectiles)
   combatRow = el('div', 'combat-row')
@@ -249,13 +273,31 @@ function buildCourseControls(parent: HTMLElement): void {
   parent.appendChild(nav)
 }
 
+function buildDoctrineControls(parent: HTMLElement): void {
+  const row = el('div', 'doctrine-controls')
+  row.appendChild(el('span', 'doctrine-kicker', 'DOCTRINE'))
+
+  doctrineFocusBtn = btn('FOCUS', 'doctrine-btn sz-12') as HTMLButtonElement
+  doctrineFocusBtn.title = 'All fire on the primary target'
+  doctrineFocusBtn.addEventListener('click', () => GameState.setDoctrine('focus'))
+
+  doctrineSuppressionBtn = btn('SUPPRESSION', 'doctrine-btn sz-12') as HTMLButtonElement
+  doctrineSuppressionBtn.title = 'Alternate fire between primary and escort targets'
+  doctrineSuppressionBtn.addEventListener('click', () => GameState.setDoctrine('suppression'))
+
+  doctrineScatterBtn = btn('SCATTER', 'doctrine-btn sz-12') as HTMLButtonElement
+  doctrineScatterBtn.title = 'Fire randomly across all visible targets'
+  doctrineScatterBtn.addEventListener('click', () => GameState.setDoctrine('scatter'))
+
+  row.append(doctrineFocusBtn, doctrineSuppressionBtn, doctrineScatterBtn)
+  parent.appendChild(row)
+  refreshDoctrineUI()
+}
+
 function buildPlayerBlock(parent: HTMLElement): void {
-  const ship = Definitions.getShip('starter_ship')
   const block = el('div', 'ship-block ship-block-player')
-  block.appendChild(el('span', 'target-kicker c-teal', 'FLAGSHIP'))
   playerRect = el('div', 'ship-rect ship-rect-player')
   block.appendChild(playerRect)
-  block.appendChild(el('span', 'sz-10 c-silver ship-name', ship?.['display_name'] ?? 'Starter Ship'))
   const bar = el('div', 'hp-bar')
   playerHpFill = el('div', 'hp-fill hp-fill-green')
   playerHpFill.style.width = '100%'
@@ -268,7 +310,7 @@ function buildPlayerBlock(parent: HTMLElement): void {
 
 function buildEnemyBlock(parent: HTMLElement): void {
   const block = el('div', 'ship-block ship-block-enemy')
-  block.appendChild(el('span', 'target-kicker c-copper', 'PRIMARY TARGET'))
+  block.appendChild(el('span', 'target-kicker c-copper', 'TARGET LOCK'))
   enemyFamily = el('span', 'sz-11 c-copper', 'Privateers')
   block.appendChild(enemyFamily)
   enemyRect = el('div', 'ship-rect ship-rect-enemy')
@@ -326,18 +368,24 @@ function buildBottomPanel(root: HTMLElement): void {
 
   // Tab row
   const tabRow = el('div', 'tab-row')
-  const arsenalTab = btn('ARSENAL', 'tab-btn sz-14 c-gold') as HTMLButtonElement
-  arsenalTab.style.minWidth = '100px'
-  arsenalTab.style.height = '44px'
-  arsenalTab.classList.add('is-active')
-  arsenalTab.addEventListener('click', () => setActiveTab('arsenal', arsenalTab, musterTab))
-  tabRow.appendChild(arsenalTab)
+  arsenalTabBtn = btn('ARSENAL', 'tab-btn sz-14 c-gold') as HTMLButtonElement
+  arsenalTabBtn.style.minWidth = '100px'
+  arsenalTabBtn.style.height = '44px'
+  arsenalTabBtn.classList.add('is-active')
+  arsenalTabBtn.addEventListener('click', () => setActiveTab('arsenal'))
+  tabRow.appendChild(arsenalTabBtn)
 
-  const musterTab = btn('MUSTER', 'tab-btn sz-14') as HTMLButtonElement
-  musterTab.style.minWidth = '90px'
-  musterTab.style.height = '44px'
-  musterTab.addEventListener('click', () => setActiveTab('muster', arsenalTab, musterTab))
-  tabRow.appendChild(musterTab)
+  prestigeTabBtn = btn('PRESTIGE', 'tab-btn sz-14 hidden') as HTMLButtonElement
+  prestigeTabBtn.style.minWidth = '100px'
+  prestigeTabBtn.style.height = '44px'
+  prestigeTabBtn.addEventListener('click', () => setActiveTab('prestige'))
+  tabRow.appendChild(prestigeTabBtn)
+
+  musterTabBtn = btn('MUSTER', 'tab-btn sz-14 hidden') as HTMLButtonElement
+  musterTabBtn.style.minWidth = '90px'
+  musterTabBtn.style.height = '44px'
+  musterTabBtn.addEventListener('click', () => setActiveTab('muster'))
+  tabRow.appendChild(musterTabBtn)
 
   const debugTab = btn('DEBUG', 'sz-14')
   debugTab.style.minWidth = '80px'
@@ -349,7 +397,9 @@ function buildBottomPanel(root: HTMLElement): void {
   panel.appendChild(el('hr'))
 
   buildArsenalPanel(panel)
+  buildPrestigePanel(panel)
   buildMusterPanel(panel)
+  refreshSystemLocks()
 
   advanceBtn = btn('▶  CHART NEXT WATERS', 'btn-advance sz-16 c-gold') as HTMLButtonElement
   advanceBtn.classList.add('hidden')
@@ -360,11 +410,51 @@ function buildBottomPanel(root: HTMLElement): void {
 function buildArsenalPanel(parent: HTMLElement): void {
   arsenalSection = el('section', 'arsenal-panel')
   arsenalHeader = el('span', 'arsenal-header')
-  arsenalSummary = el('div', 'arsenal-summary')
+  arsenalAbilityRow = el('div', 'arsenal-ability-row')
+  buildArsenalAbilityButtons(arsenalAbilityRow)
   arsenalList = el('div', 'arsenal-grid')
-  arsenalSection.append(arsenalHeader, arsenalSummary, arsenalList)
+  arsenalSection.append(arsenalHeader, arsenalAbilityRow, arsenalList)
   parent.appendChild(arsenalSection)
   refreshArsenalUI()
+}
+
+function buildArsenalAbilityButtons(parent: HTMLElement): void {
+  const abilities: Array<{ id: AbilityId; label: string; title: string }> = [
+    { id: 'overcharge', label: 'BROADSIDES', title: '5s of stronger, faster cannon fire. 40s cooldown.' },
+    { id: 'repair', label: 'PATCH CREW', title: '5s of rapid hull repairs. 40s cooldown.' },
+  ]
+  for (const ability of abilities) {
+    const b = btn(ability.label, 'ability-btn') as HTMLButtonElement
+    b.title = ability.title
+    b.addEventListener('click', () => onActivateAbility(ability.id))
+    abilityButtons.set(ability.id, b)
+    parent.appendChild(b)
+  }
+}
+
+function buildPrestigePanel(parent: HTMLElement): void {
+  prestigeSection = el('section', 'prestige-panel hidden')
+
+  const header = el('div', 'muster-header-row')
+  header.appendChild(el('span', 'arsenal-header', 'PRESTIGE'))
+  header.appendChild(el('span', 'sz-11 c-silver', 'Return to port, choose your outfitting, and open new systems'))
+  prestigeSection.appendChild(header)
+
+  prestigeMilestoneList = el('div', 'prestige-milestones')
+  prestigeSection.appendChild(prestigeMilestoneList)
+
+  prestigeLoadoutList = el('div', 'prestige-loadout-grid')
+  prestigeSection.appendChild(prestigeLoadoutList)
+
+  returnPortNote = el('div', 'prestige-note')
+  prestigeSection.appendChild(returnPortNote)
+
+  returnPortBtn = btn('RETURN TO PORT', 'btn-lg sz-15 c-gold') as HTMLButtonElement
+  returnPortBtn.addEventListener('click', onReturnToPort)
+  prestigeSection.appendChild(returnPortBtn)
+
+  parent.appendChild(prestigeSection)
+  refreshPrestigeUI()
 }
 
 function buildMusterPanel(parent: HTMLElement): void {
@@ -372,7 +462,7 @@ function buildMusterPanel(parent: HTMLElement): void {
 
   const header = el('div', 'muster-header-row')
   header.appendChild(el('span', 'arsenal-header', 'MUSTER'))
-  header.appendChild(el('span', 'sz-11 c-silver', 'Drill your crew to improve combat effectiveness'))
+  header.appendChild(el('span', 'sz-11 c-silver', 'Battle-earned crew power'))
   musterSection.appendChild(header)
 
   // Stat bars
@@ -390,6 +480,8 @@ function buildMusterPanel(parent: HTMLElement): void {
   gStat.appendChild(gMeter)
   musterGunneryBonus = el('span', 'muster-bonus-label')
   gStat.appendChild(musterGunneryBonus)
+  musterGunneryProgress = el('span', 'muster-progress-label')
+  gStat.appendChild(musterGunneryProgress)
   stats.appendChild(gStat)
 
   const sStat = el('div', 'muster-stat')
@@ -404,47 +496,60 @@ function buildMusterPanel(parent: HTMLElement): void {
   sStat.appendChild(sMeter)
   musterSeamanshipBonus = el('span', 'muster-bonus-label')
   sStat.appendChild(musterSeamanshipBonus)
+  musterSeamanshipProgress = el('span', 'muster-progress-label')
+  sStat.appendChild(musterSeamanshipProgress)
   stats.appendChild(sStat)
 
   musterSection.appendChild(stats)
 
-  // Drill controls
-  const drillRow = el('div', 'muster-drill-row')
-  const inputWrap = el('div', 'muster-input-wrap')
-  inputWrap.appendChild(el('span', 'sz-12 c-silver', 'Salvage to convert:'))
-  musterInput = document.createElement('input')
-  musterInput.type = 'number'
-  musterInput.min = '1'
-  musterInput.step = '1'
-  musterInput.value = '10'
-  musterInput.className = 'muster-input'
-  musterInput.addEventListener('input', refreshMusterPreview)
-  inputWrap.appendChild(musterInput)
-  musterPreview = el('span', 'muster-preview')
-  inputWrap.appendChild(musterPreview)
-  drillRow.appendChild(inputWrap)
+  const allocation = el('div', 'muster-allocation')
+  const allocationTop = el('div', 'muster-allocation-top')
+  allocationTop.appendChild(el('span', 'loadout-kicker', 'POWER ALLOCATION'))
+  musterAllocationLabel = el('span', 'muster-level-label')
+  allocationTop.appendChild(musterAllocationLabel)
+  allocation.appendChild(allocationTop)
 
-  const btnWrap = el('div', 'muster-btn-wrap')
-  musterGunneryBtn = btn('DRILL GUNNERY', 'btn-lg sz-14 c-gold') as HTMLButtonElement
-  musterGunneryBtn.addEventListener('click', () => onDrillMuster('gunnery'))
-  musterSeamanshipBtn = btn('DRILL SEAMANSHIP', 'btn-lg sz-14 c-teal') as HTMLButtonElement
-  musterSeamanshipBtn.addEventListener('click', () => onDrillMuster('seamanship'))
-  btnWrap.append(musterGunneryBtn, musterSeamanshipBtn)
-  drillRow.appendChild(btnWrap)
+  const powerLabels = el('div', 'muster-power-labels')
+  musterGunneryPowerLabel = el('span', 'c-gold')
+  musterSeamanshipPowerLabel = el('span', 'c-teal')
+  powerLabels.append(musterGunneryPowerLabel, musterSeamanshipPowerLabel)
+  allocation.appendChild(powerLabels)
 
-  musterSection.appendChild(drillRow)
+  const powerTrack = el('div', 'muster-power-track')
+  musterPowerFill = el('div', 'muster-power-fill')
+  powerTrack.appendChild(musterPowerFill)
+  allocation.appendChild(powerTrack)
+
+  musterAllocationSlider = document.createElement('input')
+  musterAllocationSlider.type = 'range'
+  musterAllocationSlider.min = '0'
+  musterAllocationSlider.max = '100'
+  musterAllocationSlider.step = '5'
+  musterAllocationSlider.className = 'muster-slider'
+  musterAllocationSlider.setAttribute('aria-label', 'Muster power allocation')
+  musterAllocationSlider.addEventListener('input', () => {
+    GameState.setMusterPower(Number(musterAllocationSlider.value))
+  })
+  allocation.appendChild(musterAllocationSlider)
+
+  musterSection.appendChild(allocation)
   parent.appendChild(musterSection)
   refreshMusterUI()
 }
 
-function setActiveTab(tab: 'arsenal' | 'muster', arsenalBtn: HTMLButtonElement, musterBtn: HTMLButtonElement): void {
-  activeTab = tab
+function setActiveTab(tab: DeskTab): void {
+  if (tab === 'prestige' && !GameState.isSystemUnlocked('prestige')) tab = 'arsenal'
+  if (tab === 'muster' && !GameState.isSystemUnlocked('muster')) tab = 'arsenal'
   arsenalSection.classList.toggle('hidden', tab !== 'arsenal')
+  prestigeSection.classList.toggle('hidden', tab !== 'prestige')
   musterSection.classList.toggle('hidden', tab !== 'muster')
-  arsenalBtn.classList.toggle('is-active', tab === 'arsenal')
-  musterBtn.classList.toggle('is-active', tab === 'muster')
-  arsenalBtn.classList.toggle('c-gold', tab === 'arsenal')
-  musterBtn.classList.toggle('c-teal', tab === 'muster')
+  arsenalTabBtn.classList.toggle('is-active', tab === 'arsenal')
+  prestigeTabBtn.classList.toggle('is-active', tab === 'prestige')
+  musterTabBtn.classList.toggle('is-active', tab === 'muster')
+  arsenalTabBtn.classList.toggle('c-gold', tab === 'arsenal')
+  prestigeTabBtn.classList.toggle('c-gold', tab === 'prestige')
+  musterTabBtn.classList.toggle('c-teal', tab === 'muster')
+  if (tab === 'prestige') refreshPrestigeUI()
   if (tab === 'muster') refreshMusterUI()
 }
 
@@ -486,13 +591,13 @@ function buildDebugOverlay(root: HTMLElement): void {
   }
   debugOverlay.appendChild(dblRow)
 
-  // Waters jumps
+  // Sector jumps
   const laneRow = el('div', 'debug-row')
-  laneRow.appendChild(el('span', '', 'Waters:'))
-  for (const lid of ['lane_01', 'lane_02']) {
-    const label = Definitions.getLane(lid)?.['display_name']?.split(' ')[0] ?? lid.replace('lane_0', 'W')
+  laneRow.appendChild(el('span', '', 'Sectors:'))
+  for (const sector of [1, 2, 5, 10]) {
+    const label = `S${sector}`
     const b = btn(label, 'sz-13')
-    b.addEventListener('click', () => debugJumpLane(lid))
+    b.addEventListener('click', () => debugJumpSector(sector))
     laneRow.appendChild(b)
   }
   debugOverlay.appendChild(laneRow)
@@ -522,9 +627,15 @@ function connectSignals(): void {
   sim.onLaneCompleted      = onLaneCompleted
   sim.onCombatLog          = (msg) => appendLog(msg)
   sim.onCounterHint        = onCounterHint
+  sim.onEscortSpawned      = (index, def, maxHull) => onEscortSpawned(index, def, maxHull)
+  sim.onEscortDamaged      = (index, hull, maxHull, dmg, evaded) => onEscortDamaged(index, hull, maxHull, dmg, evaded)
+  sim.onEscortDefeated     = (index, def, rewards) => onEscortDefeated(index, def, rewards)
 
   GameState.on('resource_changed',  (id, amount) => onResourceChanged(id as string, amount as number))
-  GameState.on('muster_changed',    () => refreshMusterUI())
+  GameState.on('muster_changed', (...args) => {
+    if (!musterSection.classList.contains('hidden')) refreshMusterUI()
+    if (args[0] === 'levels') updatePlayerHullUI(GameState.getPlayerHull(), GameState.getPlayerMaxHull())
+  })
   GameState.on('player_hull_changed', (hull, maxHull) => updatePlayerHullUI(hull as number, maxHull as number))
   GameState.on('route_changed', () => {
     refreshRouteUI()
@@ -534,15 +645,30 @@ function connectSignals(): void {
     refreshArsenalUI()
     refreshCombatPowerVisuals()
   })
-  GameState.on('lane_unlocked',     (id) => {
-    const name = Definitions.getLane(id as string)?.['display_name'] ?? id
-    appendLog(`<span class="log-teal">Waters charted: ${name}</span>`)
+  GameState.on('ability_changed', () => {
+    refreshAbilityUI()
+    refreshCombatPowerVisuals()
   })
+  GameState.on('system_unlocked', (id) => {
+    refreshSystemLocks()
+    refreshPrestigeUI()
+    appendLog(`<span class="log-gold">Captain's Desk expanded: ${formatSystemName(id as string)}</span>`)
+  })
+  GameState.on('boss_defeated_persistent', () => {
+    refreshSystemLocks()
+    if (!prestigeSection.classList.contains('hidden')) refreshPrestigeUI()
+  })
+  GameState.on('returned_to_port', () => {
+    refreshSystemLocks()
+    refreshArsenalUI()
+    setActiveTab(GameState.isSystemUnlocked('muster') ? 'muster' : 'arsenal')
+  })
+  GameState.on('doctrine_changed', () => refreshDoctrineUI())
 }
 
 // ── Sim handlers ──────────────────────────────────────────────────────────────
 function onEnemySpawned(def: AnyDef, maxHull: number, isSquadMember: boolean): void {
-  currentLaneId = GameState.getCurrentLane()
+  currentLaneId = `sector_${GameState.getCurrentSector()}`
   laneCleared = false
   playerFleeing = false
   combatRow.classList.remove('is-fleeing')
@@ -556,9 +682,11 @@ function onEnemySpawned(def: AnyDef, maxHull: number, isSquadMember: boolean): v
   enemyFamily.textContent = def['family']        ?? '?'
   setHpBar(enemyHpFill, enemyHpLabel, maxHull, maxHull, 'red')
   if (!isSquadMember) {
-    startVisualWave(true)
     refreshFleetTrack()
-    refreshSeaContacts(def, maxHull, maxHull)
+    if (!promoteSeaContactToCurrentTarget(def, maxHull)) {
+      startVisualWave(true)
+      refreshSeaContacts(def, maxHull, maxHull)
+    }
   } else {
     // Restore the contact HP bar for the next squad member without rebuilding contacts
     updateCurrentSeaContactHp(maxHull, maxHull)
@@ -597,7 +725,6 @@ function onEnemyDefeated(_def: AnyDef, _rewards: Record<string, number>, isLastI
   if (isLastInSquad) {
     sinkCurrentSeaContact()
   }
-  sinkNextFleetContact()
 }
 
 function onPlayerDamaged(hull: number, maxHull: number, _dmg: number): void {
@@ -625,7 +752,7 @@ function onBossSpawned(def: AnyDef, maxHull: number): void {
   bossBanner.classList.remove('hidden')
   waveLabel.textContent = 'Flagship contact'
   refreshFleetTrack()
-  refreshSeaContacts(def, maxHull, maxHull)
+  markCurrentSeaTargetAsBoss(def, maxHull)
   enemyName.style.color = '#F2B134'
   enemyRect.classList.remove('ship-rect-enemy')
   enemyRect.classList.add('ship-rect-boss')
@@ -638,36 +765,31 @@ function onBossDefeated(_def: AnyDef): void {
   enemyName.style.color = ''
 }
 
-function onWaveCompleted(waveIndex: number): void {
+function onWaveCompleted(_waveIndex: number): void {
   waveLabel.textContent = `${Math.floor(GameState.getRouteDistance())} nmi`
   refreshFleetTrack()
-  refreshSeaContacts()
-  void waveIndex
 }
 
-function onLaneCompleted(laneId: string, nextId: string): void {
+function onLaneCompleted(_laneId: string, nextId: string): void {
   nextLaneId            = nextId
   laneCleared           = true
-  startVisualWave(true)
   combatRow.classList.remove('is-boss-fight')
-  waveLabel.textContent = 'Waters Clear'
+  waveLabel.textContent = 'Sector Clear'
   bossBanner.classList.add('hidden')
   refreshFleetTrack()
-  refreshSeaContacts()
   if (nextId && !GameState.isAutoProgress()) {
-    const nextLaneName = Definitions.getLane(nextId)?.['display_name'] ?? nextId
-    advanceBtn.textContent = `▶  CHART COURSE TO ${nextLaneName.toUpperCase()}`
+    const nextSector = Number(nextId.replace('sector_', ''))
+    const nextName = nextSector > 0 ? SectorPlan.getSector(nextSector).displayName : nextId
+    advanceBtn.textContent = `▶  CHART COURSE TO ${nextName.toUpperCase()}`
     advanceBtn.classList.remove('hidden')
-    appendLog('<span class="log-green">Waters cleared. New course plotted.</span>')
+    appendLog('<span class="log-green">Sector cleared. New course plotted.</span>')
   } else if (nextId) {
     advanceBtn.classList.add('hidden')
-    appendLog('<span class="log-green">Waters cleared. Auto course continuing.</span>')
+    appendLog('<span class="log-green">Sector cleared. Auto course continuing.</span>')
   } else {
     advanceBtn.classList.add('hidden')
-    appendLog('<span class="log-green">Waters cleared!</span>')
+    appendLog('<span class="log-green">Final sector cleared!</span>')
   }
-  // suppress unused-param warning — laneId not needed here
-  void laneId
 }
 
 function onCounterHint(hint: string): void {
@@ -675,23 +797,176 @@ function onCounterHint(hint: string): void {
   counterHint.classList.remove('hidden')
 }
 
+function onEscortSpawned(index: number, _def: AnyDef, maxHull: number): void {
+  const candidates = getVisibleEnemyContacts('.sea-contact.is-escort:not(.is-sinking), .sea-contact.is-incoming:not(.is-sinking)')
+  const contact = candidates[index] ?? null
+  simEscorts[index] = contact
+  if (contact) {
+    const key = contact.dataset.contactKey ?? ''
+    const existing = seaContactStates.get(key)
+    if (existing) {
+      existing.hull = maxHull
+      existing.maxHull = maxHull
+      existing.nextFireAt = Infinity  // sim handles escort fire
+    }
+    setContactHp(contact, maxHull, maxHull)
+  }
+}
+
+function onEscortDamaged(index: number, hull: number, maxHull: number, dmg: number, evaded: boolean): void {
+  const contact = simEscorts[index]
+  if (contact && !contact.classList.contains('is-sinking')) setContactHp(contact, hull, maxHull)
+  vfxShootAndHit(dmg, evaded, contact ?? undefined)
+}
+
+function onEscortDefeated(index: number, def: AnyDef, rewards: Record<string, number>): void {
+  const contact = simEscorts[index]
+  if (contact) markContactSunk(contact)
+  simEscorts[index] = null
+  const rewardStr = Object.entries(rewards).map(([id, a]) => `${Balance.formatNumber(a as number)} ${id}`).join(', ')
+  appendLog(`${def['display_name'] ?? 'Escort'} sunk! +${rewardStr}`)
+  onResourceChanged('salvage', GameState.getResource('salvage'))
+}
+
+// ── Doctrine UI ────────────────────────────────────────────────────────────────
+
+function refreshDoctrineUI(): void {
+  if (!doctrineFocusBtn) return
+  const mode = GameState.getDoctrine()
+  doctrineFocusBtn.classList.toggle('is-active', mode === 'focus')
+  doctrineSuppressionBtn.classList.toggle('is-active', mode === 'suppression')
+  doctrineScatterBtn.classList.toggle('is-active', mode === 'scatter')
+}
+
 // ── GameState handlers ────────────────────────────────────────────────────────
 function onResourceChanged(id: string, amount: number): void {
-  if (id === 'salvage')   { salvageLabel.textContent = Balance.formatNumber(amount); refreshArsenalUI(); if (activeTab === 'muster') refreshMusterUI() }
+  if (id === 'salvage')   { salvageLabel.textContent = Balance.formatNumber(amount); refreshArsenalUI() }
   if (id === 'doubloons') { doubloonsLabel.textContent = Balance.formatNumber(amount) }
 }
 
-// ── Arsenal ───────────────────────────────────────────────────────────────────
-function onBuyUpgrade(upg: AnyDef): void {
-  const upgradeId = upg['id'] ?? ''
-  const level     = GameState.getUpgradeLevel(upgradeId)
-  const maxLevel  = upg['max_level'] ?? 10
-  if (level >= maxLevel) {
-    appendLog(`${upg['display_name'] ?? 'Upgrade'} already at max level.`)
-    return
+// ── Prestige / unlocks ───────────────────────────────────────────────────────
+function refreshSystemLocks(): void {
+  if (!prestigeTabBtn || !musterTabBtn) return
+  prestigeTabBtn.classList.toggle('hidden', !GameState.isSystemUnlocked('prestige'))
+  musterTabBtn.classList.toggle('hidden', !GameState.isSystemUnlocked('muster'))
+  if (!GameState.isSystemUnlocked('muster')) musterSection.classList.add('hidden')
+}
+
+function refreshPrestigeUI(): void {
+  if (!prestigeMilestoneList) return
+  prestigeMilestoneList.innerHTML = ''
+  for (const milestone of getPrestigeMilestones()) {
+    const done = milestone.done()
+    const card = el('div', `prestige-milestone${done ? ' is-done' : ''}`)
+    card.appendChild(el('span', 'loadout-kicker', milestone.kicker))
+    card.appendChild(el('span', 'upgrade-name', milestone.title))
+    card.appendChild(el('span', 'upgrade-desc', milestone.body))
+    prestigeMilestoneList.appendChild(card)
   }
 
-  const cost       = Balance.upgradeCost(upg['base_cost'] ?? 50, upg['cost_scale'] ?? 2, level)
+  prestigeLoadoutList.innerHTML = ''
+  for (const slot of getPrestigeLoadoutSlots()) {
+    const card = el('div', 'prestige-loadout-card')
+    card.appendChild(el('span', 'loadout-kicker', slot.kicker))
+    card.appendChild(el('span', 'upgrade-name', slot.name))
+    card.appendChild(el('span', 'upgrade-desc', slot.body))
+    card.appendChild(el('span', `prestige-choice-state${slot.locked ? ' is-locked' : ''}`, slot.locked ? 'Locked preview' : 'Selected'))
+    prestigeLoadoutList.appendChild(card)
+  }
+
+  const canReturn = GameState.hasDefeatedBoss('lane_02_boss')
+  returnPortBtn.disabled = !canReturn
+  returnPortNote.textContent = canReturn
+    ? 'Return resets salvage, route distance, and Arsenal upgrades. Boss milestones and unlocked systems persist. Muster opens after this return.'
+    : 'Clear the second boss to make Return to Port available.'
+}
+
+function getPrestigeMilestones(): Array<{ kicker: string; title: string; body: string; done: () => boolean }> {
+  return [
+    {
+      kicker: 'BOSS I',
+      title: 'Defeat The Salt Widow',
+      body: 'Unlocks Prestige planning and shows the next voyage goal.',
+      done: () => GameState.hasDefeatedBoss('lane_01_boss'),
+    },
+    {
+      kicker: 'BOSS II',
+      title: 'Defeat The Cracked Bell',
+      body: 'Makes Return to Port available. Prestige after this clear unlocks Muster.',
+      done: () => GameState.hasDefeatedBoss('lane_02_boss'),
+    },
+    {
+      kicker: 'RETURN',
+      title: 'Return to Port',
+      body: 'Reset the voyage to open crew power allocation for the next push.',
+      done: () => GameState.isSystemUnlocked('muster'),
+    },
+  ]
+}
+
+function getPrestigeLoadoutSlots(): Array<{ kicker: string; name: string; body: string; locked?: boolean }> {
+  return [
+    {
+      kicker: 'SHIP',
+      name: Definitions.getShip(GameState.getSelectedShip())?.['display_name'] ?? 'The Saltwind Drifter',
+      body: `${Balance.formatNumber(GameState.getPlayerMaxHull())} current max hull. Ship selection lives here, not in Arsenal.`,
+    },
+    {
+      kicker: 'WEAPON',
+      name: Definitions.getWeapon(GameState.getSelectedWeapon())?.['display_name'] ?? 'Long Nine Cannons',
+      body: 'The starting cannon core. Future weapon choices will be compared here before a voyage.',
+    },
+    {
+      kicker: 'DEFENSE',
+      name: 'Open Defense Slot',
+      body: 'Later: armor plating, warding, deflectors, or shield behavior.',
+      locked: true,
+    },
+    {
+      kicker: 'UTILITY',
+      name: 'Open Utility Slot',
+      body: 'Later: salvage nets, charts, scouting, automation, or cargo tools.',
+      locked: true,
+    },
+  ]
+}
+
+function onReturnToPort(): void {
+  if (!GameState.hasDefeatedBoss('lane_02_boss')) {
+    appendLog('<span class="log-silver">The harbor will not take you back as legend yet. Clear the second boss first.</span>')
+    return
+  }
+  const musterWasUnlocked = GameState.isSystemUnlocked('muster')
+  GameState.returnToPort()
+  clearLootDrops()
+  SaveSystem.saveGame()
+  sim.startCombat()
+  appendLog(musterWasUnlocked
+    ? '<span class="log-gold">Returned to port. The voyage begins anew.</span>'
+    : '<span class="log-gold">Returned to port. Muster unlocked for the next voyage.</span>')
+}
+
+const SYSTEM_DISPLAY_NAMES: Record<string, string> = { arsenal: 'Arsenal', prestige: 'Prestige', muster: 'Muster' }
+function formatSystemName(id: string): string { return SYSTEM_DISPLAY_NAMES[id] ?? id }
+
+// ── Arsenal ───────────────────────────────────────────────────────────────────
+function onActivateAbility(id: AbilityId): void {
+  if (!GameState.activateAbility(id)) return
+  appendLog(`<span class="log-gold">${formatAbilityName(id)} active.</span>`)
+  refreshAbilityUI()
+}
+
+function formatAbilityName(id: AbilityId): string {
+  if (id === 'overcharge') return 'Broadsides'
+  if (id === 'repair') return 'Patch Crew'
+  return 'Salvage Run'
+}
+
+function onBuyUpgrade(upg: AnyDef): void {
+  const upgradeId  = upg['id'] ?? ''
+  const level      = GameState.getUpgradeLevel(upgradeId)
+  const costMuls   = GameState.getMilestoneCostMuls(upgradeId)
+  const cost       = Balance.upgradeCost(upg['base_cost'] ?? 50, upg['cost_scale'] ?? 2, level, costMuls)
   const resourceId = upg['cost_resource'] ?? 'salvage'
   if (!GameState.canAfford(resourceId, cost)) {
     appendLog(`Need ${Balance.formatNumber(cost)} ${formatResourceName(resourceId)}`)
@@ -699,68 +974,78 @@ function onBuyUpgrade(upg: AnyDef): void {
   }
 
   GameState.spendResource(resourceId, cost)
-  GameState.setUpgradeLevel(upgradeId, level + 1)
-  appendLog(`<span class="log-gold">${upg['display_name'] ?? 'Upgrade'} Lv.${level + 1}!</span>`)
-}
-
-function onDrillMuster(stat: 'gunnery' | 'seamanship'): void {
-  const amount = Math.max(1, Math.floor(Number(musterInput.value) || 0))
-  const levels = Balance.musterLevels(amount)
-  if (levels <= 0) { appendLog('Enter at least 1 salvage to muster.'); return }
-  if (!GameState.canAfford('salvage', amount)) {
-    appendLog(`Need ${Balance.formatNumber(amount)} salvage to muster.`)
-    return
+  const newLevel = level + 1
+  GameState.setUpgradeLevel(upgradeId, newLevel)
+  if (upg['effect'] === 'ship_hull') {
+    GameState.setPlayerHull(GameState.getPlayerHull() + Number(upg['effect_scale'] ?? 14))
   }
-  const cap = MUSTER_CAP
-  const current = stat === 'gunnery' ? GameState.getMusterGunnery() : GameState.getMusterSeamanship()
-  if (current >= cap) { appendLog(`${stat === 'gunnery' ? 'Gunnery' : 'Seamanship'} already at cap (${cap}).`); return }
-  const gained = GameState.trainMuster(stat, amount)
-  if (gained > 0) {
-    const name = stat === 'gunnery' ? 'Gunnery' : 'Seamanship'
-    appendLog(`<span class="log-gold">Muster: ${name} Lv.${current + gained} (+${gained})</span>`)
-    refreshMusterUI()
+  appendLog(`<span class="log-gold">${upg['display_name'] ?? 'Upgrade'} Lv.${newLevel}!</span>`)
+  if (newLevel % 5 === 0) {
+    const tier = newLevel / 5
+    appendLog(`<span class="log-silver">Milestone Tier ${tier} reached — choose a path in the Arsenal card.</span>`)
   }
 }
 
 function refreshMusterUI(): void {
   if (!musterGunneryBar) return
-  const cap = 40
   const g = GameState.getMusterGunnery()
   const s = GameState.getMusterSeamanship()
-  musterGunneryBar.style.width    = `${(g / cap) * 100}%`
-  musterGunneryLabel.textContent  = `${g} / ${cap}`
-  musterGunneryBonus.textContent  = `+${(g * 3).toFixed(0)}% weapon damage`
-  musterSeamanshipBar.style.width   = `${(s / cap) * 100}%`
-  musterSeamanshipLabel.textContent = `${s} / ${cap}`
-  musterSeamanshipBonus.textContent = `-${Math.round(Balance.seamanshipReduction(s) * 100)}% incoming damage`
+  const gXp = GameState.getMusterGunneryProgress()
+  const sXp = GameState.getMusterSeamanshipProgress()
+  const gNeed = Balance.musterXpForNextLevel(g)
+  const sNeed = Balance.musterXpForNextLevel(s)
+  const gPower = GameState.getMusterGunneryPower()
+  const sPower = GameState.getMusterSeamanshipPower()
+  const gPct = Math.min(100, (gXp / gNeed) * 100)
+  const sPct = Math.min(100, (sXp / sNeed) * 100)
+  musterGunneryBar.style.width    = `${gPct}%`
+  musterGunneryLabel.textContent  = `Lv. ${g}`
+  musterGunneryBonus.textContent  = `+${((Balance.gunneryBonus(g) - 1) * 100).toFixed(0)}% weapon damage`
+  musterGunneryProgress.textContent = `${Balance.formatNumber(gXp)} / ${Balance.formatNumber(gNeed)} muster`
+  musterSeamanshipBar.style.width   = `${sPct}%`
+  musterSeamanshipLabel.textContent = `Lv. ${s}`
+  musterSeamanshipBonus.textContent = `+${((Balance.seamanshipHullBonus(s) - 1) * 100).toFixed(0)}% max hull`
+  musterSeamanshipProgress.textContent = `${Balance.formatNumber(sXp)} / ${Balance.formatNumber(sNeed)} muster`
 
-  const amount = Math.max(1, Math.floor(Number(musterInput?.value) || 0))
-  const salvage = GameState.getResource('salvage')
-  const canAfford = salvage >= amount
-  musterGunneryBtn.disabled    = !canAfford || g >= cap
-  musterSeamanshipBtn.disabled = !canAfford || s >= cap
-  refreshMusterPreview()
-}
-
-function refreshMusterPreview(): void {
-  if (!musterPreview) return
-  const amount = Math.max(1, Math.floor(Number(musterInput.value) || 0))
-  const levels = Balance.musterLevels(amount)
-  const salvage = GameState.getResource('salvage')
-  const canAfford = salvage >= amount
-  musterPreview.textContent = `→ ${levels} level${levels !== 1 ? 's' : ''}`
-  musterPreview.className = `muster-preview${canAfford ? '' : ' muster-preview-warn'}`
+  musterAllocationSlider.value = `${gPower}`
+  musterAllocationLabel.textContent = `Gain cap: ${MUSTER_MAX_LEVELS_PER_SECOND}/sec`
+  musterGunneryPowerLabel.textContent = `Gunnery ${gPower}%`
+  musterSeamanshipPowerLabel.textContent = `Seamanship ${sPower}%`
+  musterPowerFill.style.width = `${gPower}%`
 }
 
 function refreshArsenalUI(): void {
   const weaponId = getPlayerWeaponId()
+  const shipId = GameState.getSelectedShip()
   if (weaponId !== arsenalWeaponId) {
     rebuildArsenalCards(weaponId)
   }
 
   const weapon = Definitions.getWeapon(weaponId)
-  for (const refs of arsenalCards) refreshUpgradeCard(refs, weapon)
+  const ship = Definitions.getShip(shipId)
+  for (const refs of arsenalCards) refreshUpgradeCard(refs, weapon, ship)
+  refreshAbilityUI()
   refreshCombatPowerVisuals()
+}
+
+function refreshAbilityUI(): void {
+  for (const [id, button] of abilityButtons) {
+    const state = GameState.getAbilityState(id)
+    const activeSeconds = Math.ceil(state.active / 10)
+    const cooldownSeconds = Math.ceil(state.cooldown / 10)
+    button.classList.toggle('is-active', state.active > 0)
+    button.disabled = state.active <= 0 && state.cooldown > 0
+    if (state.active > 0) {
+      button.textContent = `${formatAbilityName(id)} ${activeSeconds}s`
+    } else if (state.cooldown > 0) {
+      button.textContent = `${formatAbilityName(id)} ${cooldownSeconds}s`
+    } else {
+      button.textContent = formatAbilityName(id)
+    }
+    const activePct = state.active > 0 ? (state.active / ABILITY_ACTIVE_TICKS) * 100 : 0
+    const cooldownPct = state.cooldown > 0 ? (state.cooldown / ABILITY_COOLDOWN_TICKS) * 100 : 0
+    button.style.setProperty('--ability-fill', `${Math.max(activePct, cooldownPct)}%`)
+  }
 }
 
 function rebuildArsenalCards(weaponId: string): void {
@@ -768,12 +1053,13 @@ function rebuildArsenalCards(weaponId: string): void {
   arsenalCards = []
   arsenalList.innerHTML = ''
 
-  const weapon = Definitions.getWeapon(weaponId)
-  const ship = Definitions.getShip('starter_ship')
+  const shipId = GameState.getSelectedShip()
   arsenalHeader.textContent = 'ARSENAL'
-  buildLoadoutSummary(ship, weapon)
 
-  const upgrades = Definitions.getUpgradesForWeapon(weaponId)
+  const upgrades = [
+    ...Definitions.getUpgradesForWeapon(weaponId),
+    ...Definitions.getUpgradesForShip(shipId),
+  ]
   if (upgrades.length === 0) {
     arsenalList.appendChild(el('div', 'empty-state', 'No upgrades fitted for this weapon yet.'))
     return
@@ -799,77 +1085,141 @@ function rebuildArsenalCards(weaponId: string): void {
     meter.appendChild(progress)
     card.appendChild(meter)
 
+    const milestoneContainer = el('div', 'milestone-tiers hidden')
+    card.appendChild(milestoneContainer)
+
     const button = btn('BUY UPGRADE', 'btn-lg sz-15') as HTMLButtonElement
     button.addEventListener('click', () => onBuyUpgrade(upgrade))
     card.appendChild(button)
 
-    const refs = { upgrade, level, desc, cost, progress, button }
+    const refs = { upgrade, level, desc, cost, progress, button, milestoneContainer }
     arsenalCards.push(refs)
     arsenalList.appendChild(card)
   }
 }
 
-function buildLoadoutSummary(ship: AnyDef | undefined, weapon: AnyDef | undefined): void {
-  arsenalSummary.innerHTML = ''
-
-  const shipSlot = el('div', 'loadout-slot loadout-ship')
-  shipSlot.appendChild(el('span', 'loadout-kicker', 'SHIP'))
-  shipSlot.appendChild(el('span', 'loadout-name', ship?.['display_name'] ?? 'Starter Ship'))
-  shipSlot.appendChild(el('span', 'loadout-stat', `${Balance.formatNumber(ship?.['hull'] ?? 0)} hull`))
-
-  const weaponSlot = el('div', 'loadout-slot loadout-weapon')
-  weaponSlot.appendChild(el('span', 'loadout-kicker', 'WEAPON CORE'))
-  weaponSlot.appendChild(el('span', 'loadout-name', weapon?.['display_name'] ?? 'Unfitted'))
-  weaponSlot.appendChild(el('span', 'loadout-stat', `${Balance.formatNumber(weapon?.['base_damage'] ?? 0)} base damage`))
-
-  const counterSlot = el('div', 'loadout-slot loadout-counter')
-  counterSlot.appendChild(el('span', 'loadout-kicker', 'COUNTERS'))
-  const strong = (weapon?.['strong_vs'] as string[] | undefined)?.join(', ') ?? 'general'
-  const weak = (weapon?.['weak_vs'] as string[] | undefined)?.join(', ') ?? 'none'
-  counterSlot.appendChild(el('span', 'loadout-name', strong))
-  counterSlot.appendChild(el('span', 'loadout-stat', `Weak vs ${weak}`))
-
-  arsenalSummary.append(shipSlot, weaponSlot, counterSlot)
-}
-
-function refreshUpgradeCard(refs: ArsenalCardRefs, weapon: AnyDef | undefined): void {
+function refreshUpgradeCard(refs: ArsenalCardRefs, weapon: AnyDef | undefined, ship: AnyDef | undefined): void {
   const upg        = refs.upgrade
   const upgradeId  = upg['id'] ?? ''
   const level      = GameState.getUpgradeLevel(upgradeId)
-  const maxLevel   = upg['max_level'] ?? 10
-  const cost       = Balance.upgradeCost(upg['base_cost'] ?? 50, upg['cost_scale'] ?? 2, level)
+  const muls       = GameState.getMilestoneMuls(upgradeId)
+  const costMuls   = GameState.getMilestoneCostMuls(upgradeId)
+  const cost       = Balance.upgradeCost(upg['base_cost'] ?? 50, upg['cost_scale'] ?? 2, level, costMuls)
   const resourceId = upg['cost_resource'] ?? 'salvage'
-  const base       = weapon?.['base_damage'] ?? 10
-  const scale      = weapon?.['damage_scale_per_level'] ?? 0.2
-  const currentDmg = Balance.weaponDamage(base, scale, level)
-  const nextDmg    = Balance.weaponDamage(base, scale, Math.min(level + 1, maxLevel))
   const desc       = upg['description'] ?? upg['effect_note'] ?? ''
+  const statLine   = describeUpgradeEffect(upg, level, weapon, ship, muls)
 
-  refs.level.textContent = `Lv. ${level}/${maxLevel}`
-  refs.progress.style.width = `${Math.min(100, (level / maxLevel) * 100)}%`
-  refs.desc.textContent  = level >= maxLevel
-    ? `${desc} Current: ${currentDmg.toFixed(1)} dmg/shot.`
-    : `${desc} Current: ${currentDmg.toFixed(1)} -> ${nextDmg.toFixed(1)} dmg/shot.`
+  refs.level.textContent = `Lv. ${level}`
+  refs.progress.style.width = `${Math.min(100, ((level % 5) / 5) * 100)}%`
+  refs.desc.textContent  = `${desc} ${statLine.next} ${statLine.milestone}`
+  refs.cost.textContent = `Cost: ${Balance.formatNumber(cost)} ${formatResourceName(resourceId)}`
+  refs.button.disabled  = !GameState.canAfford(resourceId, cost)
+  refs.button.textContent = 'BUY UPGRADE'
 
-  if (level >= maxLevel) {
-    refs.cost.textContent = 'MAXED'
-    refs.button.disabled  = true
-    refs.button.textContent = 'MAXED'
-  } else {
-    refs.cost.textContent = `Cost: ${Balance.formatNumber(cost)} ${formatResourceName(resourceId)}`
-    refs.button.disabled  = !GameState.canAfford(resourceId, cost)
-    refs.button.textContent = 'BUY UPGRADE'
+  refreshMilestoneChoicesOnCard(refs)
+}
+
+function refreshMilestoneChoicesOnCard(refs: ArsenalCardRefs): void {
+  const upg = refs.upgrade
+  const upgradeId = upg['id'] ?? ''
+  const level = GameState.getUpgradeLevel(upgradeId)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const choices = upg['milestone_choices'] as Array<Record<string, any>> | undefined
+
+  const tiersReached = Math.floor(level / 5)
+  if (!choices || choices.length === 0 || tiersReached === 0) {
+    refs.milestoneContainer.classList.add('hidden')
+    refs.milestoneContainer.innerHTML = ''
+    return
   }
+
+  refs.milestoneContainer.classList.remove('hidden')
+  refs.milestoneContainer.innerHTML = ''
+
+  const muls     = GameState.getMilestoneMuls(upgradeId)
+  const costMuls = GameState.getMilestoneCostMuls(upgradeId)
+
+  for (let tier = 0; tier < tiersReached; tier++) {
+    const activeDmgMul  = muls[tier]     ?? 1.25
+    const activeCostMul = costMuls[tier] ?? 1.0
+
+    const tierRow = el('div', 'milestone-tier-row')
+    tierRow.appendChild(el('span', 'milestone-tier-label', `Tier ${tier + 1}`))
+
+    const choiceRow = el('div', 'milestone-tier-choices')
+    for (const choice of choices) {
+      const dmgMul  = Number(choice['dmg_mul']  ?? choice['hull_mul'] ?? 1.25)
+      const costMul = Number(choice['cost_mul'] ?? 1.0)
+      const isActive = Math.abs(dmgMul - activeDmgMul) < 0.001 && Math.abs(costMul - activeCostMul) < 0.001
+
+      const choiceBtn = document.createElement('button')
+      choiceBtn.className = `btn milestone-choice-inline${isActive ? ' is-active' : ''}`
+      choiceBtn.appendChild(el('span', 'choice-name', choice['display_name'] ?? 'Choice'))
+      choiceBtn.appendChild(el('span', 'choice-desc', choice['description'] ?? ''))
+      choiceBtn.addEventListener('click', () => {
+        GameState.applyMilestoneChoice(upgradeId, tier, dmgMul, costMul)
+        appendLog(`<span class="log-gold">Tier ${tier + 1}: ${choice['display_name'] ?? 'applied'}.</span>`)
+      })
+      choiceRow.appendChild(choiceBtn)
+    }
+    tierRow.appendChild(choiceRow)
+    refs.milestoneContainer.appendChild(tierRow)
+  }
+}
+
+function describeUpgradeEffect(
+  upg: AnyDef,
+  level: number,
+  weapon: AnyDef | undefined,
+  ship: AnyDef | undefined,
+  muls?: number[],
+): { next: string; milestone: string } {
+  const milestone = describeUpgradeMilestone(upg, level, muls)
+  if (upg['effect'] === 'ship_hull') {
+    const base = Number(ship?.['hull'] ?? 120)
+    const increment = Number(upg['effect_scale'] ?? 14)
+    const currentHull = Balance.shipHull(base, level, increment, muls)
+    const nextHull = Balance.shipHull(base, level + 1, increment, muls)
+    return {
+      next: `Current: ${Balance.formatNumber(currentHull)} -> ${Balance.formatNumber(nextHull)} base hull.`,
+      milestone,
+    }
+  }
+
+  const base = weapon?.['base_damage'] ?? 10
+  const increment = Number(upg['effect_scale'] ?? base * (weapon?.['damage_scale_per_level'] ?? 0.2))
+  const currentDmg = Balance.weaponDamage(base, increment, level, muls)
+  const nextDmg = Balance.weaponDamage(base, increment, level + 1, muls)
+  return {
+    next: `Current: ${currentDmg.toFixed(1)} -> ${nextDmg.toFixed(1)} dmg/shot.`,
+    milestone,
+  }
+}
+
+function describeUpgradeMilestone(upg: AnyDef, level: number, muls?: number[]): string {
+  const upgradeId = upg['id'] ?? ''
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const choices = upg['milestone_choices'] as Array<Record<string, any>> | undefined
+  const tiersReached = Math.floor(level / 5)
+  if (choices && choices.length > 0 && tiersReached > 0) return ''
+  const resolvedMuls = muls ?? GameState.getMilestoneMuls(upgradeId)
+  const next = Balance.nextUpgradeMilestone(level)
+  const kind = upg['effect'] === 'ship_hull' ? 'hull' : 'damage'
+  if (level > 0 && level % 5 === 0) {
+    return `Milestone active: x${Balance.upgradeMilestoneMultiplier(level, resolvedMuls).toFixed(2)} ${kind}.`
+  }
+  return `Next milestone Lv.${next}: x1.25 ${kind}.`
 }
 
 // ── Course / distance progress ────────────────────────────────────────────────
 function onAdvanceLane(): void {
-  if (!nextLaneId || !GameState.isLaneUnlocked(nextLaneId)) return
+  if (!nextLaneId) return
   advanceBtn.classList.add('hidden')
   laneCleared = false
-  currentLaneId = nextLaneId
+  const nextSector = Number(nextLaneId.replace('sector_', ''))
+  if (nextSector > 0) GameState.setCurrentSector(nextSector)
+  currentLaneId = `sector_${GameState.getCurrentSector()}`
   nextLaneId    = ''
-  GameState.setCurrentLane(currentLaneId)
   refreshLaneLabel()
   sim.startCombat()
 }
@@ -882,10 +1232,8 @@ function refreshLaneLabel(): void {
 }
 
 function refreshWatersTitle(): void {
-  const laneDef = Definitions.getLane(currentLaneId)
-  const region = laneDef?.['region'] as string | undefined
-  const name = laneDef?.['display_name'] ?? currentLaneId
-  laneLabel.textContent = region ? `${region} / ${name}` : name
+  const sector = SectorPlan.getSector(GameState.getCurrentSector())
+  laneLabel.textContent = `${sector.region} / ${sector.displayName}`
 }
 
 function refreshRouteUI(): void {
@@ -897,14 +1245,14 @@ function refreshRouteUI(): void {
   const auto = GameState.isAutoProgress()
 
   routeMeterFill.style.width = `${pct}%`
-  routeDistanceLabel.textContent = `${Math.floor(distance)} / ${Math.floor(goal)} nmi`
+  routeDistanceLabel.textContent = `Sector ${GameState.getCurrentSector()}  ${Math.floor(distance)} / ${Math.floor(goal)} nmi`
   waveLabel.textContent = GameState.isBossPhase()
     ? 'Flagship contact'
     : mode === 'hold'
       ? 'Holding position'
       : mode === 'retreat'
         ? 'Falling back'
-        : `${Math.floor(distance)} nmi`
+      : `Wave ${GameState.getWaveIndex() + 1}`
 
   autoProgressBtn.textContent = auto ? 'AUTO ON' : 'AUTO OFF'
   autoProgressBtn.classList.toggle('is-active', auto)
@@ -916,7 +1264,7 @@ function refreshRouteUI(): void {
 function refreshFleetTrack(): void {
   if (!fleetTrack) return
 
-  const laneDef = Definitions.getLane(currentLaneId)
+  const sector = SectorPlan.getSector(GameState.getCurrentSector())
   const distance = GameState.getRouteDistance()
   const goal = GameState.getRouteDistanceGoal()
   const bossActive = GameState.isBossPhase()
@@ -935,7 +1283,7 @@ function refreshFleetTrack(): void {
     fleetTrack.appendChild(marker)
   }
 
-  const boss = laneDef?.['boss'] as AnyDef | undefined
+  const boss = sector.boss as AnyDef | undefined
   if (boss) {
     const bossMarker = buildFleetMarker(
       'BOSS',
@@ -991,11 +1339,11 @@ function refreshSeaContacts(
 ): void {
   if (!seaContactLayer) return
 
-  const laneDef = Definitions.getLane(currentLaneId)
-  const waves = (laneDef?.['wave_enemies'] as string[] | undefined) ?? []
+  const sector = SectorPlan.getSector(GameState.getCurrentSector())
+  const waves = sector.enemyIds
   const distanceBand = Math.floor(GameState.getRouteDistance() / CONTACT_DISTANCE_STEP)
   const bossActive = GameState.isBossPhase()
-  const bossDef = laneDef?.['boss'] as AnyDef | undefined
+  const bossDef = sector.boss as AnyDef | undefined
   seaContactLayer.innerHTML = ''
   currentContactHpFill = null
 
@@ -1124,6 +1472,77 @@ function appendSeaWaveGroup(label: string, className: string, contacts: SeaWaveC
   seaContactLayer.appendChild(group)
 }
 
+function promoteSeaContactToCurrentTarget(def: AnyDef, maxHull: number): boolean {
+  if (!seaContactLayer) return false
+  const id = def['id'] ?? ''
+  const candidates = Array.from(
+    seaContactLayer.querySelectorAll('.sea-contact:not(.is-current):not(.is-boss):not(.is-sinking)'),
+  ).filter((node): node is HTMLElement => node instanceof HTMLElement)
+  const match = candidates.find(contact => contact.dataset.enemyId === id) ?? candidates[0]
+  if (!match) return false
+
+  const oldCurrent = getCurrentSeaTarget()
+  if (oldCurrent && oldCurrent !== match) markContactSunk(oldCurrent)
+
+  match.classList.remove('is-escort', 'is-incoming', 'is-looming', 'is-wreck')
+  match.classList.add('is-current', 'is-target-selected', 'is-promoted-target')
+  match.dataset.enemyId = id
+  match.title = `Selected target: ${def['display_name'] ?? 'Enemy'}`
+  const now = performance.now()
+  match.dataset.spawnedAt = `${now - 1}`
+  match.dataset.arrivesAt = `${now - 1}`
+
+  const caption = match.querySelector('.contact-caption')
+  if (caption) caption.textContent = 'Selected target'
+  const name = match.querySelector('.contact-name')
+  if (name) name.textContent = def['display_name'] ?? 'Enemy'
+
+  const key = match.dataset.contactKey ?? ''
+  seaContactStates.set(key, {
+    key,
+    hull: maxHull,
+    maxHull,
+    damage: FLEET_CONTACT_DAMAGE,
+    nextFireAt: performance.now() + contactFireDelayMs(def, 'current'),
+  })
+  setContactHp(match, maxHull, maxHull)
+  const hpFill = match.querySelector('.contact-hp-fill')
+  currentContactHpFill = hpFill instanceof HTMLElement ? hpFill : null
+  return true
+}
+
+function markCurrentSeaTargetAsBoss(def: AnyDef, maxHull: number): void {
+  const current = getCurrentSeaTarget()
+  if (!current) return
+  current.classList.remove('is-current', 'is-target-selected', 'is-promoted-target')
+  current.classList.add('is-boss')
+  current.dataset.enemyId = def['id'] ?? ''
+  current.title = `Flagship: ${def['display_name'] ?? 'Boss'}`
+  const caption = current.querySelector('.contact-caption')
+  if (caption) caption.textContent = 'Flagship'
+  const name = current.querySelector('.contact-name')
+  if (name) name.textContent = def['display_name'] ?? 'Boss'
+  const key = current.dataset.contactKey ?? ''
+  seaContactStates.set(key, {
+    key,
+    hull: maxHull,
+    maxHull,
+    damage: FLEET_CONTACT_DAMAGE,
+    nextFireAt: performance.now() + contactFireDelayMs(def, 'boss'),
+  })
+  setContactHp(current, maxHull, maxHull)
+}
+
+function markContactSunk(contact: HTMLElement): void {
+  contact.classList.remove('is-current', 'is-boss', 'is-target-selected', 'is-promoted-target')
+  contact.classList.add('is-sinking')
+  contact.title = 'Sinking wreck'
+  const caption = contact.querySelector('.contact-caption')
+  if (caption) caption.textContent = ''
+  const name = contact.querySelector('.contact-name')
+  if (name) name.textContent = ''
+}
+
 function buildSeaContact(
   key: string,
   slot: SeaContactSlot,
@@ -1136,6 +1555,7 @@ function buildSeaContact(
   const contact = el('div', 'sea-contact')
   contact.classList.add(`is-${status}`)
   contact.dataset.contactKey = key
+  contact.dataset.enemyId = def?.['id'] ?? ''
   const family = `${def?.['family'] ?? ''}`.toLowerCase()
   if (family.includes('ironclad')) contact.classList.add('is-ironclad')
   contact.style.setProperty('--x', `${slot.x}%`)
@@ -1240,7 +1660,7 @@ function setContactHp(contact: HTMLElement, hull: number, maxHull: number): void
     fill.style.width = `${Math.max(0, Math.min(100, (safeHull / safeMax) * 100))}%`
   }
   if (safeHull <= 0) {
-    contact.classList.add('is-sinking')
+    markContactSunk(contact)
   }
 }
 
@@ -1273,7 +1693,7 @@ function applyContactDamage(contact: HTMLElement, amount: number): boolean {
   if (!state || state.hull <= 0) return false
   setContactHp(contact, state.hull - amount, state.maxHull)
   if (state.hull <= 0) {
-    contact.classList.add('is-sinking')
+    markContactSunk(contact)
     return true
   }
   return false
@@ -1330,22 +1750,8 @@ function sinkCurrentSeaContact(): void {
   }
 }
 
-function sinkNextFleetContact(): void {
-  const fleetSelectors = [
-    '.fleet-wave.is-port-wave .sea-contact:not(.is-sinking)',
-    '.fleet-wave.is-starboard-wave .sea-contact:not(.is-sinking)',
-    '.fleet-wave.is-horizon-wave .sea-contact:not(.is-sinking)',
-  ]
-  const sel = fleetSelectors[GameState.getWaveIndex() % fleetSelectors.length]
-  const contact = seaContactLayer?.querySelector(sel)
-  if (contact instanceof HTMLElement) {
-    const state = getContactState(contact)
-    setContactHp(contact, 0, state?.maxHull ?? 1)
-  }
-}
-
 function getPlayerWeaponId(): string {
-  return Definitions.getShip('starter_ship')?.['weapon_id'] ?? 'long_nine_cannons'
+  return GameState.getSelectedWeapon()
 }
 
 function getPrimaryWeaponUpgradeLevel(weaponId = getPlayerWeaponId()): number {
@@ -1365,24 +1771,24 @@ function formatResourceName(id: string): string {
 }
 
 // ── Debug helpers ─────────────────────────────────────────────────────────────
-function debugJumpLane(laneId: string): void {
+function debugJumpSector(sector: number): void {
   advanceBtn.classList.add('hidden')
   laneCleared = false
   playerFleeing = false
-  currentLaneId = laneId
+  currentLaneId = `sector_${sector}`
   nextLaneId    = ''
-  if (!GameState.isLaneUnlocked(laneId)) GameState.persistent.unlocked_lanes.push(laneId)
-  GameState.setCurrentLane(laneId)
+  GameState.setCurrentSector(sector)
   refreshLaneLabel()
   sim.startCombat()
-  appendLog(`<span class="log-silver">DEBUG: charted to ${laneId}</span>`)
+  appendLog(`<span class="log-silver">DEBUG: charted to Sector ${sector}</span>`)
 }
 
 function debugLoad(): void {
   SaveSystem.loadGame()
+  clearLootDrops()
   laneCleared = false
   playerFleeing = false
-  currentLaneId = GameState.getCurrentLane()
+  currentLaneId = `sector_${GameState.getCurrentSector()}`
   refreshLaneLabel()
   refreshAllResources()
   refreshArsenalUI()
@@ -1395,7 +1801,8 @@ function debugLoad(): void {
 export function refreshAll(): void {
   laneCleared = false
   playerFleeing = false
-  currentLaneId = GameState.getCurrentLane()
+  clearLootDrops()
+  currentLaneId = `sector_${GameState.getCurrentSector()}`
   refreshLaneLabel()
   refreshAllResources()
   refreshArsenalUI()
@@ -1432,6 +1839,7 @@ function tickFleetContactSim(): void {
   if (!seaContactLayer || laneCleared || playerFleeing) return
 
   const now = performance.now()
+  processLootDrops(now)
   if (now - visualWaveStartedAt >= VISUAL_WAVE_INTERVAL_MS) {
     startVisualWave(true)
     refreshSeaContacts()
@@ -1445,6 +1853,56 @@ function tickFleetContactSim(): void {
     state.nextFireAt = now + contactFireDelayMsFromElement(contact) * (0.85 + Math.random() * 0.45)
     spawnEnemyProjectileFrom(contact, () => applyFleetContactDamageToPlayer(contact))
   }
+}
+
+function processLootDrops(now: number): void {
+  if (now < nextLootDropAt) return
+  spawnLootDrop(false)
+  nextLootDropAt = now + 1800 + Math.random() * 2400
+}
+
+function spawnLootDrop(forceDoubloonChance: boolean): void {
+  if (!combatRow) return
+  const existing = combatRow.querySelectorAll('.loot-drop')
+  if (existing.length >= MAX_LOOT_DROPS) return
+
+  const isDoubloon = Math.random() < (forceDoubloonChance ? 0.26 : 0.16)
+  const amount = isDoubloon ? 1 : Math.round(7 + Math.random() * 19)
+  const drop = document.createElement('button')
+  drop.type = 'button'
+  drop.className = `loot-drop ${isDoubloon ? 'is-doubloon' : 'is-salvage'}`
+  drop.style.left = `${12 + Math.random() * 76}%`
+  drop.style.top = `${18 + Math.random() * 58}%`
+  drop.style.setProperty('--drift-x', `${-18 + Math.random() * 36}px`)
+  drop.style.setProperty('--drift-y', `${-16 + Math.random() * 20}px`)
+  drop.dataset.resource = isDoubloon ? 'doubloons' : 'salvage'
+  drop.dataset.amount = `${amount}`
+  drop.dataset.lootId = `${++lootDropSerial}`
+  drop.title = isDoubloon ? 'Doubloon cache' : 'Salvage cache'
+  drop.setAttribute('aria-label', isDoubloon ? 'Collect doubloons' : 'Collect salvage')
+  drop.addEventListener('click', () => collectLootDrop(drop))
+  combatRow.appendChild(drop)
+  window.setTimeout(() => {
+    if (!drop.isConnected) return
+    drop.classList.add('is-fading')
+    window.setTimeout(() => drop.remove(), 260)
+  }, LOOT_DROP_LIFETIME_MS)
+}
+
+function collectLootDrop(drop: HTMLElement): void {
+  if (!drop.isConnected || drop.classList.contains('is-collected')) return
+  const resource = drop.dataset.resource ?? 'salvage'
+  const amount = Number(drop.dataset.amount ?? 0)
+  if (amount <= 0) return
+  GameState.addResource(resource, amount)
+  appendLog(`<span class="log-gold">Recovered +${Balance.formatNumber(amount)} ${formatResourceName(resource)}.</span>`)
+  drop.classList.add('is-collected')
+  window.setTimeout(() => drop.remove(), 180)
+}
+
+function clearLootDrops(): void {
+  nextLootDropAt = 0
+  combatRow?.querySelectorAll('.loot-drop').forEach(node => node.remove())
 }
 
 function contactFireDelayMs(def: AnyDef | undefined, status: SeaContactStatus): number {
@@ -1472,7 +1930,7 @@ function applyFleetContactDamageToPlayer(contact: HTMLElement): void {
 }
 
 // ── VFX ───────────────────────────────────────────────────────────────────────
-function vfxShootAndHit(damage: number, evaded: boolean): void {
+function vfxShootAndHit(damage: number, evaded: boolean, escortTarget?: HTMLElement): void {
   // Muzzle flash on player
   flashRect(playerRect, 'rgba(255,235,128,1)', '#22A6A1', 80)
 
@@ -1485,39 +1943,19 @@ function vfxShootAndHit(damage: number, evaded: boolean): void {
   }
   const projColor = colors[dtype] ?? '#F2B134'
   const isBoss    = !bossBanner.classList.contains('hidden')
-  const volleyCount = Math.min(5, 1 + Math.floor((level + 1) / 2))
   const visualFleetDamage = Math.max(8, Math.round((damage > 0 ? damage : (weapon?.['base_damage'] ?? 8)) * 0.95))
-  let hitTriggered = false
 
-  spawnMuzzleSmoke(volleyCount, level)
-  for (let index = 0; index < volleyCount; index++) {
-    const target = pickPlayerVolleyTarget(index)
-    const isPrimaryHit = target === getCurrentSeaTarget()
-    spawnProjectile(projColor, level, index, volleyCount, target, () => {
-      flashTarget(target, '#ffffff', isBoss ? '#F2B134' : '#E0443E', 150)
-      spawnImpactSplash(target, projColor, level)
-      if (!isPrimaryHit) applyContactDamage(target, visualFleetDamage)
-      if (!isPrimaryHit || hitTriggered) return
-      hitTriggered = true
-      spawnDamageNumber(target, damage, evaded, isBoss)
-    })
-  }
-  spawnSuppressionVolley(projColor, level, Math.max(5, Math.round(visualFleetDamage * 0.82)))
-  playerShotCursor += volleyCount + 1
-}
-
-function spawnSuppressionVolley(color: string, powerLevel: number, visualDamage: number): void {
-  const escorts = getVisibleEnemyContacts('.sea-contact:not(.is-current):not(.is-boss):not(.is-sinking)')
-  const count = Math.min(2, escorts.length)
-  for (let index = 0; index < count; index++) {
-    const target = escorts[(playerShotCursor + index) % escorts.length]
-    if (!target) continue
-    spawnProjectile(color, Math.max(0, powerLevel - 1), index + 1, count + 2, target, () => {
-      flashTarget(target, color, color, 120)
-      spawnImpactSplash(target, color, Math.max(0, powerLevel - 1), true)
-      applyContactDamage(target, visualDamage)
-    }, true)
-  }
+  spawnMuzzleSmoke(1, level)
+  const target = escortTarget ?? pickPlayerVolleyTarget(0)
+  const isPrimaryHit = !escortTarget && target === getCurrentSeaTarget()
+  spawnProjectile(projColor, level, 0, 1, target, () => {
+    const targetAlive = target.isConnected && !target.classList.contains('is-sinking')
+    if (targetAlive) flashTarget(target, '#ffffff', isBoss ? '#F2B134' : '#E0443E', 150)
+    if (targetAlive) spawnImpactSplash(target, projColor, level)
+    if (!escortTarget && !isPrimaryHit) applyContactDamage(target, visualFleetDamage)
+    if (targetAlive) spawnDamageNumber(target, damage, evaded, isBoss && !escortTarget)
+  })
+  if (!escortTarget) playerShotCursor += 1
 }
 
 function spawnProjectile(
@@ -1706,8 +2144,13 @@ function setHpBar(fill: HTMLElement, label: HTMLElement, cur: number, max: numbe
 // ── Log helpers ───────────────────────────────────────────────────────────────
 function appendLog(htmlMsg: string): void {
   logLines.push(htmlMsg)
-  if (logLines.length > LOG_MAX) logLines.shift()
-  combatLog.innerHTML = logLines.map(l => `<p>${l}</p>`).join('')
+  if (logLines.length > LOG_MAX) {
+    logLines.shift()
+    combatLog.firstChild?.remove()
+  }
+  const p = document.createElement('p')
+  p.innerHTML = htmlMsg
+  combatLog.appendChild(p)
   combatLog.scrollTop = combatLog.scrollHeight
 }
 

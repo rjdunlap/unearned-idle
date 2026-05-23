@@ -289,69 +289,99 @@
   background: rgba(34, 166, 161, 0.13);
 }
 
-/* ── Milestone inline choices ────────────── */
+/* ── Milestone tier strip (horizontal) ──── */
 .milestone-tiers {
+  grid-column: 1 / -1;
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin: 6px 0 2px;
-  border-top: 1px solid rgba(205, 217, 217, 0.12);
+  flex-direction: row;
+  gap: 0;
+  align-items: flex-start;
+  overflow-x: auto;
+  margin: 6px 0 0;
   padding-top: 8px;
+  border-top: 1px solid rgba(205, 217, 217, 0.12);
 }
 .milestone-tiers.hidden { display: none; }
-.milestone-tier-row {
+/* Each tier node */
+.ms-tier {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 3px;
+  position: relative;
+  flex-shrink: 0;
 }
-.milestone-tier-label {
-  font-size: 10px;
+.ms-tier + .ms-tier { padding-left: 14px; }
+.ms-tier + .ms-tier::before {
+  content: "›";
+  position: absolute;
+  left: 3px;
+  top: 14px;
+  color: rgba(205, 217, 217, 0.28);
+  font-size: 13px;
+  line-height: 1;
+  pointer-events: none;
+}
+.ms-tier-tag {
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--gold);
-  opacity: 0.75;
+  opacity: 0.55;
 }
-.milestone-tier-choices {
+.ms-tier.is-collected .ms-tier-tag { color: var(--teal); opacity: 1; }
+.ms-tier.is-locked    .ms-tier-tag { opacity: 0.28; }
+.ms-tier.is-pending   .ms-tier-tag { color: var(--gold); opacity: 1; }
+.ms-tier.is-chosen    .ms-tier-tag { color: var(--teal); opacity: 0.82; }
+/* Auto-collect (single choice) */
+.ms-tier-body {
   display: flex;
   flex-direction: column;
+  gap: 1px;
+  padding: 4px 8px;
+  border: 1px solid rgba(34, 166, 161, 0.40);
+  border-radius: 3px;
+  background: rgba(34, 166, 161, 0.09);
+  min-width: 82px;
+}
+.ms-tier.is-locked .ms-tier-body {
+  border-color: rgba(205, 217, 217, 0.11);
+  background: rgba(205, 217, 217, 0.02);
+}
+.ms-tier-name { font-size: 11px; font-weight: 700; color: var(--text); }
+.ms-tier.is-locked .ms-tier-name  { opacity: 0.38; }
+.ms-tier-bonus { font-size: 10px; color: var(--teal); }
+.ms-tier.is-locked .ms-tier-bonus { color: var(--silver); opacity: 0.32; }
+/* Multi-choice row */
+.ms-tier-choices {
+  display: flex;
+  flex-direction: row;
   gap: 4px;
 }
-.milestone-choice-inline {
+.ms-choice-btn {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 8px 10px;
-  text-align: left;
-  width: 100%;
-  cursor: pointer;
+  gap: 1px;
+  padding: 4px 8px;
   border: 1px solid rgba(205, 217, 217, 0.18);
-  background: rgba(205, 217, 217, 0.04);
-  border-radius: 4px;
-  transition: border-color 0.15s, background 0.15s;
+  background: rgba(205, 217, 217, 0.03);
+  border-radius: 3px;
+  cursor: pointer;
+  text-align: left;
+  min-width: 82px;
+  transition: border-color 0.14s, background 0.14s;
 }
-.milestone-choice-inline .choice-name {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text);
-  display: block;
-}
-.milestone-choice-inline .choice-desc {
-  font-size: 10px;
-  color: var(--silver);
-  display: block;
-}
-.milestone-choice-inline:hover {
-  border-color: rgba(242, 177, 52, 0.55);
+.ms-tier.is-locked .ms-choice-btn { opacity: 0.28; cursor: default; pointer-events: none; }
+.ms-choice-btn:hover:not(.is-inactive) {
+  border-color: rgba(242, 177, 52, 0.52);
   background: rgba(242, 177, 52, 0.07);
 }
-.milestone-choice-inline.is-active {
-  border-color: var(--teal);
-  background: rgba(34, 166, 161, 0.13);
-}
-.milestone-choice-inline.is-active .choice-name {
-  color: var(--teal);
-}
+.ms-choice-btn.is-active   { border-color: var(--teal); background: rgba(34, 166, 161, 0.13); }
+.ms-choice-btn.is-inactive { opacity: 0.30; cursor: default; }
+.ms-choice-name { font-size: 11px; font-weight: 700; color: var(--text); display: block; }
+.ms-choice-btn.is-active .ms-choice-name  { color: var(--teal); }
+.ms-choice-bonus { font-size: 10px; color: var(--silver); display: block; }
+.ms-choice-btn.is-active .ms-choice-bonus { color: var(--teal); opacity: 0.75; }
 
 /* ── Combat sea ─────────────────────────── */
 .combat-row {

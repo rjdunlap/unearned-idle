@@ -1284,8 +1284,18 @@ function onBuyUpgrade(upg: AnyDef): void {
   }
   appendLog(`<span class="log-gold">${upg['display_name'] ?? 'Upgrade'} Lv.${newLevel}!</span>`)
   if (newLevel % 5 === 0) {
-    const tier = newLevel / 5
-    appendLog(`<span class="log-silver">Milestone Tier ${tier} reached — choose a path in the Arsenal card.</span>`)
+    const tierIndex  = (newLevel / 5) - 1
+    const tierNum    = newLevel / 5
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tiers      = upg['milestone_tiers'] as Array<{ choices: Array<Record<string, any>> }> | undefined
+    const tierChoices = tiers?.[tierIndex]?.choices ?? []
+    if (tierChoices.length === 1) {
+      appendLog(`<span class="log-silver">T${tierNum}: ${tierChoices[0]['display_name'] ?? 'Bonus'} collected.</span>`)
+    } else if (tierChoices.length > 1) {
+      appendLog(`<span class="log-silver">T${tierNum} Milestone — choose a path in the Arsenal.</span>`)
+    } else {
+      appendLog(`<span class="log-silver">Milestone Tier ${tierNum} reached.</span>`)
+    }
   }
 }
 
@@ -1808,7 +1818,7 @@ function refreshUpgradeCard(refs: ArsenalCardRefs, weapon: AnyDef | undefined, s
 
   refs.level.textContent = `Lv. ${level}`
   refs.progress.style.width = `${Math.min(100, ((level % 5) / 5) * 100)}%`
-  refs.desc.textContent  = `${desc} ${statLine.next} ${statLine.milestone}`
+  refs.desc.textContent  = `${desc} ${statLine.next}`
   refs.cost.textContent = `Cost: ${Balance.formatNumber(cost)} ${formatResourceName(resourceId)}`
   refs.button.disabled  = !GameState.canAfford(resourceId, cost)
   refs.button.textContent = 'BUY UPGRADE'
@@ -1817,50 +1827,95 @@ function refreshUpgradeCard(refs: ArsenalCardRefs, weapon: AnyDef | undefined, s
 }
 
 function refreshMilestoneChoicesOnCard(refs: ArsenalCardRefs): void {
-  const upg = refs.upgrade
+  const upg       = refs.upgrade
   const upgradeId = upg['id'] ?? ''
-  const level = GameState.getUpgradeLevel(upgradeId)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const choices = upg['milestone_choices'] as Array<Record<string, any>> | undefined
+  const level     = GameState.getUpgradeLevel(upgradeId)
+  const isHull    = upg['effect'] === 'ship_hull'
+  const mulKey    = isHull ? 'hull_mul' : 'dmg_mul'
 
-  const tiersReached = Math.floor(level / 5)
-  if (!choices || choices.length === 0 || tiersReached === 0) {
+  // Support new per-tier format; fall back to wrapping old flat choices as a single tier
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  type TierDef = { choices: Array<Record<string, any>> }
+  const rawTiers   = upg['milestone_tiers']   as TierDef[] | undefined
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rawChoices = upg['milestone_choices'] as Array<Record<string, any>> | undefined
+  const milestoneTiers: TierDef[] = rawTiers
+    ? rawTiers
+    : rawChoices ? [{ choices: rawChoices }] : []
+
+  if (milestoneTiers.length === 0) {
     refs.milestoneContainer.classList.add('hidden')
     refs.milestoneContainer.innerHTML = ''
     return
   }
 
+  // Show the strip whenever there are defined tiers (locked tiers are visible but greyed)
   refs.milestoneContainer.classList.remove('hidden')
   refs.milestoneContainer.innerHTML = ''
 
-  const muls     = GameState.getMilestoneMuls(upgradeId)
-  const costMuls = GameState.getMilestoneCostMuls(upgradeId)
+  const tiersReached = Math.floor(level / 5)
+  const choiceIds    = GameState.getMilestoneChoiceIds(upgradeId)
+  const dmgMuls      = GameState.getMilestoneMuls(upgradeId)
 
-  for (let tier = 0; tier < tiersReached; tier++) {
-    const activeDmgMul  = muls[tier]     ?? 1.25
-    const activeCostMul = costMuls[tier] ?? 1.0
+  for (let t = 0; t < milestoneTiers.length; t++) {
+    const tierChoices = milestoneTiers[t].choices ?? []
+    const reached     = t < tiersReached
+    const savedId     = choiceIds[t] ?? ''
+    const savedMul    = dmgMuls[t]
 
-    const tierRow = el('div', 'milestone-tier-row')
-    tierRow.appendChild(el('span', 'milestone-tier-label', `Tier ${tier + 1}`))
+    // Resolve active choice: prefer ID match, fall back to value match (handles old saves)
+    const matchedChoice = tierChoices.find(c => c['id'] === savedId)
+      ?? (savedMul !== undefined
+        ? tierChoices.find(c => Math.abs(Number(c[mulKey] ?? 1.25) - savedMul) < 0.001)
+        : undefined)
 
-    const choiceRow = el('div', 'milestone-tier-choices')
-    for (const choice of choices) {
-      const dmgMul  = Number(choice['dmg_mul']  ?? choice['hull_mul'] ?? 1.25)
-      const costMul = Number(choice['cost_mul'] ?? 1.0)
-      const isActive = Math.abs(dmgMul - activeDmgMul) < 0.001 && Math.abs(costMul - activeCostMul) < 0.001
-
-      const choiceBtn = document.createElement('button')
-      choiceBtn.className = `btn milestone-choice-inline${isActive ? ' is-active' : ''}`
-      choiceBtn.appendChild(el('span', 'choice-name', choice['display_name'] ?? 'Choice'))
-      choiceBtn.appendChild(el('span', 'choice-desc', choice['description'] ?? ''))
-      choiceBtn.addEventListener('click', () => {
-        GameState.applyMilestoneChoice(upgradeId, tier, dmgMul, costMul, `${choice['id'] ?? ''}`)
-        appendLog(`<span class="log-gold">Tier ${tier + 1}: ${choice['display_name'] ?? 'applied'}.</span>`)
-      })
-      choiceRow.appendChild(choiceBtn)
+    // Auto-apply single-choice tier when first reached
+    if (reached && tierChoices.length === 1 && !matchedChoice) {
+      const solo = tierChoices[0]
+      GameState.applyMilestoneChoice(upgradeId, t, Number(solo[mulKey] ?? 1.25), 1.0, solo['id'] ?? 'standard')
     }
-    tierRow.appendChild(choiceRow)
-    refs.milestoneContainer.appendChild(tierRow)
+
+    const isSingle   = tierChoices.length === 1
+    const isChosen   = !!matchedChoice
+    const stateClass = !reached    ? 'is-locked'
+      : isSingle                   ? 'is-collected'
+      : isChosen                   ? 'is-chosen'
+      :                              'is-pending'
+
+    const node = el('div', `ms-tier ${stateClass}`)
+    node.appendChild(el('span', 'ms-tier-tag', `T${t + 1}`))
+
+    if (isSingle) {
+      // Auto-collect node: show name + bonus, no interaction needed
+      const solo = tierChoices[0]
+      const body = el('div', 'ms-tier-body')
+      body.appendChild(el('span', 'ms-tier-name', solo['display_name'] ?? 'Bonus'))
+      body.appendChild(el('span', 'ms-tier-bonus', solo['bonus'] ?? ''))
+      node.appendChild(body)
+    } else {
+      // Binary choice: show both options side-by-side
+      const choiceRow = el('div', 'ms-tier-choices')
+      for (const choice of tierChoices) {
+        const choiceMul  = Number(choice[mulKey] ?? 1.25)
+        const isActive   = isChosen && choice['id'] === matchedChoice!['id']
+        const isInactive = isChosen && !isActive
+        const choiceBtn  = document.createElement('button')
+        choiceBtn.className = `ms-choice-btn${isActive ? ' is-active' : isInactive ? ' is-inactive' : ''}`
+        choiceBtn.appendChild(el('span', 'ms-choice-name', choice['display_name'] ?? 'Choice'))
+        choiceBtn.appendChild(el('span', 'ms-choice-bonus', choice['bonus'] ?? ''))
+        if (reached && !isInactive) {
+          choiceBtn.addEventListener('click', () => {
+            GameState.applyMilestoneChoice(upgradeId, t, choiceMul, 1.0, `${choice['id'] ?? ''}`)
+            appendLog(`<span class="log-gold">T${t + 1}: ${choice['display_name'] ?? 'applied'}.</span>`)
+            refreshArsenalUI()
+          })
+        }
+        choiceRow.appendChild(choiceBtn)
+      }
+      node.appendChild(choiceRow)
+    }
+
+    refs.milestoneContainer.appendChild(node)
   }
 }
 
@@ -1894,18 +1949,16 @@ function describeUpgradeEffect(
 }
 
 function describeUpgradeMilestone(upg: AnyDef, level: number, muls?: number[]): string {
-  const upgradeId = upg['id'] ?? ''
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const choices = upg['milestone_choices'] as Array<Record<string, any>> | undefined
-  const tiersReached = Math.floor(level / 5)
-  if (choices && choices.length > 0 && tiersReached > 0) return ''
+  // Strip now shows all tier info; only fall back to inline text for upgrades with no tier data
+  if (upg['milestone_tiers'] || upg['milestone_choices']) return ''
+  const upgradeId    = upg['id'] ?? ''
   const resolvedMuls = muls ?? GameState.getMilestoneMuls(upgradeId)
   const next = Balance.nextUpgradeMilestone(level)
   const kind = upg['effect'] === 'ship_hull' ? 'hull' : 'damage'
   if (level > 0 && level % 5 === 0) {
-    return `Milestone active: x${Balance.upgradeMilestoneMultiplier(level, resolvedMuls).toFixed(2)} ${kind}.`
+    return `Milestone: x${Balance.upgradeMilestoneMultiplier(level, resolvedMuls).toFixed(2)} ${kind}.`
   }
-  return `Next milestone Lv.${next}: x1.25 ${kind}.`
+  return `Next milestone Lv.${next}.`
 }
 
 // ── Course / distance progress ────────────────────────────────────────────────

@@ -396,7 +396,7 @@ function buildBottomPanel(root: HTMLElement): void {
   const tabRowB = el('div', 'tab-row')
 
   arsenalTabBtn = btn('ARSENAL', 'tab-btn c-gold') as HTMLButtonElement
-  labelDeskTab(arsenalTabBtn, 'ARSENAL', 'P0')
+  labelDeskTab(arsenalTabBtn, 'ARSENAL', '')
   arsenalTabBtn.classList.add('is-active')
   arsenalTabBtn.addEventListener('click', () => setActiveTab('arsenal'))
   tabRowA.appendChild(arsenalTabBtn)
@@ -2919,6 +2919,8 @@ function labelDeskTab(button: HTMLButtonElement, label: string, passage: string)
   button.textContent = ''
   button.dataset.realLabel = label
   button.appendChild(el('span', 'tab-label', label))
-  button.appendChild(el('span', 'tab-passage', passage))
-  button.title ||= `${label} target unlock: ${passage}`
+  if (passage) {
+    button.appendChild(el('span', 'tab-passage', passage))
+    button.title ||= `${label} target unlock: ${passage}`
+  }
 }

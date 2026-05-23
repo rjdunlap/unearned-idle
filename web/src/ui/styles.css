@@ -85,12 +85,24 @@
   padding: 14px;
 }
 .ub-shell.mechanics-collapsed .panel-bg {
-  padding: 8px;
-  align-items: center;
+  padding: 6px 4px;
+  align-items: stretch;
   overflow: hidden;
 }
-.ub-shell.mechanics-collapsed .panel-bg > :not(.desk-rail-toggle) {
+.ub-shell.mechanics-collapsed .panel-bg > :not(.tab-row) {
   display: none !important;
+}
+.ub-shell.mechanics-collapsed .tab-row {
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+.ub-shell.mechanics-collapsed .tab-row .btn {
+  min-width: 0 !important;
+  width: 100%;
+  height: 36px !important;
+  font-size: 10px;
+  padding: 0 2px;
 }
 .ub-shell.mechanics-collapsed .status-strip {
   padding: 8px;
@@ -139,6 +151,7 @@
   position: absolute;
   z-index: 8;
   top: 50%;
+  right: 0;
   width: 28px;
   height: 64px;
   padding: 0;
@@ -514,7 +527,7 @@
   animation-duration: var(--travel-ms), 11s;
   animation-delay: var(--spawn-delay), calc(var(--spawn-delay) + var(--travel-ms));
   animation-timing-function: ease-out, ease-in-out;
-  animation-fill-mode: both, both;
+  animation-fill-mode: both, forwards;
   animation-iteration-count: 1, infinite;
 }
 
@@ -523,7 +536,7 @@
   animation-duration: var(--travel-ms), 14s;
   animation-delay: var(--spawn-delay), calc(var(--spawn-delay) + var(--travel-ms));
   animation-timing-function: ease-out, ease-in-out;
-  animation-fill-mode: both, both;
+  animation-fill-mode: both, forwards;
   animation-iteration-count: 1, infinite;
 }
 
@@ -666,8 +679,8 @@
   --drift-ms: 18000ms;
   position: absolute;
   z-index: 1;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border: 1px solid rgba(232, 216, 184, 0.56);
   border-radius: 50%;
@@ -682,7 +695,7 @@
 .loot-drop::after {
   content: "";
   position: absolute;
-  inset: 8px;
+  inset: 14px;
 }
 .loot-drop.is-salvage::before {
   border-radius: 3px;
@@ -693,7 +706,7 @@
     -6px 4px 0 -2px rgba(205, 217, 217, 0.56),
     5px -5px 0 -3px rgba(242, 177, 52, 0.52);
 }
-.loot-drop.is-doubloon::before {
+.loot-drop.is-doubloons::before {
   border-radius: 50%;
   background: radial-gradient(circle at 36% 30%, #FFE0A0, var(--gold) 48%, #9E6328 100%);
   box-shadow: 0 0 12px rgba(242, 177, 52, 0.58);
@@ -1188,87 +1201,6 @@
 }
 
 /* ── Fleet track ────────────────────────── */
-.fleet-track {
-  position: absolute;
-  top: 12px;
-  left: 14px;
-  right: auto;
-  width: auto;
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 7px;
-  z-index: 4;
-}
-.fleet-marker {
-  flex: 0 0 auto;
-  min-width: 0;
-  min-height: 20px;
-  border: 1px solid rgba(205, 217, 217, 0.08);
-  background: rgba(10, 26, 38, 0.18);
-  border-radius: 4px;
-  padding: 3px;
-  display: grid;
-  grid-template-columns: 20px;
-  align-items: center;
-  opacity: 0.58;
-}
-.fleet-marker.is-current {
-  border-color: rgba(242, 177, 52, 0.88);
-  background: rgba(242, 177, 52, 0.14);
-  opacity: 1;
-}
-.fleet-marker.is-cleared {
-  opacity: 0.36;
-}
-.fleet-marker.is-locked {
-  opacity: 0.48;
-}
-.fleet-marker.is-boss .fleet-dot {
-  background: var(--gold);
-  box-shadow: 0 0 14px rgba(242, 177, 52, 0.42);
-}
-.fleet-dot {
-  width: 20px;
-  height: 13px;
-  background: var(--red);
-  clip-path: polygon(10% 42%, 72% 42%, 100% 66%, 82% 88%, 20% 88%, 0 62%);
-  box-shadow: 0 0 12px rgba(224, 68, 62, 0.32);
-}
-.fleet-text {
-  display: none;
-  min-width: 0;
-  flex-direction: column;
-  gap: 2px;
-}
-.fleet-label {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--gold);
-  line-height: 1;
-}
-.fleet-name {
-  font-size: 10px;
-  color: var(--silver);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ub-shell.mechanics-collapsed .fleet-track {
-  right: auto;
-}
-.ub-shell.mechanics-collapsed .fleet-marker {
-  grid-template-columns: 20px;
-  flex: 0 0 auto;
-  min-height: 20px;
-  padding: 3px;
-  gap: 0;
-  background: rgba(10, 26, 38, 0.18);
-}
-.ub-shell.mechanics-collapsed .fleet-text {
-  display: none;
-}
-
 /* ── HP bars ────────────────────────────── */
 .hp-bar {
   width: 100%;
@@ -1343,13 +1275,9 @@
   text-orientation: mixed;
   letter-spacing: 0;
 }
-.ub-shell.mechanics-collapsed .status-rail-toggle,
-.ub-shell.mechanics-collapsed .desk-rail-toggle {
+.ub-shell.mechanics-collapsed .status-rail-toggle {
   display: inline-flex;
   align-items: center;
-}
-.ub-shell.mechanics-collapsed .desk-rail-toggle {
-  justify-content: center;
 }
 
 /* ── Buttons ────────────────────────────── */
@@ -1929,22 +1857,6 @@ hr { border: none; border-top: 1px solid rgba(205,217,217,0.15); }
   .ship-rect {
     width: 92px;
     height: 108px;
-  }
-  .fleet-track {
-    top: 10px;
-    left: 8px;
-    right: 8px;
-    width: auto;
-    gap: 4px;
-  }
-  .fleet-marker {
-    grid-template-columns: 16px;
-    min-height: 22px;
-    padding: 3px;
-  }
-  .fleet-dot {
-    width: 16px;
-    height: 11px;
   }
   .combat-log-wrap {
     flex-basis: 78px;

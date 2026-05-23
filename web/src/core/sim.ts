@@ -6,9 +6,9 @@ import type { DoctrineMode } from './types'
 
 const TICK_RATE  = 10
 const TICK_DELTA = 1 / TICK_RATE
-const RETREAT_DISTANCE = 45
-const FLEE_RECOVERY_SECONDS = 2.4
 const SHIELD_REGEN_PER_SECOND = 2.2
+const FLEE_REGEN_MULTIPLIER = 5
+const ENCOUNTER_PAUSE_TICKS = 20  // 2 s between wave encounters
 // Enemy closes ~2.8 nmi/sec; a 20 nmi range takes ~7 s to close (matches vanguard CSS travel)
 const APPROACH_NMI_PER_TICK = 0.28
 // Ship sails 2 nmi/sec = 240 nmi sector clears in ~2 min at 1x speed
@@ -40,7 +40,7 @@ export class Sim {
   private _enemyFireTimer   = 0
   private _encounter        = 0
   private _bossActive       = false
-  private _recoveryTicks    = 0
+  private _fleeing          = false
   // Approach range tracking
   private _combatRange      = 0
   private _maxCombatRange   = 0
@@ -49,6 +49,7 @@ export class Sim {
   // Multi-ship targeting
   private _escorts:     SimTarget[] = []
   private _doctrineShot = 0
+  private _encounterPauseTimer = 0
 
   // Mirrors Godot signals as optional callbacks
   // isSquadMember is kept for old UI compatibility; distance encounters pass false.
@@ -107,11 +108,12 @@ export class Sim {
     this._enemyFireTimer   = 0
     this._accumulator      = 0
     this._encounter        = 0
-    this._recoveryTicks    = 0
+    this._fleeing          = false
     this._combatRange      = 0
     this._maxCombatRange   = 0
-    this._escorts          = []
-    this._doctrineShot     = 0
+    this._escorts             = []
+    this._doctrineShot        = 0
+    this._encounterPauseTimer = 0
   }
 
   private _initCombat(): void {
@@ -124,12 +126,23 @@ export class Sim {
 
   private _tick(): void {
     GameState.tickAbilities()
+    this._processMusterLevels()
+    if (this._fleeing) {
+      this._processFleeRegen()
+      return
+    }
     this._regenerateShield()
     this._processRepairAbility()
-    this._processMusterLevels()
-    if (this._recoveryTicks > 0) {
-      this._recoveryTicks--
-      if (this._recoveryTicks <= 0) {
+    if (!this._enemy['id']) {
+      if (this._encounterPauseTimer > 0) {
+        this._encounterPauseTimer--
+        return
+      }
+      if (GameState.getRouteDistance() >= this._routeGoal()) {
+        GameState.setBossPhase(true)
+        this._bossActive = true
+        this._spawnBoss()
+      } else {
         this._spawnEncounter()
       }
       return
@@ -164,11 +177,7 @@ export class Sim {
       this._playerFireTimer++
       if (this._playerFireTimer >= fireRate) {
         this._playerFireTimer -= fireRate
-        this._playerFires(weapon, upgLevel)
-        if (this._enemyHull <= 0) {
-          this._onEnemyDefeated()
-          return
-        }
+        if (this._playerFires(weapon, upgLevel)) return
       }
     }
 
@@ -197,7 +206,7 @@ export class Sim {
     }
   }
 
-  private _playerFires(weapon: AnyDef | undefined, upgradeLevel: number): void {
+  private _playerFires(weapon: AnyDef | undefined, upgradeLevel: number): boolean {
     const base      = weapon?.['base_damage'] ?? 1
     const upgrade   = Definitions.getUpgradeForWeapon(weapon?.['id'] ?? '')
     const increment = Number(upgrade?.['effect_scale'] ?? base * (weapon?.['damage_scale_per_level'] ?? 0.2))
@@ -212,34 +221,30 @@ export class Sim {
     if (escortIdx >= 0) {
       const escort = this._escorts[escortIdx]
       if (!escort || escort.hull <= 0) {
-        this._fireAtSelectedTarget(baseDmg, dtype)
-        return
+        return this._fireAtSelectedTarget(baseDmg, dtype)
       }
-      const evasion = escort.def['evasion'] ?? 0
-      const evaded  = evasion > 0 && Math.random() < evasion
-      let effective = 0
-      if (!evaded) {
-        effective = Balance.calcEffectiveDamage(baseDmg, dtype, escort.def)
-        escort.hull = Math.max(0, escort.hull - effective)
-      }
-      this.onEscortDamaged?.(escortIdx, escort.hull, escort.maxHull, effective, evaded)
+      const evasion   = escort.def['evasion'] ?? 0
+      const effective = Balance.calcEffectiveDamage(baseDmg, dtype, escort.def)
+      const evaded    = evasion > 0 && effective < escort.hull && Math.random() < evasion
+      if (!evaded) escort.hull = Math.max(0, escort.hull - effective)
+      this.onEscortDamaged?.(escortIdx, escort.hull, escort.maxHull, evaded ? 0 : effective, evaded)
       if (escort.hull <= 0) this._onEscortDefeated(escortIdx)
+      return false
     } else {
-      this._fireAtSelectedTarget(baseDmg, dtype)
+      return this._fireAtSelectedTarget(baseDmg, dtype)
     }
   }
 
-  private _fireAtSelectedTarget(baseDmg: number, dtype: DamageType): void {
-    const evasion = this._enemy['evasion'] ?? 0
-    const evaded  = evasion > 0 && Math.random() < evasion
-    let effective = 0
-    if (!evaded) {
-      effective = Balance.calcEffectiveDamage(baseDmg, dtype, this._enemy)
-      this._enemyHull = Math.max(0, this._enemyHull - effective)
-    }
-    this.onEnemyDamaged?.(this._enemyHull, this._enemyMaxHull, effective, evaded)
+  private _fireAtSelectedTarget(baseDmg: number, dtype: DamageType): boolean {
+    const evasion   = this._enemy['evasion'] ?? 0
+    const effective = Balance.calcEffectiveDamage(baseDmg, dtype, this._enemy)
+    const evaded    = evasion > 0 && effective < this._enemyHull && Math.random() < evasion
+    if (!evaded) this._enemyHull = Math.max(0, this._enemyHull - effective)
+    this.onEnemyDamaged?.(this._enemyHull, this._enemyMaxHull, evaded ? 0 : effective, evaded)
     const hint = Balance.getCounterHint(dtype, this._enemy)
     if (hint) this.onCounterHint?.(hint)
+    if (this._enemyHull <= 0) { this._onEnemyDefeated(); return true }
+    return false
   }
 
   private _pickDoctrineTarget(doctrine: DoctrineMode): number {
@@ -312,13 +317,9 @@ export class Sim {
     this._encounter++
     GameState.advanceWave()
     this.onWaveCompleted?.(this._encounter)
-    if (GameState.getRouteDistance() >= this._routeGoal()) {
-      GameState.setBossPhase(true)
-      this._bossActive = true
-      this._spawnBoss()
-    } else {
-      this._spawnEncounter()
-    }
+    this._enemy            = {}
+    this._enemyHull        = 0
+    this._encounterPauseTimer = ENCOUNTER_PAUSE_TICKS
   }
 
   private _onBossCleared(): void {
@@ -344,11 +345,13 @@ export class Sim {
   }
 
   private _awardMusterProgress(isBoss: boolean): void {
+    if (!GameState.isSystemUnlocked('muster')) return
     const progress = Balance.musterProgressReward(this._enemyMaxHull, isBoss)
     GameState.addMusterProgress(progress)
   }
 
   private _processMusterLevels(): void {
+    if (!GameState.isSystemUnlocked('muster')) return
     const result = GameState.processMusterProgress(TICK_DELTA)
     if (result.gunneryLevels === 0 && result.seamanshipLevels === 0) return
     const parts: string[] = []
@@ -365,12 +368,24 @@ export class Sim {
     this._bossActive   = false
     this._escorts      = []
     this._doctrineShot = 0
+    this._fleeing      = true
     GameState.setBossPhase(false)
-    GameState.addRouteDistance(-RETREAT_DISTANCE)
-    GameState.setPlayerHull(GameState.getPlayerMaxHull() * 0.55)
-    this.onPlayerHullRestored?.(GameState.getPlayerHull(), GameState.getPlayerMaxHull())
+    GameState.setPlayerHull(1)
+    this.onPlayerHullRestored?.(1, GameState.getPlayerMaxHull())
     this.onPlayerFled?.(GameState.getRouteDistance(), this._routeGoal())
-    this._recoveryTicks = Math.round(FLEE_RECOVERY_SECONDS * TICK_RATE)
+  }
+
+  private _processFleeRegen(): void {
+    GameState.addRouteDistance(-TRAVEL_NMI_PER_TICK * 4)
+    const max    = GameState.getPlayerMaxHull()
+    const cur    = GameState.getPlayerHull()
+    const healed = Math.min(max, cur + SHIELD_REGEN_PER_SECOND * FLEE_REGEN_MULTIPLIER * TICK_DELTA)
+    GameState.setPlayerHull(healed)
+    this.onPlayerHullRestored?.(healed, max)
+    if (healed >= max) {
+      this._fleeing = false
+      this._spawnEncounter()
+    }
   }
 
   private _spawnEncounter(): void {

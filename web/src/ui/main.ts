@@ -22,7 +22,6 @@ type DeskTab = 'arsenal' | 'prestige' | 'muster' | 'log'
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 let shellRoot:       HTMLElement
-let oceanPanel:      HTMLElement
 let laneLabel:       HTMLElement
 let bossBanner:      HTMLElement
 let titleFocusBtn:   HTMLButtonElement
@@ -33,7 +32,6 @@ let courseForwardBtn: HTMLButtonElement
 let courseHoldBtn: HTMLButtonElement
 let courseRetreatBtn: HTMLButtonElement
 let seaAbilityDock: HTMLElement
-let fleetTrack:      HTMLElement
 let seaContactLayer: HTMLElement
 let playerRect:      HTMLElement
 let playerHpFill:    HTMLElement
@@ -181,7 +179,6 @@ function buildUI(root: HTMLElement): void {
   startVisualWave(true)
   refreshLaneLabel()
   refreshRouteUI()
-  refreshFleetTrack()
   refreshSeaContacts()
   refreshMechanicsToggle()
   startFleetContactSim()
@@ -192,7 +189,6 @@ function buildUI(root: HTMLElement): void {
 
 function buildSeaLanePanel(root: HTMLElement): void {
   const panel = el('div', 'panel-ocean')
-  oceanPanel = panel
   root.appendChild(panel)
 
   // Title row
@@ -217,8 +213,6 @@ function buildSeaLanePanel(root: HTMLElement): void {
   seaContactLayer = el('div', 'sea-contact-layer')
   combatRow.appendChild(seaContactLayer)
 
-  fleetTrack = el('div', 'fleet-track')
-  combatRow.appendChild(fleetTrack)
   buildEnemyBlock(combatRow)
   buildPlayerBlock(combatRow)
 
@@ -226,8 +220,7 @@ function buildSeaLanePanel(root: HTMLElement): void {
   titleFocusBtn.title = "Collapse the Captain's Desk"
   titleFocusBtn.setAttribute('aria-label', "Toggle Captain's Desk")
   titleFocusBtn.addEventListener('click', toggleMechanicsFocus)
-  root.appendChild(titleFocusBtn)
-  updateFocusHandlePosition()
+  panel.appendChild(titleFocusBtn)
 
   // Counter hint
   counterHint = el('span', 'counter-hint hidden')
@@ -560,6 +553,7 @@ function buildLogPanel(parent: HTMLElement): void {
 }
 
 function setActiveTab(tab: DeskTab): void {
+  if (shellRoot.classList.contains('mechanics-collapsed')) setMechanicsFocus(false)
   if (tab === 'prestige' && !GameState.isSystemUnlocked('prestige')) tab = 'arsenal'
   if (tab === 'muster' && !GameState.isSystemUnlocked('muster')) tab = 'arsenal'
   arsenalSection.classList.toggle('hidden', tab !== 'arsenal')
@@ -664,7 +658,6 @@ function connectSignals(): void {
   GameState.on('player_hull_changed', (hull, maxHull) => updatePlayerHullUI(hull as number, maxHull as number))
   GameState.on('route_changed', () => {
     refreshRouteUI()
-    refreshFleetTrack()
   })
   GameState.on('upgrade_purchased', () => {
     refreshArsenalUI()
@@ -707,11 +700,8 @@ function onEnemySpawned(def: AnyDef, maxHull: number, isSquadMember: boolean): v
   enemyFamily.textContent = def['family']        ?? '?'
   setHpBar(enemyHpFill, enemyHpLabel, maxHull, maxHull, 'red')
   if (!isSquadMember) {
-    refreshFleetTrack()
-    if (!promoteSeaContactToCurrentTarget(def, maxHull)) {
-      startVisualWave(true)
-      refreshSeaContacts(def, maxHull, maxHull)
-    }
+    startVisualWave(true)
+    refreshSeaContacts(def, maxHull, maxHull)
   } else {
     // Restore the contact HP bar for the next squad member without rebuilding contacts
     updateCurrentSeaContactHp(maxHull, maxHull)
@@ -742,13 +732,12 @@ function onEnemyDamaged(hull: number, maxHull: number, dmg: number, evaded: bool
 }
 
 function onEnemyDefeated(_def: AnyDef, rewards: Record<string, number>, isLastInSquad: boolean): void {
-  const anchor = getCurrentSeaTarget() ?? undefined
   enemyHpFill.style.width = '0%'
   enemyHpLabel.textContent = '0 / ?'
   if (isLastInSquad) {
     sinkCurrentSeaContact()
   }
-  spawnRewardPickups(rewards, anchor)
+  collectRewardsPassively(rewards)
 }
 
 function onPlayerDamaged(hull: number, maxHull: number, _dmg: number): void {
@@ -767,14 +756,12 @@ function onPlayerFled(_distance: number, _goal: number): void {
   currentContactHpFill = null
   combatRow.classList.add('is-fleeing')
   refreshRouteUI()
-  refreshFleetTrack()
 }
 
 function onBossSpawned(def: AnyDef, maxHull: number): void {
   onEnemySpawned(def, maxHull, false)
   combatRow.classList.add('is-boss-fight')
   bossBanner.classList.remove('hidden')
-  refreshFleetTrack()
   markCurrentSeaTargetAsBoss(def, maxHull)
   enemyName.style.color = '#F2B134'
   enemyRect.classList.remove('ship-rect-enemy')
@@ -789,7 +776,6 @@ function onBossDefeated(_def: AnyDef): void {
 }
 
 function onWaveCompleted(_waveIndex: number): void {
-  refreshFleetTrack()
 }
 
 function onSectorCompleted(_sectorId: string, nextId: string): void {
@@ -797,7 +783,6 @@ function onSectorCompleted(_sectorId: string, nextId: string): void {
   laneCleared           = true
   combatRow.classList.remove('is-boss-fight')
   bossBanner.classList.add('hidden')
-  refreshFleetTrack()
   if (nextId && !GameState.isAutoProgress()) {
     const nextSector = Number(nextId.replace('sector_', ''))
     const nextName = nextSector > 0 ? SectorPlan.getSector(nextSector).displayName : nextId
@@ -819,7 +804,9 @@ function onCounterHint(hint: string): void {
 }
 
 function onEscortSpawned(index: number, _def: AnyDef, maxHull: number): void {
-  const candidates = getVisibleEnemyContacts('.sea-contact.is-escort:not(.is-sinking), .sea-contact.is-incoming:not(.is-sinking)')
+  const candidates = Array.from(
+    seaContactLayer?.querySelectorAll('.sea-contact.is-escort:not(.is-sinking), .sea-contact.is-incoming:not(.is-sinking)') ?? []
+  ).filter((n): n is HTMLElement => n instanceof HTMLElement)
   const contact = candidates[index] ?? null
   simEscorts[index] = contact
   if (contact) {
@@ -844,7 +831,7 @@ function onEscortDefeated(index: number, def: AnyDef, rewards: Record<string, nu
   const contact = simEscorts[index]
   if (contact) markContactSunk(contact)
   simEscorts[index] = null
-  spawnRewardPickups(rewards, contact ?? undefined)
+  collectRewardsPassively(rewards)
   void def
 }
 
@@ -1247,13 +1234,12 @@ function onAdvanceLane(): void {
 function refreshLaneLabel(): void {
   refreshWatersTitle()
   refreshRouteUI()
-  refreshFleetTrack()
   refreshSeaContacts()
 }
 
 function refreshWatersTitle(): void {
   const sector = SectorPlan.getSector(GameState.getCurrentSector())
-  laneLabel.textContent = `Sector ${sector.sector} · ${sector.routeName} · ${sector.displayName}`
+  laneLabel.textContent = `Passage ${sector.sector} · ${sector.displayName}`
 }
 
 function refreshRouteUI(): void {
@@ -1279,57 +1265,6 @@ function refreshRouteUI(): void {
   courseRetreatBtn.classList.toggle('is-active', mode === 'retreat')
 }
 
-function refreshFleetTrack(): void {
-  if (!fleetTrack) return
-
-  const sector = SectorPlan.getSector(GameState.getCurrentSector())
-  const distance = GameState.getRouteDistance()
-  const goal = GameState.getRouteDistanceGoal()
-  const bossActive = GameState.isBossPhase()
-  fleetTrack.innerHTML = ''
-
-  for (let index = 1; index <= 4; index++) {
-    const previousMilestone = Math.round((goal * (index - 1)) / 5)
-    const milestone = Math.round((goal * index) / 5)
-    const marker = buildFleetMarker(
-      `${milestone}`,
-      `${milestone} nmi`,
-      laneCleared || distance >= milestone,
-      !laneCleared && !bossActive && distance >= previousMilestone && distance < milestone,
-      false,
-    )
-    fleetTrack.appendChild(marker)
-  }
-
-  const boss = sector.boss as AnyDef | undefined
-  if (boss) {
-    const bossMarker = buildFleetMarker(
-      'BOSS',
-      boss['display_name'] ?? 'Boss',
-      laneCleared,
-      !laneCleared && bossActive,
-      true,
-    )
-    if (!laneCleared && !bossActive && distance < goal) bossMarker.classList.add('is-locked')
-    fleetTrack.appendChild(bossMarker)
-  }
-}
-
-function buildFleetMarker(label: string, name: string, cleared: boolean, current: boolean, boss: boolean): HTMLElement {
-  const marker = el('div', 'fleet-marker')
-  if (cleared) marker.classList.add('is-cleared')
-  if (current) marker.classList.add('is-current')
-  if (boss) marker.classList.add('is-boss')
-  marker.title = name
-
-  marker.appendChild(el('span', 'fleet-dot'))
-  const textWrap = el('span', 'fleet-text')
-  textWrap.appendChild(el('span', 'fleet-label', label))
-  textWrap.appendChild(el('span', 'fleet-name', name))
-  marker.appendChild(textWrap)
-  return marker
-}
-
 function toggleMechanicsFocus(): void {
   setMechanicsFocus(!shellRoot.classList.contains('mechanics-collapsed'))
 }
@@ -1338,7 +1273,6 @@ function setMechanicsFocus(collapsed: boolean): void {
   const mobileLayout = window.matchMedia('(max-width: 760px)').matches
   shellRoot.classList.toggle('mechanics-collapsed', collapsed && !mobileLayout)
   refreshMechanicsToggle()
-  window.requestAnimationFrame(updateFocusHandlePosition)
 }
 
 function refreshMechanicsToggle(): void {
@@ -1351,21 +1285,6 @@ function refreshMechanicsToggle(): void {
   deskRailBtn.setAttribute('aria-expanded', `${!collapsed}`)
 }
 
-function updateFocusHandlePosition(): void {
-  if (!titleFocusBtn || !oceanPanel || !shellRoot) return
-  const rootRect = shellRoot.getBoundingClientRect()
-  const collapsed = shellRoot.classList.contains('mechanics-collapsed')
-  if (collapsed) {
-    titleFocusBtn.style.left = `${Math.max(8, rootRect.width - 104)}px`
-    titleFocusBtn.style.top = '92px'
-    return
-  }
-
-  const oceanRect = oceanPanel.getBoundingClientRect()
-  const seamX = oceanRect.right - rootRect.left
-  titleFocusBtn.style.left = `${Math.max(8, seamX - 30)}px`
-  titleFocusBtn.style.top = '50%'
-}
 
 function refreshSeaContacts(
   activeDef: AnyDef | undefined = currentEnemyDef,
@@ -1468,12 +1387,11 @@ function refreshSeaContacts(
   appendSeaWaveGroup('Horizon Fleet', 'is-horizon-wave', horizonContacts)
 }
 
-function appendSeaWaveGroup(label: string, className: string, contacts: SeaWaveContact[]): void {
+function appendSeaWaveGroup(_label: string, className: string, contacts: SeaWaveContact[]): void {
   const validContacts = contacts.filter(contact => contact.def)
   if (validContacts.length === 0) return
 
   const group = el('div', `fleet-wave ${className}`)
-  group.appendChild(el('span', 'fleet-wave-label', label))
   for (let index = 0; index < validContacts.length; index++) {
     const contact = validContacts[index]
     const key = getContactKey(className, contact, index)
@@ -1490,45 +1408,6 @@ function appendSeaWaveGroup(label: string, className: string, contacts: SeaWaveC
     group.appendChild(contactEl)
   }
   seaContactLayer.appendChild(group)
-}
-
-function promoteSeaContactToCurrentTarget(def: AnyDef, maxHull: number): boolean {
-  if (!seaContactLayer) return false
-  const id = def['id'] ?? ''
-  const candidates = Array.from(
-    seaContactLayer.querySelectorAll('.sea-contact:not(.is-current):not(.is-boss):not(.is-sinking)'),
-  ).filter((node): node is HTMLElement => node instanceof HTMLElement)
-  const match = candidates.find(contact => contact.dataset.enemyId === id) ?? candidates[0]
-  if (!match) return false
-
-  const oldCurrent = getCurrentSeaTarget()
-  if (oldCurrent && oldCurrent !== match) markContactSunk(oldCurrent)
-
-  match.classList.remove('is-escort', 'is-incoming', 'is-looming', 'is-wreck')
-  match.classList.add('is-current', 'is-target-selected', 'is-promoted-target')
-  match.dataset.enemyId = id
-  match.title = `Selected target: ${def['display_name'] ?? 'Enemy'}`
-  const now = performance.now()
-  match.dataset.spawnedAt = `${now - 1}`
-  match.dataset.arrivesAt = `${now - 1}`
-
-  const caption = match.querySelector('.contact-caption')
-  if (caption) caption.textContent = 'Selected target'
-  const name = match.querySelector('.contact-name')
-  if (name) name.textContent = def['display_name'] ?? 'Enemy'
-
-  const key = match.dataset.contactKey ?? ''
-  seaContactStates.set(key, {
-    key,
-    hull: maxHull,
-    maxHull,
-    damage: FLEET_CONTACT_DAMAGE,
-    nextFireAt: performance.now() + contactFireDelayMs(def, 'current'),
-  })
-  setContactHp(match, maxHull, maxHull)
-  const hpFill = match.querySelector('.contact-hp-fill')
-  currentContactHpFill = hpFill instanceof HTMLElement ? hpFill : null
-  return true
 }
 
 function markCurrentSeaTargetAsBoss(def: AnyDef, maxHull: number): void {
@@ -1881,18 +1760,23 @@ function processLootDrops(now: number): void {
   nextLootDropAt = now + 12_000 + Math.random() * 8_000
 }
 
-function spawnRewardPickups(rewards: Record<string, number>, anchor?: HTMLElement): void {
+function collectRewardsPassively(rewards: Record<string, number>): void {
   const entries = Object.entries(rewards).filter(([, amount]) => Number(amount) > 0)
   for (const [resource, amount] of entries) {
-    spawnLootDrop(resource, Math.max(1, Math.round(Number(amount))), anchor)
+    const n = Math.max(1, Math.round(Number(amount)))
+    GameState.addResource(resource, n)
+    appendLog(`<span class="log-gold">+${Balance.formatNumber(n)} ${formatResourceName(resource)}</span>`)
   }
-
+  // small bonus doubloon chance on kills
   const bossBonus = GameState.isBossPhase() ? 0.18 : 0.035
   const routeBonus = SectorPlan.getSector(GameState.getCurrentSector()).route === 'B' ? 0.02 : 0
   if (!entries.some(([id]) => id === 'doubloons') && Math.random() < bossBonus + routeBonus) {
-    spawnLootDrop('doubloons', GameState.isBossPhase() ? 3 : 1, anchor)
+    const bonus = GameState.isBossPhase() ? 3 : 1
+    GameState.addResource('doubloons', bonus)
+    appendLog(`<span class="log-gold">+${bonus} Doubloons (bonus)</span>`)
   }
 }
+
 
 function spawnLootDrop(resourceId?: string, amountOverride?: number, anchor?: HTMLElement): void {
   if (!combatRow) return
@@ -1900,7 +1784,8 @@ function spawnLootDrop(resourceId?: string, amountOverride?: number, anchor?: HT
   if (existing.length >= MAX_LOOT_DROPS) return
 
   const resource = resourceId ?? (Math.random() < 0.045 ? 'doubloons' : 'salvage')
-  const amount = amountOverride ?? (resource === 'doubloons' ? 1 : Math.round(5 + Math.random() * 14))
+  const scalar = Balance.rewardScalar(GameState.getRouteDistance())
+  const amount = amountOverride ?? (resource === 'doubloons' ? 1 : Math.round((25 + Math.random() * 70) * scalar))
   const drop = document.createElement('button')
   drop.type = 'button'
   drop.className = `loot-drop is-${resource.replace('_', '-')}`

@@ -4,6 +4,8 @@ A mystical pirate unfolding idle game inspired structurally by Unnamed Space Idl
 
 **Current status:** Sprint 01 — Lane 1 Playable (2026-05-21)
 
+**[GitHub Repository](https://github.com/rjdunlap/unearned-bounty-godot)** | **[Live Web Build](https://rjdunlap.github.io/unearned-idle/)**
+
 The Godot project files are now in the repository. To open the project, install **Godot 4.6.2-stable (Standard build)** and open `project.godot` in the project root. Editor validation is blocked until Godot is installed locally (see known blocker in [Sprint 01 plan](docs/project_management/09_sprint_01_lane_1_playable.md)).
 
 ## Sprint 01 Demo

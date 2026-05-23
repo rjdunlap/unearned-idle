@@ -401,11 +401,6 @@ function buildBottomPanel(root: HTMLElement): void {
   arsenalTabBtn.addEventListener('click', () => setActiveTab('arsenal'))
   tabRowA.appendChild(arsenalTabBtn)
 
-  prestigeTabBtn = btn('PRESTIGE', 'tab-btn') as HTMLButtonElement
-  labelDeskTab(prestigeTabBtn, 'PRESTIGE', 'P1')
-  prestigeTabBtn.addEventListener('click', () => setActiveTab('prestige'))
-  tabRowA.appendChild(prestigeTabBtn)
-
   musterTabBtn = btn('MUSTER', 'tab-btn') as HTMLButtonElement
   labelDeskTab(musterTabBtn, 'MUSTER', 'P2')
   musterTabBtn.addEventListener('click', () => setActiveTab('muster'))
@@ -427,6 +422,11 @@ function buildBottomPanel(root: HTMLElement): void {
   tabRowA.appendChild(researchTabBtn)
 
   relicsTabBtn = buildDeckTab(tabRowA, 'RELICS', 'P8', 'relics', 'Relic Compass target unlock: Passage 8 clear')
+
+  prestigeTabBtn = btn('PRESTIGE', 'tab-btn') as HTMLButtonElement
+  labelDeskTab(prestigeTabBtn, 'PRESTIGE', 'P1')
+  prestigeTabBtn.addEventListener('click', () => setActiveTab('prestige'))
+  tabRowB.appendChild(prestigeTabBtn)
 
   contractsTabBtn = buildDeckTab(tabRowB, 'CONTRACTS', 'P12', 'contracts', 'Storm Contracts target unlock: Passage 12 or first elite branch clear')
   portTabBtn      = buildDeckTab(tabRowB, 'PORT',      'P15', 'port',      'Port Facilities target unlock: Passage 15 clear')

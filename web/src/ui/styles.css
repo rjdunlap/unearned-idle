@@ -352,10 +352,10 @@
 .ms-tier.is-locked .ms-tier-name  { opacity: 0.38; }
 .ms-tier-bonus { font-size: 10px; color: var(--teal); }
 .ms-tier.is-locked .ms-tier-bonus { color: var(--silver); opacity: 0.32; }
-/* Multi-choice row */
+/* Multi-choice column */
 .ms-tier-choices {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   gap: 4px;
 }
 .ms-choice-btn {
@@ -1826,15 +1826,11 @@ hr { border: none; border-top: 1px solid rgba(205,217,217,0.15); }
 
 /* ── Debug overlay ──────────────────────── */
 .debug-toggle-btn {
-  opacity: 0.38;
   padding: 0 6px;
   height: 28px !important;
   border-radius: 3px;
   letter-spacing: 0.04em;
   align-self: center;
-}
-.debug-toggle-btn:hover {
-  opacity: 0.72;
 }
 .debug-overlay {
   position: absolute;

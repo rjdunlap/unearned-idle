@@ -1,4 +1,4 @@
-import type { AbilityId, AbilityState, CourseMode, DoctrineMode, RouteState, RunState, PersistentState, PrestigeState, Settings } from './types'
+import type { AbilityId, AbilityState, ContractId, CourseMode, DoctrineMode, OfficerId, OrderState, PersistentState, PortFacilityId, PortState, PrestigeState, RelicId, RelicState, ResearchBranchId, RouteState, RunState, Settings, ShipwrightState, StormBoostId, StormheartState, TrialState } from './types'
 import { Definitions } from './definitions'
 import { Balance } from './balance'
 import { SectorPlan } from './sector-plan'
@@ -6,6 +6,45 @@ import { SectorPlan } from './sector-plan'
 type Listener = (...args: unknown[]) => void
 type MusterStat = 'gunnery' | 'seamanship'
 type MusterXpKey = 'gunnery_xp' | 'seamanship_xp'
+type RecipeDef = {
+  id: string
+  displayName: string
+  seconds: number
+  salvageCost: number
+  masteryCap: number
+}
+
+export const SHIPWRIGHT_RECIPES: RecipeDef[] = [
+  { id: 'refined_timber', displayName: 'Refined Timber', seconds: 12, salvageCost: 35, masteryCap: 5 },
+  { id: 'brass_gear', displayName: 'Brass Gear', seconds: 18, salvageCost: 55, masteryCap: 5 },
+  { id: 'salvage_nets', displayName: 'Salvage Nets', seconds: 28, salvageCost: 90, masteryCap: 4 },
+  { id: 'fair_wind_rigging', displayName: 'Fair Wind Rigging', seconds: 36, salvageCost: 120, masteryCap: 4 },
+]
+
+export const RESEARCH_BRANCHES: ResearchBranchId[] = ['gunnery', 'shipwrighting', 'navigation', 'occult']
+export const RELICS: Array<{ id: RelicId; displayName: string; source: string; maxRank: number }> = [
+  { id: 'cannon_ruby', displayName: 'Cannon Ruby', source: 'rare prize splinters', maxRank: 5 },
+  { id: 'netted_astrolabe', displayName: 'Netted Astrolabe', source: 'salvage-heavy wreckage', maxRank: 5 },
+  { id: 'brine_compass', displayName: 'Brine Compass', source: 'storm-line brine traces', maxRank: 5 },
+]
+export const CONTRACTS: Array<{ id: ContractId; displayName: string; chargeCost: number; reward: Record<string, number> }> = [
+  { id: 'reef_prize', displayName: 'Reef Prize Writ', chargeCost: 100, reward: { salvage: 140, doubloons: 1 } },
+  { id: 'storm_writ', displayName: 'Storm Writ', chargeCost: 140, reward: { ether_brine: 5, doubloons: 1 } },
+  { id: 'admiralty_chart', displayName: 'Admiralty Chart', chargeCost: 160, reward: { doubloons: 2 } },
+]
+export const PORT_FACILITIES: Array<{ id: PortFacilityId; displayName: string; baseCost: number; maxRank: number }> = [
+  { id: 'drydock', displayName: 'Drydock', baseCost: 2, maxRank: 5 },
+  { id: 'foundry', displayName: 'Foundry', baseCost: 3, maxRank: 5 },
+  { id: 'observatory', displayName: 'Observatory', baseCost: 3, maxRank: 5 },
+  { id: 'hidden_cove', displayName: 'Hidden Cove', baseCost: 4, maxRank: 4 },
+]
+export const OFFICERS: Array<{ id: OfficerId; displayName: string; post: string }> = [
+  { id: 'gunner', displayName: 'Master Gunner', post: 'weapon damage' },
+  { id: 'boatswain', displayName: 'Boatswain', post: 'max hull' },
+  { id: 'navigator', displayName: 'Navigator', post: 'route speed' },
+  { id: 'quartermaster', displayName: 'Quartermaster', post: 'salvage value' },
+  { id: 'occultist', displayName: 'Occultist', post: 'brine and relic odds' },
+]
 
 class Emitter {
   private _map = new Map<string, Listener[]>()
@@ -25,6 +64,7 @@ function defaultRoute(): RouteState {
     sector: 1,
     distance: 0,
     best_distance: 0,
+    ships_sunk_this_sector: 0,
     auto_progress: true,
     course_mode: 'forward',
   }
@@ -42,6 +82,10 @@ function defaultAbilities(): Record<AbilityId, AbilityState> {
   }
 }
 
+function defaultStormheart(): StormheartState {
+  return { active_boosts: [], max_boosts: 2 }
+}
+
 function defaultRun(): RunState {
   return {
     wave_index: 0,
@@ -52,6 +96,8 @@ function defaultRun(): RunState {
     doctrine: 'focus',
     milestone_muls: {},
     milestone_cost_muls: {},
+    milestone_choice_ids: {},
+    stormheart: defaultStormheart(),
     abilities: defaultAbilities(),
     timestamp: Date.now(),
   }
@@ -77,15 +123,60 @@ function defaultMuster() {
   }
 }
 
+function defaultShipwright(): ShipwrightState {
+  return { active_recipe: '', progress: 0, mastery: {} }
+}
+
+function defaultResearch() {
+  return {
+    focus: 'gunnery' as ResearchBranchId,
+    progress: { gunnery: 0, shipwrighting: 0, navigation: 0, occult: 0 },
+  }
+}
+
+function defaultRelics(): RelicState {
+  return { active_relic: 'cannon_ruby', shards: { cannon_ruby: 0, netted_astrolabe: 0, brine_compass: 0 } }
+}
+
+function defaultContracts() {
+  return { charge: 0, active_contract: 'reef_prize' as ContractId, completions: {} }
+}
+
+function defaultPort(): PortState {
+  return { facilities: { drydock: 0, foundry: 0, observatory: 0, hidden_cove: 0 } }
+}
+
+function defaultTrials(): TrialState {
+  return { completions: {} }
+}
+
+function defaultOfficers() {
+  return { active_officer: 'gunner' as OfficerId, xp: { gunner: 0, boatswain: 0, navigator: 0, quartermaster: 0, occultist: 0 } }
+}
+
+function defaultOrders(): OrderState {
+  return { auto_burn_brine: false, auto_research_focus: 'gunnery', auto_shipwright_recipe: '' }
+}
+
 function defaultPersistent(): PersistentState {
   return {
     unlocked_lanes: ['lane_01'],
-    unlocked_systems: ['arsenal'],
+    unlocked_systems: ['arsenal', 'stormheart', 'shipwright', 'research', 'relics', 'contracts', 'port', 'trials', 'officers', 'orders', 'ledger'],
     defeated_bosses: [],
     best_lane: 'lane_01',
     best_distance: 0,
+    lifetime_ships_sunk: 0,
+    best_sector_ships_sunk: {},
     prestige: defaultPrestige(),
     muster: defaultMuster(),
+    shipwright: defaultShipwright(),
+    research: defaultResearch(),
+    relics: defaultRelics(),
+    contracts: defaultContracts(),
+    port: defaultPort(),
+    trials: defaultTrials(),
+    officers: defaultOfficers(),
+    orders: defaultOrders(),
     persistent_resources: { doubloons: 0 },
   }
 }
@@ -93,7 +184,7 @@ function defaultPersistent(): PersistentState {
 export const MUSTER_MAX_LEVELS_PER_SECOND = 40
 export const ABILITY_ACTIVE_TICKS = 50
 export const ABILITY_COOLDOWN_TICKS = 400
-export type SystemUnlock = 'arsenal' | 'prestige' | 'muster'
+export type SystemUnlock = 'arsenal' | 'prestige' | 'muster' | 'stormheart' | 'shipwright' | 'research' | 'relics' | 'contracts' | 'port' | 'trials' | 'officers' | 'orders' | 'ledger'
 
 export const GameState = new class extends Emitter {
   run:        RunState        = defaultRun()
@@ -127,7 +218,76 @@ export const GameState = new class extends Emitter {
   private _route(): RouteState {
     if (!this.run.route) this.run.route = defaultRoute()
     this.run.route.sector ??= 1
+    this.run.route.ships_sunk_this_sector ??= 0
     return this.run.route
+  }
+
+  private _stormheart(): StormheartState {
+    if (!this.run.stormheart) this.run.stormheart = defaultStormheart()
+    this.run.stormheart.active_boosts ??= []
+    this.run.stormheart.max_boosts ??= 2
+    return this.run.stormheart
+  }
+
+  private _shipwright(): ShipwrightState {
+    if (!this.persistent.shipwright) this.persistent.shipwright = defaultShipwright()
+    this.persistent.shipwright.active_recipe ??= ''
+    this.persistent.shipwright.progress ??= 0
+    this.persistent.shipwright.mastery ??= {}
+    return this.persistent.shipwright
+  }
+
+  private _research() {
+    if (!this.persistent.research) this.persistent.research = defaultResearch()
+    this.persistent.research.focus ??= 'gunnery'
+    this.persistent.research.progress ??= defaultResearch().progress
+    for (const id of RESEARCH_BRANCHES) this.persistent.research.progress[id] ??= 0
+    return this.persistent.research
+  }
+
+  private _relics(): RelicState {
+    if (!this.persistent.relics) this.persistent.relics = defaultRelics()
+    this.persistent.relics.active_relic ??= 'cannon_ruby'
+    this.persistent.relics.shards ??= defaultRelics().shards
+    for (const relic of RELICS) this.persistent.relics.shards[relic.id] ??= 0
+    return this.persistent.relics
+  }
+
+  private _contracts() {
+    if (!this.persistent.contracts) this.persistent.contracts = defaultContracts()
+    this.persistent.contracts.charge ??= 0
+    this.persistent.contracts.active_contract ??= 'reef_prize'
+    this.persistent.contracts.completions ??= {}
+    return this.persistent.contracts
+  }
+
+  private _port(): PortState {
+    if (!this.persistent.port) this.persistent.port = defaultPort()
+    this.persistent.port.facilities ??= defaultPort().facilities
+    for (const facility of PORT_FACILITIES) this.persistent.port.facilities[facility.id] ??= 0
+    return this.persistent.port
+  }
+
+  private _trials(): TrialState {
+    if (!this.persistent.trials) this.persistent.trials = defaultTrials()
+    this.persistent.trials.completions ??= {}
+    return this.persistent.trials
+  }
+
+  private _officers() {
+    if (!this.persistent.officers) this.persistent.officers = defaultOfficers()
+    this.persistent.officers.active_officer ??= 'gunner'
+    this.persistent.officers.xp ??= defaultOfficers().xp
+    for (const officer of OFFICERS) this.persistent.officers.xp[officer.id] ??= 0
+    return this.persistent.officers
+  }
+
+  private _orders(): OrderState {
+    if (!this.persistent.orders) this.persistent.orders = defaultOrders()
+    this.persistent.orders.auto_burn_brine ??= false
+    this.persistent.orders.auto_research_focus ??= 'gunnery'
+    this.persistent.orders.auto_shipwright_recipe ??= ''
+    return this.persistent.orders
   }
 
   private _isPersistentResource(id: string): boolean {
@@ -173,13 +333,20 @@ export const GameState = new class extends Emitter {
     return (this.run.milestone_cost_muls ?? {})[upgradeId] ?? []
   }
 
-  applyMilestoneChoice(upgradeId: string, milestoneIndex: number, dmgMul: number, costMul: number): void {
+  getMilestoneChoiceIds(upgradeId: string): string[] {
+    return (this.run.milestone_choice_ids ?? {})[upgradeId] ?? []
+  }
+
+  applyMilestoneChoice(upgradeId: string, milestoneIndex: number, dmgMul: number, costMul: number, choiceId = ''): void {
     if (!this.run.milestone_muls)      this.run.milestone_muls = {}
     if (!this.run.milestone_cost_muls) this.run.milestone_cost_muls = {}
+    if (!this.run.milestone_choice_ids) this.run.milestone_choice_ids = {}
     if (!this.run.milestone_muls[upgradeId])      this.run.milestone_muls[upgradeId] = []
     if (!this.run.milestone_cost_muls[upgradeId]) this.run.milestone_cost_muls[upgradeId] = []
+    if (!this.run.milestone_choice_ids[upgradeId]) this.run.milestone_choice_ids[upgradeId] = []
     this.run.milestone_muls[upgradeId][milestoneIndex]      = dmgMul
     this.run.milestone_cost_muls[upgradeId][milestoneIndex] = costMul
+    this.run.milestone_choice_ids[upgradeId][milestoneIndex] = choiceId
     this.emit('upgrade_purchased', upgradeId, this.getUpgradeLevel(upgradeId))
   }
 
@@ -189,11 +356,14 @@ export const GameState = new class extends Emitter {
       const milestoneIndex = Math.floor(level / 5) - 1
       if (!this.run.milestone_muls)      this.run.milestone_muls = {}
       if (!this.run.milestone_cost_muls) this.run.milestone_cost_muls = {}
+      if (!this.run.milestone_choice_ids) this.run.milestone_choice_ids = {}
       if (!this.run.milestone_muls[id])      this.run.milestone_muls[id] = []
       if (!this.run.milestone_cost_muls[id]) this.run.milestone_cost_muls[id] = []
+      if (!this.run.milestone_choice_ids[id]) this.run.milestone_choice_ids[id] = []
       if (this.run.milestone_muls[id][milestoneIndex] === undefined) {
         this.run.milestone_muls[id][milestoneIndex]      = 1.25
         this.run.milestone_cost_muls[id][milestoneIndex] = 1.0
+        this.run.milestone_choice_ids[id][milestoneIndex] = 'standard'
       }
       this.emit('upgrade_purchased', id, level)
       return
@@ -251,6 +421,51 @@ export const GameState = new class extends Emitter {
   abilityDamageMultiplier(): number { return this.isAbilityActive('overcharge') ? 1.35 : 1.0 }
   abilityFireRateMultiplier(): number { return this.isAbilityActive('overcharge') ? 0.75 : 1.0 }
 
+  getStormBoosts(): StormBoostId[] { return [...this._stormheart().active_boosts] }
+  isStormBoostActive(id: StormBoostId): boolean { return this._stormheart().active_boosts.includes(id) }
+  getStormMaxBoosts(): number { return this._stormheart().max_boosts }
+
+  burnEtherBrine(): boolean {
+    if (!this.spendResource('ether_brine', 5)) return false
+    this.addResource('storm_power', 20)
+    this.emit('stormheart_changed')
+    return true
+  }
+
+  toggleStormBoost(id: StormBoostId): void {
+    const storm = this._stormheart()
+    if (storm.active_boosts.includes(id)) {
+      storm.active_boosts = storm.active_boosts.filter(boost => boost !== id)
+    } else {
+      storm.active_boosts.push(id)
+    }
+    this.emit('stormheart_changed')
+  }
+
+  tickStormheart(seconds: number): void {
+    const active = this._stormheart().active_boosts
+    if (active.length === 0) return
+    const overLimit = Math.max(0, active.length - this.getStormMaxBoosts())
+    const drain = (active.length * 0.42 + overLimit * 0.7) * seconds
+    const cur = this.getResource('storm_power')
+    if (cur <= 0) {
+      this._stormheart().active_boosts = []
+      this.emit('stormheart_changed')
+      return
+    }
+    const next = Math.max(0, cur - drain)
+    this.run.resources.storm_power = next
+    this.emit('resource_changed', 'storm_power', next)
+    if (next <= 0) {
+      this._stormheart().active_boosts = []
+      this.emit('stormheart_changed')
+    }
+  }
+
+  stormDamageMultiplier(): number { return this.isStormBoostActive('thunder_broadside') ? 1.2 : 1 }
+  stormDistanceMultiplier(): number { return this.isStormBoostActive('fair_wind') ? 1.35 : 1 }
+  stormSalvageMultiplier(): number { return this.isStormBoostActive('deep_salvage') ? 1.25 : 1 }
+
 
   getPlayerHull(): number { return this.run.combat.player_hull }
 
@@ -269,7 +484,7 @@ export const GameState = new class extends Emitter {
     const refitIncrement = Number(hullUpgrade?.['effect_scale'] ?? 14)
     const muls = hullUpgrade ? this.getMilestoneMuls(hullUpgrade['id'] ?? '') : []
     const refitHull = Balance.shipHull(baseHull, hullLevel, refitIncrement, muls)
-    return refitHull * Balance.seamanshipHullBonus(this.getMusterSeamanship())
+    return refitHull * Balance.seamanshipHullBonus(this.getMusterSeamanship()) * this.portHullMultiplier() * this.officerHullMultiplier()
   }
 
   isSystemUnlocked(id: SystemUnlock): boolean { return this._systems().includes(id) }
@@ -289,9 +504,19 @@ export const GameState = new class extends Emitter {
     const firstClear = !bosses.includes(id)
     const unlocked: SystemUnlock[] = []
     if (firstClear) bosses.push(id)
-    if (id === 'lane_01_boss' && this.unlockSystem('prestige')) unlocked.push('prestige')
+    if (this._bossUnlocksPrestige(id) && this.unlockSystem('prestige')) unlocked.push('prestige')
     this.emit('boss_defeated_persistent', id, firstClear, unlocked)
     return { firstClear, unlocked }
+  }
+
+  private _bossUnlocksPrestige(id: string): boolean {
+    return id === 'lane_01_boss' || id === 'sector_001_boss'
+  }
+
+  private _hasDefeatedSectorBoss(sector: number): boolean {
+    const sectorBossId = `sector_${String(sector).padStart(3, '0')}_boss`
+    const laneBossId = `lane_${String(sector).padStart(2, '0')}_boss`
+    return this.hasDefeatedBoss(sectorBossId) || this.hasDefeatedBoss(laneBossId)
   }
 
   getSelectedShip(): string { return this._prestige().selected_ship }
@@ -310,7 +535,7 @@ export const GameState = new class extends Emitter {
     this.persistent.defeated_bosses = bosses
     this.persistent.prestige = prestige
     this.persistent.muster = defaultMuster()
-    if (bosses.includes('lane_02_boss')) this.unlockSystem('muster')
+    if (bosses.includes('lane_02_boss') || bosses.includes('sector_002_boss')) this.unlockSystem('muster')
     this.emit('returned_to_port', prestige.returns)
     this.emit('muster_changed', 'reset')
     this.emitRouteChanged()
@@ -328,6 +553,7 @@ export const GameState = new class extends Emitter {
     route.sector = Math.max(1, Math.min(SectorPlan.sectorCount, Math.floor(sector) || 1))
     route.distance = 0
     route.best_distance = 0
+    route.ships_sunk_this_sector = 0
     this.run.wave_index = 0
     this.run.combat.boss_phase = false
     this.emit('sector_changed', route.sector)
@@ -346,8 +572,251 @@ export const GameState = new class extends Emitter {
 
   getRouteBestDistance(): number { return this._route().best_distance }
 
+  getShipsSunkThisSector(): number { return this._route().ships_sunk_this_sector }
+
+  getLifetimeShipsSunk(): number {
+    this.persistent.lifetime_ships_sunk ??= 0
+    return this.persistent.lifetime_ships_sunk
+  }
+
+  getBestShipsSunkForCurrentSector(): number {
+    this.persistent.best_sector_ships_sunk ??= {}
+    return this.persistent.best_sector_ships_sunk[`sector_${this.getCurrentSector()}`] ?? 0
+  }
+
+  recordShipSunk(): void {
+    const route = this._route()
+    route.ships_sunk_this_sector = Math.max(0, (route.ships_sunk_this_sector ?? 0) + 1)
+    this.persistent.lifetime_ships_sunk = this.getLifetimeShipsSunk() + 1
+    this.persistent.best_sector_ships_sunk ??= {}
+    const key = `sector_${route.sector}`
+    this.persistent.best_sector_ships_sunk[key] = Math.max(
+      this.persistent.best_sector_ships_sunk[key] ?? 0,
+      route.ships_sunk_this_sector,
+    )
+    this.emit('ship_sunk_recorded', route.ships_sunk_this_sector, this.persistent.lifetime_ships_sunk)
+  }
+
+  awardResearchForKill(isBoss: boolean): void {
+    const route = SectorPlan.getSector(this.getCurrentSector())
+    const base = isBoss ? 18 : 3
+    const focus = this.getResearchFocus()
+    const weights = this._researchWeights(route.routeTag)
+    for (const branch of RESEARCH_BRANCHES) {
+      const focusMul = branch === focus ? 2.5 : 1
+      this._research().progress[branch] += base * weights[branch] * focusMul
+    }
+    this.emit('research_changed')
+  }
+
+  awardSideSystemKill(isBoss: boolean): void {
+    const route = SectorPlan.getSector(this.getCurrentSector())
+    const charge = (isBoss ? 18 : 4) + Math.floor(this.getPortFacilityRank('observatory') * 1.5)
+    this._contracts().charge = Math.min(999, this._contracts().charge + charge)
+    const activeOfficer = this.getActiveOfficer()
+    this._officers().xp[activeOfficer] += isBoss ? 24 : 5
+    const occultRank = Math.floor(this.getResearchProgress('occult') / 100)
+    const relicChance = (isBoss ? 0.45 : 0.06) + occultRank * 0.01 + this.officerOccultBonus() + (route.routeTag === 'storm_line' ? 0.03 : 0)
+    if (Math.random() < relicChance) {
+      const relicId = route.routeTag === 'storm_line' ? 'brine_compass' : route.routeTag === 'black_reef' ? 'netted_astrolabe' : 'cannon_ruby'
+      this._relics().shards[relicId] += isBoss ? 3 : 1
+      this.emit('relics_changed', relicId)
+    }
+    this.emit('contracts_changed')
+    this.emit('officers_changed')
+  }
+
+  private _researchWeights(routeTag: string): Record<ResearchBranchId, number> {
+    if (routeTag === 'black_reef') return { gunnery: 1.35, shipwrighting: 1.45, navigation: 0.8, occult: 0.85 }
+    if (routeTag === 'storm_line') return { gunnery: 0.85, shipwrighting: 0.85, navigation: 1.45, occult: 1.35 }
+    return { gunnery: 1, shipwrighting: 1, navigation: 1, occult: 1 }
+  }
+
+  salvageRewardMultiplier(): number {
+    let bonus = 0
+    for (const [upgradeId, choiceIds] of Object.entries(this.run.milestone_choice_ids ?? {})) {
+      const upgrade = Definitions.getUpgrade(upgradeId)
+      if (!upgrade) continue
+      const choices = upgrade['milestone_choices'] as Array<Record<string, unknown>> | undefined
+      if (!choices) continue
+      for (const choiceId of choiceIds) {
+        const choice = choices.find(c => c['id'] === choiceId)
+        bonus += Number(choice?.['salvage_per_sector_sunk'] ?? 0) * this.getShipsSunkThisSector()
+      }
+    }
+    bonus += this.shipwrightMastery('salvage_nets') * 0.06
+    bonus += Math.floor(this.getResearchProgress('shipwrighting') / 100) * 0.02
+    bonus += this.portSalvageBonus()
+    bonus += this.officerSalvageBonus()
+    bonus += this.relicSalvageBonus()
+    return Math.min(2.5, 1 + bonus)
+  }
+
+  getShipwrightState(): ShipwrightState { return { ...this._shipwright(), mastery: { ...this._shipwright().mastery } } }
+  shipwrightMastery(id: string): number { return this._shipwright().mastery[id] ?? 0 }
+
+  startShipwrightRecipe(id: string): boolean {
+    const recipe = SHIPWRIGHT_RECIPES.find(r => r.id === id)
+    if (!recipe || this._shipwright().active_recipe) return false
+    const discount = Math.max(0.55, 1 - this.shipwrightMastery(id) * 0.06)
+    if (!this.spendResource('salvage', recipe.salvageCost * discount)) return false
+    const state = this._shipwright()
+    state.active_recipe = id
+    state.progress = 0
+    this.emit('shipwright_changed')
+    return true
+  }
+
+  tickShipwright(seconds: number): void {
+    const state = this._shipwright()
+    if (!state.active_recipe) return
+    const recipe = SHIPWRIGHT_RECIPES.find(r => r.id === state.active_recipe)
+    if (!recipe) {
+      state.active_recipe = ''
+      state.progress = 0
+      return
+    }
+    const speed = 1 + Math.floor(this.getResearchProgress('shipwrighting') / 100) * 0.05
+    state.progress += seconds * speed
+    if (state.progress < recipe.seconds) {
+      this.emit('shipwright_changed')
+      return
+    }
+    state.mastery[recipe.id] = Math.min(recipe.masteryCap, (state.mastery[recipe.id] ?? 0) + 1)
+    state.active_recipe = ''
+    state.progress = 0
+    this.emit('shipwright_changed', recipe.id)
+  }
+
+  getResearchFocus(): ResearchBranchId { return this._research().focus }
+
+  setResearchFocus(id: ResearchBranchId): void {
+    this._research().focus = id
+    this.emit('research_changed')
+  }
+
+  getResearchProgress(id: ResearchBranchId): number { return this._research().progress[id] ?? 0 }
+
+  getRelicState(): RelicState { return { active_relic: this._relics().active_relic, shards: { ...this._relics().shards } } }
+  getRelicRank(id: RelicId): number { return Math.min(5, Math.floor((this._relics().shards[id] ?? 0) / 10)) }
+  getActiveRelic(): RelicId { return this._relics().active_relic }
+
+  setActiveRelic(id: RelicId): void {
+    this._relics().active_relic = id
+    this.emit('relics_changed', id)
+  }
+
+  relicDamageMultiplier(): number {
+    return this.getActiveRelic() === 'cannon_ruby' ? 1 + this.getRelicRank('cannon_ruby') * 0.04 : 1
+  }
+
+  relicSalvageBonus(): number {
+    return this.getActiveRelic() === 'netted_astrolabe' ? this.getRelicRank('netted_astrolabe') * 0.05 : 0
+  }
+
+  relicBrineChanceBonus(): number {
+    return this.getActiveRelic() === 'brine_compass' ? this.getRelicRank('brine_compass') * 0.015 : 0
+  }
+
+  getContractState() { return { ...this._contracts(), completions: { ...this._contracts().completions } } }
+
+  setActiveContract(id: ContractId): void {
+    this._contracts().active_contract = id
+    this.emit('contracts_changed')
+  }
+
+  completeActiveContract(): boolean {
+    const state = this._contracts()
+    const contract = CONTRACTS.find(c => c.id === state.active_contract)
+    if (!contract || state.charge < contract.chargeCost) return false
+    state.charge -= contract.chargeCost
+    state.completions[contract.id] = (state.completions[contract.id] ?? 0) + 1
+    for (const [id, amount] of Object.entries(contract.reward)) this.addResource(id, amount)
+    this.emit('contracts_changed')
+    return true
+  }
+
+  getPortFacilityRank(id: PortFacilityId): number { return this._port().facilities[id] ?? 0 }
+
+  getPortState(): PortState { return { facilities: { ...this._port().facilities } } }
+
+  portUpgradeCost(id: PortFacilityId): number {
+    const facility = PORT_FACILITIES.find(f => f.id === id)
+    const rank = this.getPortFacilityRank(id)
+    return Math.ceil((facility?.baseCost ?? 3) * Math.pow(1.8, rank))
+  }
+
+  upgradePortFacility(id: PortFacilityId): boolean {
+    const facility = PORT_FACILITIES.find(f => f.id === id)
+    if (!facility) return false
+    const rank = this.getPortFacilityRank(id)
+    if (rank >= facility.maxRank) return false
+    if (!this.spendResource('doubloons', this.portUpgradeCost(id))) return false
+    this._port().facilities[id] = rank + 1
+    this.emit('port_changed', id)
+    return true
+  }
+
+  portHullMultiplier(): number { return 1 + this.getPortFacilityRank('drydock') * 0.05 }
+  portSalvageBonus(): number { return this.getPortFacilityRank('foundry') * 0.04 }
+  portContractBonus(): number { return this.getPortFacilityRank('observatory') * 0.06 }
+  portRareDropBonus(): number { return this.getPortFacilityRank('hidden_cove') * 0.01 }
+
+  getTrialCompletions(): Record<string, number> { return { ...this._trials().completions } }
+
+  completeTrial(id: string): boolean {
+    if (this._trials().completions[id]) return false
+    const ok =
+      (id === 'gunnery_trial' && this.getUpgradeLevel('long_nine_upgrade') >= 5) ||
+      (id === 'shipwright_trial' && Object.values(this._shipwright().mastery).some(v => v >= 1)) ||
+      (id === 'storm_trial' && this.getResource('ether_brine') >= 5) ||
+      (id === 'research_trial' && RESEARCH_BRANCHES.some(branch => this.getResearchProgress(branch) >= 100))
+    if (!ok) return false
+    this._trials().completions[id] = 1
+    this.addResource('doubloons', id === 'storm_trial' ? 2 : 1)
+    this.emit('trials_changed', id)
+    return true
+  }
+
+  getOfficerState() { return { active_officer: this._officers().active_officer, xp: { ...this._officers().xp } } }
+  getActiveOfficer(): OfficerId { return this._officers().active_officer }
+  setActiveOfficer(id: OfficerId): void {
+    this._officers().active_officer = id
+    this.emit('officers_changed')
+  }
+  getOfficerRank(id: OfficerId): number { return Math.floor((this._officers().xp[id] ?? 0) / 100) }
+  officerDamageMultiplier(): number { return this.getActiveOfficer() === 'gunner' ? 1 + this.getOfficerRank('gunner') * 0.03 : 1 }
+  officerHullMultiplier(): number { return this.getActiveOfficer() === 'boatswain' ? 1 + this.getOfficerRank('boatswain') * 0.04 : 1 }
+  officerDistanceMultiplier(): number { return this.getActiveOfficer() === 'navigator' ? 1 + this.getOfficerRank('navigator') * 0.03 : 1 }
+  officerSalvageBonus(): number { return this.getActiveOfficer() === 'quartermaster' ? this.getOfficerRank('quartermaster') * 0.04 : 0 }
+  officerOccultBonus(): number { return this.getActiveOfficer() === 'occultist' ? this.getOfficerRank('occultist') * 0.01 : 0 }
+
+  getOrdersState(): OrderState { return { ...this._orders() } }
+
+  setOrder<K extends keyof OrderState>(key: K, value: OrderState[K]): void {
+    this._orders()[key] = value
+    this.emit('orders_changed')
+  }
+
+  tickOrders(): void {
+    const orders = this._orders()
+    if (orders.auto_research_focus && this.getResearchFocus() !== orders.auto_research_focus) {
+      this.setResearchFocus(orders.auto_research_focus)
+    }
+    if (orders.auto_burn_brine && this.getResource('storm_power') < 5 && this.getResource('ether_brine') >= 5) {
+      this.burnEtherBrine()
+    }
+    if (orders.auto_shipwright_recipe && !this._shipwright().active_recipe) {
+      this.startShipwrightRecipe(orders.auto_shipwright_recipe)
+    }
+  }
+
   getRouteDistanceGoal(): number {
     return SectorPlan.getSector(this.getCurrentSector()).distance
+  }
+
+  hasDefeatedCurrentSectorBoss(sector = this.getCurrentSector()): boolean {
+    return this._hasDefeatedSectorBoss(sector)
   }
 
   setRouteDistance(value: number): void {

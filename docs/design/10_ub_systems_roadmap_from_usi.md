@@ -19,14 +19,14 @@ Use this as a todo list and design brief. It is not a promise to implement every
 
 | Order | UB System | Inspired By | Role | Prototype Status |
 | --- | --- | --- | --- | --- |
-| 1 | Sea Sectors | USI Sectors | Main progression spine: distance, waves, boss, first clears. | Started |
-| 2 | Arsenal | USI Core | First spend system and equipment identity. | Started |
+| 1 | Sea Sectors | USI Sectors | Main progression spine: distance, waves, boss, first clears. | Started: sector UI, route tags, distance, Hold/Forward, boss clears, and first-clear unlock metadata are live in the web prototype. |
+| 2 | Arsenal | USI Core | First spend system and equipment identity. | Started: upgrade cards, every-5 milestone choices, visible projectile/smoke scaling, active abilities, and targeting orders are live. |
 | 3 | Return To Port | USI Prestige | Reset/reconfigure around ship, weapon, defense, utility. | Started |
 | 4 | Muster | USI Compute-ish allocation | Earned crew power allocation between Gunnery and Seamanship. | Started |
-| 5 | Targeting Doctrines | USI loadout/automation need | Make multi-ship combat readable and buildable. | Not started |
-| 6 | Stormheart Furnace | USI Reactor / Void Matter | Resetting power resource and boost engine. | Not started |
-| 7 | Shipwright's Bench | USI Synth + Modules | Crafting, recipe mastery, active rigging modules. | Not started |
-| 8 | Admiralty Research | USI Research | Branch focus and route-weighted permanent unlocks. | Not started |
+| 5 | Targeting Doctrines | USI loadout/automation need | Make multi-ship combat readable and buildable. | Started: Focus, Suppression, and Scatter orders exist; selected and escort ships have hull/reward state. |
+| 6 | Stormheart Furnace | USI Reactor / Void Matter | Resetting power resource and boost engine. | Started: Ether Brine drops from kills, burns into Storm Power, and fuels toggleable Thunder Broadside, Fair Wind, and Deep Salvage boosts. |
+| 7 | Shipwright's Bench | USI Synth + Modules | Crafting, recipe mastery, active rigging modules. | Started: craft queue, Salvage costs, Blueprint Mastery, Standing Supply framing, and early fitting effects exist. |
+| 8 | Admiralty Research | USI Research | Branch focus and route-weighted permanent unlocks. | Started: kill-based branch progress, focus multiplier, and route density weighting exist. |
 | 9 | Relic Compass | USI V-Device | Drops-as-buildcraft with sockets, attunement, visible relic effects. | Not started |
 | 10 | Captain's Ledger | USI Task List | Mastery checklist before major phase changes. | Not started |
 | 11 | Captain's Trials | USI Challenges | Focused rule-bending runs that teach systems. | Not started |
@@ -38,6 +38,59 @@ Use this as a todo list and design brief. It is not a promise to implement every
 | 17 | Legend Reset | USI Reinforce | Second prestige layer that compresses solved early game. | Future |
 | 18 | Armada Campaigns | USI Fleet | Persistent late-game expedition map. | Future |
 | 19 | Cursed Officers | USI Splicing | Very late officer mutation/curse mastery. | Future |
+
+## System Unfolding Plan
+
+USI's useful pattern is not only "unlock a tab at a sector." It introduces a tab, gives it one clear job, then later adds cross-system hooks so older tabs become part of newer solutions. UB should follow that rhythm: every new Captain's Desk object appears with a narrow purpose, then later passages make it interlock with routes, Return to Port, boss milestones, or another desk object.
+
+Target passages are pacing targets, not hard promises. "Passage" here means the player-facing sector clear or first Return to Port after that clear.
+
+| Target Passage | Unlock / Expansion | First Job | Later Interconnects |
+| --- | --- | --- | --- |
+| Start | Sea Sectors + Arsenal | Push distance, sink visible ships, spend Salvage on weapon/hull. | Arsenal milestones later read ships sunk, route tags, Research, and Shipwright fittings. |
+| Passage 1 clear | Prestige planning | Explain Return to Port, reset contract, and next goal. | Prestige becomes the place for loadout, starting-sector charts, port bonuses, and automation templates. |
+| Passage 2 clear + Return | Muster | Turn combat into crew allocation between Gunnery and Seamanship. | Officers later preserve/catch up discipline records; Research can unlock extra Muster branches. |
+| Passage 3 clear | Targeting Orders | Make visible fleets mechanically honest with Focus/Suppression/Scatter. | Gunnery Research unlocks more priorities; Captain's Orders automates doctrine rules. |
+| Passage 4 clear | Stormheart Furnace | Convert rare Ether Brine into temporary Storm Power boosts. | Occult Research improves Brine; Shipwright builds boost fittings; Storm Contracts consume/charge through Stormheart. |
+| Passage 5 clear or first Black Reef branch | Shipwright's Bench | Craft fittings over time and establish Blueprint Mastery. | Shipwrighting Research speeds crafting; Port Facilities produce materials; modules become Return to Port loadout pieces. |
+| Passage 6 clear | Admiralty Research | Branch progress from kills, with one focused branch. | Route tags weight research; Research unlocks route previews, module slots, relic sockets, and automation. |
+| Passage 8 clear | Relic Compass | First socket and duplicate Attunement loop. | Occult Research reveals drops; Stormheart/elite routes improve rare relic odds; Trials test relic-focused setups. |
+| Passage 10 clear | Harbor Chart / Starting Sector | Reduce repeated early progression after Return to Port. | Navigation Research and Port Facilities expand charted starts; Captain's Orders later auto-selects starts. |
+| Passage 12 or first elite branch clear | Storm Contracts | Charged side gauntlets with partial rewards. | Stormheart boosts charge speed; Research reveals contract types; Shipwright modules specialize contract runs. |
+| Passage 15 clear | Port Facilities seed | First tiny port grid that produces persistent bonuses after Return. | Facilities support Arsenal, Shipwright, Research, Stormheart, and Officers through named buildings. |
+| Passage 18 clear | Captain's Trials | Focused rule-bending runs that teach one system at a time. | Trial completions add permanent bonuses and become Captain's Ledger requirements. |
+| Passage 20 clear | Officers | Character specialization after the main machine is readable. | Officers preserve/catch up Muster-like disciplines, improve automation rules, and specialize Shipwright/Research/Contracts. |
+| Passage 25 clear | Captain's Orders | Automate solved chores: targeting, boost rules, crafting queues, research focus. | Orders become loadout templates that combine Prestige, Shipwright modules, Research focus, and route choices. |
+| Passage 30 clear | Captain's Ledger | Short mastery checklist before the next major sea phase. | Pulls from boss clears, one Trial, one Contract, module mastery, Research rank, and elite route clear. |
+| Passage 40+ | Flagship Phase seed | Bigger flagship/fleet layer, not just higher numbers. | Compresses solved early passages and reuses Arsenal, Officers, Research, Stormheart, and Shipwright in larger forms. |
+
+### Unlock Philosophy
+
+- A new tab should unlock only when the player has a reason to care about its first job.
+- First unlocks should be small: one socket, one craft slot, one boost, one focus choice, one trial type.
+- Later passages should expand existing tabs before adding new ones, especially after Passage 10.
+- Route branches should not only be harder; they should point at systems. Black Reef leans Shipwrighting/Gunnery, Storm Line leans Navigation/Occult, and Trade Wind remains the baseline path.
+- Return to Port should become the ritual that makes cross-system decisions readable: ship/weapon/defense/utility, starting passage, active modules, relic loadout, and automation template.
+- Captain's Orders should arrive after repetition is visible, not before the player understands what is being automated.
+
+### Interconnect Map
+
+| System | Feeds Into | Receives From |
+| --- | --- | --- |
+| Sea Sectors | Research density, Relic drops, Ether Brine, Contracts, Ledger goals. | Navigation Research, Stormheart Fair Wind, starting-sector charts, Captain's Orders. |
+| Arsenal | Combat clears, Trial builds, visible weapon identity. | Salvage, Muster Gunnery, Shipwright modules, Gunnery Research, Stormheart boosts. |
+| Return To Port | Reset/reconfigure, unlock timing, loadout choices. | Boss first-clears, Doubloons, Port Facilities, Captain's Orders templates. |
+| Muster | Early combat power and crew-allocation teaching. | Combat XP, later Officers, possible Research branch unlocks. |
+| Targeting Orders | Multi-ship combat honesty and pressure management. | Gunnery Research, Captain's Orders, weapon families. |
+| Stormheart Furnace | Temporary run boosts, Contract charge, rare-drop identity. | Ether Brine, Occult Research, Shipwright fittings, Port Facilities. |
+| Shipwright's Bench | Modules, mastery, Standing Supply, contract/route fittings. | Salvage/materials, Shipwrighting Research, Port Facilities, elite routes. |
+| Admiralty Research | Unlocks, diagnostics, route preview, branch specialization. | Kills, route tags, Research focus, Spyglass-style modules. |
+| Relic Compass | Drop buildcraft, duplicate Attunement, socket decisions. | Occult Research, elite sectors, Stormheart rare-drop boosts. |
+| Storm Contracts | Side challenges and special currency. | Stormheart charge, Research previews, Shipwright modules, route unlocks. |
+| Port Facilities | Persistent production and Return bonuses. | Doubloons, boss clears, facility components, Return to Port. |
+| Officers | Specialization, catch-up, long-term identity. | Muster records, Trials, Crew XP, Captain's Orders. |
+| Captain's Orders | Automation and templates. | Research unlocks, Officers, repeated manual actions, loadout history. |
+| Captain's Ledger | Phase gate and diagnostics. | Milestones from all currently mature systems. |
 
 ## Resource Reset Defaults
 
@@ -89,11 +142,11 @@ This is the main horizon-opening system. It should feel like charting dangerous 
 
 ### Todo
 
-- Add `data/definitions/sectors.json`.
-- Track `sector`, `route`, `distance`, `waves_cleared`, and `boss_cleared`.
-- Replace player-facing "lane" language with "sector" language.
-- Add route names: Trade Wind, Black Reef, Storm Line.
-- Add first-clear unlock metadata.
+- Done in prototype: `data/definitions/sectors.json` exists for authored early sectors, with generated fallback sectors after that.
+- Done in prototype: track `sector`, route distance, boss phase, boss first-clears, route names, route tags, and first-clear unlock metadata.
+- Done in prototype: player-facing "sector" language has replaced the major "lane" labels. Legacy lane ids remain only for migration and authored boss compatibility.
+- Done in prototype: track ships sunk this sector, best ships sunk for the sector, and lifetime ships sunk so farming while Held becomes a measurable USI-style preparation loop.
+- Next: add a small sector chart panel once route branches need player choice.
 
 ### Research Prompts
 
@@ -129,10 +182,10 @@ Arsenal is the first "working captain's desk" system: a quiet panel that makes t
 
 ### Todo
 
-- Add milestone reward UI.
-- Add milestone choice every larger breakpoint.
-- Add hull/defense family selection later in Return to Port.
-- Add visible projectile/effect variants per weapon type.
+- Done in prototype: milestone choice UI appears on reached every-5 levels.
+- Done in prototype: weapon upgrade levels visibly affect smoke, shot weight, and impact splash.
+- Done in prototype: Long Nine milestones include Prize Ledger, a behavior-flavored choice that trades raw damage for a growing salvage pickup bonus from ships sunk this sector.
+- Later: add hull/defense family selection in Return to Port.
 
 ### Research Prompts
 
@@ -293,11 +346,11 @@ USI has Void Matter as a resetting second currency used by Reactor and Compute-r
 
 ### Todo
 
-- Add Ether Brine as a run-resetting resource.
-- Add Storm Power as derived temporary power.
-- Add one boost: Thunder Broadside or Fair Wind.
-- Add concurrent boost limit.
-- Add reset behavior in Return to Port preview.
+- Done in prototype: Ether Brine is a run-resetting rare kill pickup.
+- Done in prototype: Storm Power is a run-resetting derived resource made by burning Ether Brine.
+- Done in prototype: Thunder Broadside, Fair Wind, and Deep Salvage boosts are toggleable and drain Storm Power.
+- Done in prototype: concurrent boost limit and over-limit drain are represented.
+- Next: add stronger visual combat tells for each active boost.
 
 ### Research Prompts
 
@@ -332,19 +385,14 @@ This is UB's Synth. It must be tactile: materials, blueprints, fittings, charms,
 
 ### Todo
 
-- Define starter materials:
+- Done in prototype: define starter recipes:
   - Refined Timber.
-  - Sailcloth Sigil.
   - Brass Gear.
-  - Powder Core.
-  - Stormglass Lens.
-- Define first modules:
-  - Broadside Efficiency.
-  - Braced Bulkheads.
   - Salvage Nets.
   - Fair Wind Rigging.
-- Add crafting slots and recipe XP.
-- Add Standing Supply at recipe mastery.
+- Done in prototype: one active crafting slot, Salvage craft costs, timed progress, and permanent Blueprint Mastery.
+- Started in prototype: mastery affects salvage pickups and Shipwright speed through Research.
+- Next: add material inventory and active Rigging Module slots.
 
 ### Research Prompts
 
@@ -385,10 +433,10 @@ Research should not feel like lab science. It should feel like chart-reading, sh
 
 ### Todo
 
-- Add research branch state.
-- Add focus selector.
-- Add route density fields to sectors.
-- Add first unlocks for targeting and module slot.
+- Done in prototype: add research branch state.
+- Done in prototype: add focus selector with a 2.5x focused gain multiplier.
+- Done in prototype: route tags weight research density.
+- Next: bind first unlocks to branch ranks instead of only showing rank effects.
 
 ### Research Prompts
 

@@ -39,6 +39,7 @@ These files are useful background, not implementation orders. Prefer the synthes
 - [06_user_worldbuilding_mechanics_brainstorm.md](06_user_worldbuilding_mechanics_brainstorm.md): preserved user brainstorm for factions, regions, relics, bosses, and exploration mechanics.
 - [07_unnamed_space_idle_systems_todo.md](07_unnamed_space_idle_systems_todo.md): tactical carryover backlog for USI-inspired sectors, waves, bosses, routes, prestige, Arsenal milestones, and defense systems.
 - [08_unnamed_space_idle_mid_late_mechanics_survey.md](08_unnamed_space_idle_mid_late_mechanics_survey.md): source-based survey of USI mid/late systems including Challenges, Task List, Capital Gameplay, Reinforce, Fleet, AI automation, and UB translations.
+- [09_usi_system_visual_grammars_and_ub_patterns.md](09_usi_system_visual_grammars_and_ub_patterns.md): screenshot-based analysis of each USI system's structural visual grammar, UB-native grammar proposals for every planned system, and five original visual patterns USI does not use (course flags, chart-strip sea panel, fleet doctrine silhouettes, infamy notice progression, relic object transformation).
 
 ## External Prompts
 

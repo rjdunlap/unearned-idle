@@ -23,6 +23,14 @@
       "persistence_tier": "run",
       "icon": "placeholder_ether_brine",
       "description": "Distilled essence harvested from defeated enemies. Resets on Return to Port. Fuels Stormheart Furnace upgrades."
+    },
+    {
+      "id": "storm_power",
+      "display_name": "Storm Power",
+      "color": "#22A6A1",
+      "persistence_tier": "run",
+      "icon": "placeholder_storm_power",
+      "description": "Temporary furnace pressure made by burning Ether Brine. Resets on Return to Port and drains while Stormheart boosts are active."
     }
   ]
 }

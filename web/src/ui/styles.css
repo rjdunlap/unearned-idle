@@ -89,8 +89,11 @@
   align-items: stretch;
   overflow: hidden;
 }
-.ub-shell.mechanics-collapsed .panel-bg > :not(.tab-row) {
+.ub-shell.mechanics-collapsed .panel-bg > :not(.tab-rows) {
   display: none !important;
+}
+.ub-shell.mechanics-collapsed .tab-rows {
+  width: 100%;
 }
 .ub-shell.mechanics-collapsed .tab-row {
   flex-direction: column;
@@ -209,10 +212,18 @@
 }
 .route-distance-label {
   min-width: 84px;
+  max-width: min(56vw, 440px);
   color: rgba(232, 216, 184, 0.82);
   font-size: 12px;
   text-align: right;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sector-diagnostic {
+  color: rgba(205, 217, 217, 0.72);
+  font-size: 11px;
+  min-height: 14px;
 }
 .course-controls {
   position: absolute;
@@ -1315,11 +1326,61 @@
 }
 
 /* ── Tab row ────────────────────────────── */
+.tab-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
 .tab-row {
   display: flex;
-  gap: 6px;
+  gap: 3px;
+  flex-wrap: nowrap;
 }
-.tab-row .btn { height: 42px; }
+.tab-row .btn {
+  height: 36px;
+  flex: 0 0 auto;
+}
+.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 0 8px;
+}
+.tab-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tab-passage {
+  flex: 0 0 auto;
+  padding: 1px 3px;
+  border: 1px solid rgba(34, 166, 161, 0.36);
+  border-radius: 3px;
+  color: var(--teal);
+  font-size: 9px;
+  line-height: 1.15;
+}
+.tab-btn.is-locked {
+  opacity: 0.42;
+  cursor: default;
+}
+.tab-btn.is-locked .tab-label {
+  letter-spacing: 0.12em;
+  color: var(--silver);
+}
+.tab-btn.is-locked .tab-passage {
+  border-color: rgba(205, 217, 217, 0.22);
+  color: var(--silver);
+}
+.tab-btn-preview {
+  opacity: 0.58;
+  border-style: dashed;
+}
+.tab-btn-preview:disabled {
+  cursor: help;
+}
 
 /* ── Arsenal workspace ──────────────────── */
 .arsenal-panel {
@@ -1414,6 +1475,38 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
+.system-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.system-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.system-card {
+  min-width: 0;
+  min-height: 128px;
+  background: rgba(28, 42, 62, 0.86);
+  border: 1px solid rgba(205, 217, 217, 0.12);
+  border-left: 3px solid rgba(34, 166, 161, 0.72);
+  border-radius: 4px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.system-card .btn {
+  margin-top: auto;
+}
+.system-diagnostic {
+  padding: 8px 10px;
+  border: 1px solid rgba(34, 166, 161, 0.2);
+  background: rgba(10, 26, 38, 0.32);
+  color: rgba(205, 217, 217, 0.78);
+  font-size: 11px;
+}
 .card {
   background: rgba(28, 42, 62, 0.86);
   border: 1px solid rgba(205, 217, 217, 0.12);
@@ -1492,83 +1585,158 @@ hr { border: none; border-top: 1px solid rgba(205,217,217,0.15); }
 .muster-panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 .muster-header-row {
   display: flex;
   flex-direction: column;
   gap: 3px;
 }
-.muster-stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+
+/* Tide gauges */
+.muster-gauges {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
 }
-.muster-stat {
-  background: rgba(28, 42, 62, 0.86);
-  border: 1px solid rgba(205, 217, 217, 0.12);
-  border-radius: 4px;
-  padding: 10px;
+.muster-gauge-col {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  gap: 0;           /* label sits flush on top of gauge */
+  width: 108px;
+  flex-shrink: 0;
 }
-.muster-stat-top {
+.muster-gauge-lvl {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  background: rgba(10, 26, 38, 0.92);
+  border: 1px solid rgba(205, 217, 217, 0.14);
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  width: 100%;
+  text-align: center;
+  padding: 4px 0 3px;
+  letter-spacing: 0.01em;
+}
+.muster-gauge {
+  position: relative;
+  width: 100%;
+  height: 210px;
+  background: rgba(10, 26, 38, 0.92);
+  border: 1px solid rgba(205, 217, 217, 0.14);
+  border-top: none;         /* label provides the top border */
+  border-radius: 0 0 4px 4px;
+  overflow: hidden;
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+  flex-direction: column;
+  justify-content: flex-end; /* fill anchors to bottom */
 }
-.muster-level-label {
-  font-size: 12px;
-  color: var(--silver);
+.muster-gauge-fill {
+  position: relative;
+  width: 100%;
+  height: 0%;
+  transition: height 0.22s ease-out;
+  flex-shrink: 0;
+}
+/* Tide-line: bright shimmer at the top surface of the fill */
+.muster-gauge-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.72);
+  border-radius: 1px;
+  box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.38);
+}
+.muster-gauge-fill--gun {
+  background: linear-gradient(180deg, rgba(242, 177, 52, 0.92) 0%, rgba(165, 90, 35, 0.78) 100%);
+  box-shadow: 0 -6px 24px rgba(242, 177, 52, 0.32);
+}
+.muster-gauge-fill--sea {
+  background: linear-gradient(180deg, rgba(34, 166, 161, 0.92) 0%, rgba(12, 58, 56, 0.78) 100%);
+  box-shadow: 0 -6px 24px rgba(34, 166, 161, 0.28);
+}
+.muster-gauge-tick {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  height: 1px;
+  background: rgba(205, 217, 217, 0.18);
+  pointer-events: none;
+}
+/* small notch mark on left edge at each tick */
+.muster-gauge-tick::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 0;
+  width: 5px;
+  height: 1px;
+  background: rgba(205, 217, 217, 0.40);
+}
+.muster-gauge-kicker {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--copper);
+  margin-top: 6px;
 }
 .muster-bonus-label {
   font-size: 11px;
   color: var(--teal);
+  text-align: center;
+  margin-top: 2px;
 }
 .muster-progress-label {
   font-size: 11px;
   color: var(--silver);
+  text-align: center;
+  margin-top: 1px;
 }
-.muster-allocation {
+.muster-rate-label {
+  font-size: 10px;
+  color: var(--silver);
+  text-align: center;
+  margin-top: 1px;
+  letter-spacing: 0.03em;
+  min-height: 1em;   /* holds space while '—' is shown */
+}
+.muster-gauge-col:first-child .muster-rate-label { color: rgba(242, 177, 52, 0.72); }   /* gold tint for gunnery */
+.muster-gauge-col:last-child  .muster-rate-label { color: rgba(34, 166, 161, 0.72); }   /* teal tint for seamanship */
+.muster-level-label { /* kept for compat */
+  font-size: 12px;
+  color: var(--silver);
+}
+
+/* Drill allocation */
+.muster-drill {
   background: rgba(16, 18, 22, 0.64);
   border: 1px solid rgba(205, 217, 217, 0.14);
   border-radius: 4px;
   padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 8px;
 }
-.muster-allocation-top,
-.muster-power-labels {
+.muster-drill-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
 }
-.muster-power-labels {
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0;
-}
-.muster-power-track {
-  position: relative;
-  height: 8px;
-  overflow: hidden;
-  background: rgba(34, 166, 161, 0.28);
-  border: 1px solid rgba(205, 217, 217, 0.16);
-  border-radius: 999px;
-}
-.muster-power-fill {
-  height: 100%;
-  width: 50%;
-  background: linear-gradient(90deg, rgba(242, 177, 52, 0.9), rgba(242, 177, 52, 0.62));
-  box-shadow: 0 0 12px rgba(242, 177, 52, 0.26);
-  transition: width 160ms ease;
-}
+
 .muster-slider {
   width: 100%;
   accent-color: var(--gold);
+}
+
+@media (max-width: 520px) {
+  .muster-gauge { height: 90px; }
 }
 
 /* ── Prestige panel ─────────────────────── */
@@ -1621,12 +1789,23 @@ hr { border: none; border-top: 1px solid rgba(205,217,217,0.15); }
   line-height: 1.35;
 }
 @media (max-width: 760px) {
-  .muster-stats { grid-template-columns: minmax(0, 1fr); }
+  .muster-gauges { flex-wrap: nowrap; } /* keep side-by-side on narrow */
   .prestige-milestones,
   .prestige-loadout-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* ── Debug overlay ──────────────────────── */
+.debug-toggle-btn {
+  opacity: 0.38;
+  padding: 0 6px;
+  height: 28px !important;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+  align-self: center;
+}
+.debug-toggle-btn:hover {
+  opacity: 0.72;
+}
 .debug-overlay {
   position: absolute;
   bottom: 0; left: 0; right: 0;
@@ -1773,6 +1952,9 @@ hr { border: none; border-top: 1px solid rgba(205,217,217,0.15); }
   .combat-row {
     min-height: 438px;
     padding: 0;
+  }
+  .system-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
   .sea-ability-dock {
     left: 8px;

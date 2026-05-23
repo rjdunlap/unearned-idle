@@ -142,6 +142,16 @@ UB translation for the current prototype:
   - Lifetime waves cleared.
 - Tie those counters into milestone upgrades.
 
+### Prototype Review 2026-05-22
+
+- Passive pickups now match the source check: kill rewards surface as visible sea pickups and are awarded on click, while separate ambient salvage/doubloon pickups can still appear during ordinary combat.
+- Multi-ship combat is partly honest: selected targets and escorts have hull, pressure, reward state, sinking visuals, and doctrine-driven shot routing. Bosses now spawn escort state too.
+- Sector language is mostly player-facing now. Legacy `lane_*` ids remain only for save migration and the first authored boss ids.
+- Sector metadata now includes route tags (`trade_wind`, `black_reef`, `storm_line`) and first-clear unlock previews.
+- Browser smoke found and fixed stale Return to Port/status refresh after reset and hidden tabs after save load.
+- Remaining early-spine gap: farming has no durable counter yet, so Hold works mechanically but does not have a strong USI-style "farm waves, then push" feedback loop.
+- Follow-up implementation added the first version of that loop: the prototype now tracks ships sunk this sector, best ships sunk by sector, lifetime ships sunk, and a Prize Ledger Arsenal milestone that increases salvage pickup value based on current-sector kills.
+
 ## Boss And Unlock Todo
 
 ### Current Unlock Direction
@@ -151,24 +161,39 @@ UB translation for the current prototype:
 - Arsenal remains the first active spend system.
 - Muster is earned progress allocation, not salvage spending.
 
-### Proposed First 20 Sector Unlock Sketch
+### Unfolding Sketch By Target Passage
 
-| Sector Clear | Unlock |
-| --- | --- |
-| 1 | Prestige planning visible; Return to Port explained but not fully valuable yet. |
-| 2 | Return to Port unlocks Muster allocation. |
-| 3 | Targeting doctrine selection. |
-| 4 | Second weapon family or Harpoon Battery route. |
-| 5B elite | Reinforced hull/armor component option. |
-| 6 | First utility slot. |
-| 8 | Auto Progress rules / basic route automation. |
-| 10 | First major captain milestone; starting-sector chart option after prestige. |
-| 12B elite | Black Reef component or salvage multiplier fitting. |
-| 15C elite | Storm Line defense or evasive seamanship fitting. |
-| 18 | Challenge/contract system seed. |
-| 20 | Major prestige expansion: new ship hull or multi-slot ship. |
+This table should be treated as a pacing sketch, not final content. It follows the USI pattern of introducing a system with one clear job, then using later passages to make that system interconnect with older ones.
 
-This table should be treated as a pacing sketch, not final content.
+| Target Passage | Unlock / Expansion | Why Here | Cross-System Follow-Up |
+| --- | --- | --- | --- |
+| Start | Sea Sectors, Arsenal, visible fleet combat | The player needs the combat spine and first spend loop immediately. | Arsenal milestones read ships sunk and visible combat changes. |
+| 1 clear | Prestige planning | The first boss should explain that sector clears are milestones, not endings. | Return to Port later owns loadout and starting-passage decisions. |
+| 2 clear + Return | Muster | After one reset, combat-earned allocation has context. | Officers later preserve/catch up discipline records. |
+| 3 clear | Targeting Orders | Visible escorts need a real control vocabulary. | Gunnery Research and Captain's Orders expand/automate doctrines. |
+| 4 clear | Stormheart Furnace | Ether Brine can start dropping before the player has many rare-drop systems. | Occult Research, Shipwright fittings, and Storm Contracts all improve or consume Stormheart power. |
+| 5 clear / first Black Reef branch | Shipwright's Bench | The player has enough Salvage flow to understand crafting as a second spend loop. | Shipwrighting Research improves speed; Port Facilities later feed materials. |
+| 6 clear | Admiralty Research | Once routes, targeting, and crafting exist, branch focus has meaningful context. | Route tags weight gain; branch ranks unlock modules, route previews, relic sockets, and automation. |
+| 8 clear | Relic Compass | Drops-as-buildcraft should wait until at least one secondary system exists. | Occult Research reveals drops; Stormheart/elite routes improve rare drop chances. |
+| 10 clear | Harbor Chart / starting passage | Repetition starts to matter around the first sea-region boundary. | Navigation Research and Port Facilities expand start options. |
+| 12 or elite branch clear | Storm Contracts | Side gauntlets become useful once route choices and temporary boosts exist. | Stormheart charges contracts; Shipwright modules and Research specialize contract loadouts. |
+| 15 clear | Port Facilities seed | Persistent port growth makes Return to Port more than a reset. | Facilities produce Shipwright materials and activate Return bonuses. |
+| 18 clear | Captain's Trials | The player has enough systems for focused rule tests to teach mastery. | Trial clears feed Ledger requirements and permanent bonuses. |
+| 20 clear | Officers | Character specialization matters once there are multiple systems to specialize. | Officers bind Muster, Research, Shipwright, Contracts, and automation. |
+| 25 clear | Captain's Orders | Manual targeting, boosts, crafting, and focus choices should be understood before automation. | Orders become reusable run templates. |
+| 30 clear | Captain's Ledger | First major mastery checkpoint before adding a new combat phase. | Ledger asks for one clear goal from each mature system. |
+
+### Expansion Rules
+
+- Do not make every passage unlock a new tab. After Passage 10, most clears should expand existing tabs, routes, or loadout choices.
+- Elite branches should advertise their system reward before the player commits.
+- Every tab should get at least one later expansion from another tab:
+  - Stormheart receives Occult Research and Shipwright fittings.
+  - Shipwright receives Port Facility materials and Research speed.
+  - Research receives route density and Spyglass-style modules.
+  - Relic Compass receives Occult previews and Stormheart rare-drop pressure.
+  - Captain's Orders receives Officers and Research unlocks.
+- Captain's Ledger should never ask for a system that lacks diagnostics explaining how to improve it.
 
 ## Arsenal / Equipment Todo
 
@@ -354,6 +379,13 @@ Call it Admiralty Research, Chartroom Research, or Scholar's Desk.
 - Occult 1: Relic Compass unlock.
 - Occult 2: Relic drop preview in sector chart.
 
+### Prototype Review 2026-05-22
+
+- Stormheart Furnace is now a full prototype tab: Ether Brine drops from kills, burns into Storm Power, and powers Thunder Broadside, Fair Wind, and Deep Salvage toggles. Ether Brine and Storm Power reset on Return to Port.
+- Shipwright's Bench is now a full prototype tab: recipes cost Salvage, craft over time, and grant permanent Blueprint Mastery. Early mastery hooks feed salvage value and future Standing Supply/module work.
+- Admiralty Research is now a full prototype tab: kills grant all branches, focus applies a 2.5x multiplier without stopping other branches, and route tags weight gains.
+- These systems are intentionally first-pass and need stronger sea tells, unlock gating by branch rank/mastery, and more specific module inventory before balance tuning.
+
 ## Bases / Port Facilities Todo
 
 USI Bases are grid systems. Buildings produce materials, parts, and components. Components often become prestige bonuses for a specific system. Some one-time upgrades unlock major features or starting points.
@@ -497,19 +529,19 @@ Sector 10 -> 11 -> 12A -> 15
 
 ## Implementation Backlog
 
-1. Finish replacing player-facing lane language with sector language.
-2. Add `data/definitions/sectors.json` with 100 planned sector shells.
-3. Add sector route tags and first-clear unlock metadata.
-4. Change sim to spawn normal waves indefinitely while Hold is active.
-5. Keep boss spawn tied to sector distance goal.
-6. Track waves cleared per sector.
-7. Track boss clears by sector id.
+1. Finish replacing remaining internal lane naming where migration no longer needs it.
+2. Expand `data/definitions/sectors.json` beyond the first authored sectors when route branches need hand-tuned data.
+3. Done: add sector route tags and first-clear unlock metadata.
+4. Done: normal waves keep spawning while Hold is active.
+5. Done: boss spawn remains tied to sector distance goal.
+6. Done: track ships sunk / waves cleared per sector, best sector farm count, and lifetime sunk count.
+7. Done for authored bosses; continue migrating boss clears toward sector ids.
 8. Add sector chart UI in Captain's Desk.
 9. Add elite route variant data for sectors 5, 12, and 15.
 10. Add first route-choice screen after the relevant boss clear.
 11. Add target selection doctrines.
 12. Add milestone upgrade UI for every 5 Arsenal levels.
-13. Add wave-clear scaling milestone option.
+13. Done: add a first wave-clear scaling milestone option through Long Nine's Prize Ledger choice.
 14. Add starting-sector prestige unlock after Sector 10.
 15. Add Storm Contract / Warp-like side gauntlet prototype later.
 16. Add Shipwright's Bench as the first crafting/module system.

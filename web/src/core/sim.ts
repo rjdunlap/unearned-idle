@@ -126,6 +126,9 @@ export class Sim {
 
   private _tick(): void {
     GameState.tickAbilities()
+    GameState.tickStormheart(TICK_DELTA)
+    GameState.tickShipwright(TICK_DELTA)
+    GameState.tickOrders()
     this._processMusterLevels()
     if (this._fleeing) {
       this._processFleeRegen()
@@ -152,7 +155,8 @@ export class Sim {
     const courseMode = GameState.getCourseMode()
     if (GameState.isAutoProgress() && courseMode !== 'hold') {
       const dir = courseMode === 'retreat' ? -1 : 1
-      GameState.addRouteDistance(TRAVEL_NMI_PER_TICK * dir)
+      const stormMul = dir > 0 ? GameState.stormDistanceMultiplier() * GameState.officerDistanceMultiplier() : 1
+      GameState.addRouteDistance(TRAVEL_NMI_PER_TICK * dir * stormMul)
     }
 
     if (!this._enemy['id']) return
@@ -215,6 +219,9 @@ export class Sim {
     const baseDmg   = Balance.weaponDamage(base, increment, upgradeLevel, muls)
       * Balance.gunneryBonus(gunnery)
       * GameState.abilityDamageMultiplier()
+      * GameState.stormDamageMultiplier()
+      * GameState.relicDamageMultiplier()
+      * GameState.officerDamageMultiplier()
     const dtype     = (weapon?.['damage_type'] ?? 'cannon') as DamageType
 
     const escortIdx = this._pickDoctrineTarget(GameState.getDoctrine())
@@ -239,12 +246,23 @@ export class Sim {
     const evasion   = this._enemy['evasion'] ?? 0
     const effective = Balance.calcEffectiveDamage(baseDmg, dtype, this._enemy)
     const evaded    = evasion > 0 && effective < this._enemyHull && Math.random() < evasion
-    if (!evaded) this._enemyHull = Math.max(0, this._enemyHull - effective)
+    if (!evaded) {
+      const actualDmg = Math.min(effective, this._enemyHull)   // clamp to remaining hull
+      this._enemyHull = Math.max(0, this._enemyHull - effective)
+      this._awardMusterDamageXp(actualDmg)
+    }
     this.onEnemyDamaged?.(this._enemyHull, this._enemyMaxHull, evaded ? 0 : effective, evaded)
     const hint = Balance.getCounterHint(dtype, this._enemy)
     if (hint) this.onCounterHint?.(hint)
     if (this._enemyHull <= 0) { this._onEnemyDefeated(); return true }
     return false
+  }
+
+  /** 70% of Muster XP awarded proportionally as damage lands. */
+  private _awardMusterDamageXp(dmgDealt: number): void {
+    if (!GameState.isSystemUnlocked('muster') || this._enemyMaxHull <= 0) return
+    const totalReward = Balance.musterProgressReward(this._enemyMaxHull, this._bossActive)
+    GameState.addMusterProgress((dmgDealt / this._enemyMaxHull) * totalReward * 0.70)
   }
 
   private _pickDoctrineTarget(doctrine: DoctrineMode): number {
@@ -274,7 +292,11 @@ export class Sim {
   private _onEscortDefeated(index: number): void {
     const escort = this._escorts[index]
     if (!escort) return
+    GameState.recordShipSunk()
     const rewards = this._scaleRewards(escort.def['rewards'] ?? { salvage: 10 })
+    this._addRareKillDrops(rewards, false)
+    GameState.awardResearchForKill(false)
+    GameState.awardSideSystemKill(false)
     this.onEscortDefeated?.(index, escort.def, rewards)
     const rewardStr = Object.entries(rewards).map(([id, a]) => `${Balance.formatNumber(a as number)} ${id}`).join(', ')
     this.onCombatLog?.(`${escort.def['display_name'] ?? 'Escort'} sunk! Wreckage visible${rewardStr ? `: ${rewardStr}` : '.'}`)
@@ -291,15 +313,22 @@ export class Sim {
   private _scaleRewards(base: Record<string, number>): Record<string, number> {
     const scalar = Balance.rewardScalar(GameState.getRouteDistance())
     const out: Record<string, number> = {}
-    for (const [id, amt] of Object.entries(base)) out[id] = Math.round((amt as number) * scalar)
+    for (const [id, amt] of Object.entries(base)) {
+      const rewardMul = id === 'salvage' ? GameState.salvageRewardMultiplier() * GameState.stormSalvageMultiplier() : 1
+      out[id] = Math.round((amt as number) * scalar * rewardMul)
+    }
     return out
   }
 
   private _onEnemyDefeated(): void {
     this._escorts      = []
     this._doctrineShot = 0
+    GameState.recordShipSunk()
     if (this._bossActive) {
       const rewards = this._scaleRewards(this._enemy['rewards'] ?? {})
+      this._addRareKillDrops(rewards, true)
+      GameState.awardResearchForKill(true)
+      GameState.awardSideSystemKill(true)
       this._awardMusterProgress(true)
       this.onEnemyDefeated?.(this._enemy, rewards, true)
       const rewardStr = Object.entries(rewards).map(([id, a]) => `${Balance.formatNumber(a as number)} ${id}`).join(', ')
@@ -309,6 +338,9 @@ export class Sim {
     }
 
     const rewards = this._scaleRewards(this._enemy['rewards'] ?? {})
+    this._addRareKillDrops(rewards, false)
+    GameState.awardResearchForKill(false)
+    GameState.awardSideSystemKill(false)
     this._awardMusterProgress(false)
     this.onEnemyDefeated?.(this._enemy, rewards, true)
     const rewardStr = Object.entries(rewards).map(([id, a]) => `${Balance.formatNumber(a as number)} ${id}`).join(', ')
@@ -344,10 +376,19 @@ export class Sim {
     this._running = false
   }
 
+  /** Remaining 30% of Muster XP awarded on kill. */
   private _awardMusterProgress(isBoss: boolean): void {
     if (!GameState.isSystemUnlocked('muster')) return
-    const progress = Balance.musterProgressReward(this._enemyMaxHull, isBoss)
+    const progress = Balance.musterProgressReward(this._enemyMaxHull, isBoss) * 0.30
     GameState.addMusterProgress(progress)
+  }
+
+  private _addRareKillDrops(rewards: Record<string, number>, isBoss: boolean): void {
+    const route = SectorPlan.getSector(GameState.getCurrentSector())
+    const routeBonus = route.routeTag === 'storm_line' ? 0.04 : route.routeTag === 'black_reef' ? 0.02 : 0
+    const chance = (isBoss ? 0.55 : 0.08) + routeBonus + GameState.relicBrineChanceBonus() + GameState.officerOccultBonus() + GameState.portRareDropBonus()
+    if (Math.random() >= chance) return
+    rewards.ether_brine = (rewards.ether_brine ?? 0) + (isBoss ? 4 : 1)
   }
 
   private _processMusterLevels(): void {
@@ -431,7 +472,12 @@ export class Sim {
     const sector = SectorPlan.getSector(GameState.getCurrentSector())
     const boss = sector.boss
     if (!boss) { console.error(`Sim: sector '${sector.sector}' has no boss`); return }
+    this._bossActive   = true
+    this._escorts      = []
+    this._doctrineShot = 0
+    GameState.setBossPhase(true)
     this._setEnemy(boss)
+    this._spawnEscorts()
     this.onCombatLog?.(`SECTOR ${sector.sector} BOSS: ${boss['display_name'] ?? '?'} appears!`)
     this.onBossSpawned?.(this._enemy, this._enemyMaxHull)
   }

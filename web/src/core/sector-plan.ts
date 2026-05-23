@@ -6,6 +6,7 @@ type AnyDef = Record<string, any>
 export interface SectorDef {
   sector: number
   route: 'A' | 'B' | 'C'
+  routeTag: 'trade_wind' | 'black_reef' | 'storm_line'
   routeName: string
   displayName: string
   region: string
@@ -13,6 +14,7 @@ export interface SectorDef {
   enemyIds: string[]
   boss: AnyDef | undefined
   elite: boolean
+  firstClearUnlocks: string[]
 }
 
 const SECTOR_COUNT = 100
@@ -30,6 +32,12 @@ const ROUTE_NAMES = {
   B: 'Black Reef',
   C: 'Storm Line',
 }
+
+const ROUTE_TAGS = {
+  A: 'trade_wind',
+  B: 'black_reef',
+  C: 'storm_line',
+} as const
 
 const BOSS_TITLES = [
   'Salt Widow',
@@ -80,6 +88,7 @@ export const SectorPlan = {
     const def: SectorDef = {
       sector: safeSector,
       route,
+      routeTag: ROUTE_TAGS[route],
       routeName: ROUTE_NAMES[route],
       displayName: authored?.['display_name'] ?? `Sector ${safeSector}`,
       region: authored?.['region'] ?? ROUTE_NAMES[route],
@@ -87,6 +96,7 @@ export const SectorPlan = {
       enemyIds: pool,
       boss: bossForSector(safeSector, elite),
       elite,
+      firstClearUnlocks: (authored?.['first_clear_unlocks'] as string[] | undefined) ?? defaultFirstClearUnlocks(safeSector),
     }
     _sectorCache.set(safeSector, def)
     return def
@@ -102,4 +112,11 @@ export const SectorPlan = {
   nextSector(sector: number): number {
     return Math.min(SECTOR_COUNT, Math.max(1, Math.floor(sector) + 1))
   },
+}
+
+function defaultFirstClearUnlocks(sector: number): string[] {
+  if (sector === 1) return ['prestige']
+  if (sector === 2) return ['return_to_port', 'muster_after_return']
+  if (sector === 3) return ['targeting_doctrines']
+  return []
 }

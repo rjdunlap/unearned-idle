@@ -1,11 +1,12 @@
 import './styles.css'
-import { ABILITY_ACTIVE_TICKS, ABILITY_COOLDOWN_TICKS, GameState, MUSTER_MAX_LEVELS_PER_SECOND } from '../core/game-state'
+import { ABILITY_ACTIVE_TICKS, ABILITY_COOLDOWN_TICKS, CONTRACTS, GameState, OFFICERS, PORT_FACILITIES, RELICS, RESEARCH_BRANCHES, SHIPWRIGHT_RECIPES } from '../core/game-state'
 import { sim } from '../core/sim'
 import { Definitions } from '../core/definitions'
 import { Balance } from '../core/balance'
 import { SaveSystem } from '../core/save-system'
 import { SectorPlan } from '../core/sector-plan'
-import type { AbilityId } from '../core/types'
+import type { AbilityId, OfficerId, PortFacilityId, RelicId, ResearchBranchId, StormBoostId } from '../core/types'
+import type { SystemUnlock } from '../core/game-state'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyDef = Record<string, any>
@@ -18,7 +19,7 @@ type ArsenalCardRefs = {
   button: HTMLButtonElement
   milestoneContainer: HTMLElement
 }
-type DeskTab = 'arsenal' | 'prestige' | 'muster' | 'log'
+type DeskTab = 'arsenal' | 'prestige' | 'muster' | 'stormheart' | 'shipwright' | 'research' | 'relics' | 'contracts' | 'port' | 'trials' | 'officers' | 'orders' | 'ledger' | 'log'
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 let shellRoot:       HTMLElement
@@ -27,6 +28,7 @@ let bossBanner:      HTMLElement
 let titleFocusBtn:   HTMLButtonElement
 let routeDistanceLabel: HTMLElement
 let routeMeterFill: HTMLElement
+let sectorDiagnostic: HTMLElement
 let autoProgressBtn: HTMLButtonElement
 let courseForwardBtn: HTMLButtonElement
 let courseHoldBtn: HTMLButtonElement
@@ -56,8 +58,28 @@ let arsenalWeaponId = ''
 let arsenalTabBtn: HTMLButtonElement
 let prestigeTabBtn: HTMLButtonElement
 let musterTabBtn: HTMLButtonElement
+let stormheartTabBtn: HTMLButtonElement
+let shipwrightTabBtn: HTMLButtonElement
+let researchTabBtn: HTMLButtonElement
+let relicsTabBtn: HTMLButtonElement
+let contractsTabBtn: HTMLButtonElement
+let portTabBtn: HTMLButtonElement
+let trialsTabBtn: HTMLButtonElement
+let officersTabBtn: HTMLButtonElement
+let ordersTabBtn: HTMLButtonElement
+let ledgerTabBtn: HTMLButtonElement
 let logTabBtn: HTMLButtonElement
 let prestigeSection: HTMLElement
+let stormheartSection: HTMLElement
+let shipwrightSection: HTMLElement
+let researchSection: HTMLElement
+let relicsSection: HTMLElement
+let contractsSection: HTMLElement
+let portSection: HTMLElement
+let trialsSection: HTMLElement
+let officersSection: HTMLElement
+let ordersSection: HTMLElement
+let ledgerSection: HTMLElement
 let logSection: HTMLElement
 let prestigeMilestoneList: HTMLElement
 let prestigeLoadoutList: HTMLElement
@@ -73,10 +95,10 @@ let musterSeamanshipLabel: HTMLElement
 let musterSeamanshipBonus: HTMLElement
 let musterSeamanshipProgress: HTMLElement
 let musterAllocationSlider: HTMLInputElement
-let musterAllocationLabel: HTMLElement
 let musterGunneryPowerLabel: HTMLElement
 let musterSeamanshipPowerLabel: HTMLElement
-let musterPowerFill: HTMLElement
+let musterGunneryRate: HTMLElement
+let musterSeamanshipRate: HTMLElement
 let advanceBtn:      HTMLButtonElement
 let statusRailBtn:   HTMLButtonElement
 let deskRailBtn:     HTMLButtonElement
@@ -107,8 +129,8 @@ const VISUAL_WAVE_INTERVAL_MS = 30_000
 const VISUAL_WAVE_SPAWN_WINDOW_MS = 10_000
 const FLEET_CONTACT_DAMAGE = 1
 const CONTACT_DISTANCE_STEP = SectorPlan.encounterDistance
-const MAX_LOOT_DROPS = 3
-const LOOT_DROP_LIFETIME_MS = 18_000
+const MAX_LOOT_DROPS = 5
+const LOOT_DROP_LIFETIME_MS = 24_000
 
 type SeaContactStatus = 'current' | 'escort' | 'incoming' | 'looming' | 'boss'
 type SeaContactSlot = {
@@ -236,6 +258,8 @@ function buildCourseControls(parent: HTMLElement): void {
   routeDistanceLabel = el('span', 'route-distance-label')
   nav.append(meter, routeDistanceLabel)
   parent.appendChild(nav)
+  sectorDiagnostic = el('div', 'sector-diagnostic')
+  parent.appendChild(sectorDiagnostic)
 }
 
 function buildSeaCourseControls(parent: HTMLElement): void {
@@ -348,6 +372,12 @@ function buildStatusStrip(root: HTMLElement): void {
     appendLog('<span class="log-green">Game saved.</span>')
   })
   strip.appendChild(saveBtn)
+
+  const debugToggleBtn = btn('DBG', 'sz-11 debug-toggle-btn')
+  debugToggleBtn.title = 'Toggle debug overlay'
+  debugToggleBtn.addEventListener('click', () => debugOverlay.classList.toggle('hidden'))
+  strip.appendChild(debugToggleBtn)
+
   root.appendChild(strip)
 }
 
@@ -360,45 +390,74 @@ function buildBottomPanel(root: HTMLElement): void {
   deskRailBtn.addEventListener('click', toggleMechanicsFocus)
   panel.appendChild(deskRailBtn)
 
-  // Tab row
-  const tabRow = el('div', 'tab-row')
-  arsenalTabBtn = btn('ARSENAL', 'tab-btn sz-14 c-gold') as HTMLButtonElement
-  arsenalTabBtn.style.minWidth = '100px'
-  arsenalTabBtn.style.height = '44px'
+  // Tab rows — Row A: core/early (P0–P8), Row B: deep/late (P12+) + utils
+  const tabRows = el('div', 'tab-rows')
+  const tabRowA = el('div', 'tab-row')
+  const tabRowB = el('div', 'tab-row')
+
+  arsenalTabBtn = btn('ARSENAL', 'tab-btn c-gold') as HTMLButtonElement
+  labelDeskTab(arsenalTabBtn, 'ARSENAL', 'P0')
   arsenalTabBtn.classList.add('is-active')
   arsenalTabBtn.addEventListener('click', () => setActiveTab('arsenal'))
-  tabRow.appendChild(arsenalTabBtn)
+  tabRowA.appendChild(arsenalTabBtn)
 
-  prestigeTabBtn = btn('PRESTIGE', 'tab-btn sz-14 hidden') as HTMLButtonElement
-  prestigeTabBtn.style.minWidth = '100px'
-  prestigeTabBtn.style.height = '44px'
+  prestigeTabBtn = btn('PRESTIGE', 'tab-btn') as HTMLButtonElement
+  labelDeskTab(prestigeTabBtn, 'PRESTIGE', 'P1')
   prestigeTabBtn.addEventListener('click', () => setActiveTab('prestige'))
-  tabRow.appendChild(prestigeTabBtn)
+  tabRowA.appendChild(prestigeTabBtn)
 
-  musterTabBtn = btn('MUSTER', 'tab-btn sz-14 hidden') as HTMLButtonElement
-  musterTabBtn.style.minWidth = '90px'
-  musterTabBtn.style.height = '44px'
+  musterTabBtn = btn('MUSTER', 'tab-btn') as HTMLButtonElement
+  labelDeskTab(musterTabBtn, 'MUSTER', 'P2')
   musterTabBtn.addEventListener('click', () => setActiveTab('muster'))
-  tabRow.appendChild(musterTabBtn)
+  tabRowA.appendChild(musterTabBtn)
 
-  logTabBtn = btn('LOG', 'tab-btn sz-14') as HTMLButtonElement
-  logTabBtn.style.minWidth = '80px'
-  logTabBtn.style.height = '44px'
+  stormheartTabBtn = btn('STORMHEART', 'tab-btn') as HTMLButtonElement
+  labelDeskTab(stormheartTabBtn, 'STORMHEART', 'P4')
+  stormheartTabBtn.addEventListener('click', () => setActiveTab('stormheart'))
+  tabRowA.appendChild(stormheartTabBtn)
+
+  shipwrightTabBtn = btn('SHIPWRIGHT', 'tab-btn') as HTMLButtonElement
+  labelDeskTab(shipwrightTabBtn, 'SHIPWRIGHT', 'P5')
+  shipwrightTabBtn.addEventListener('click', () => setActiveTab('shipwright'))
+  tabRowA.appendChild(shipwrightTabBtn)
+
+  researchTabBtn = btn('RESEARCH', 'tab-btn') as HTMLButtonElement
+  labelDeskTab(researchTabBtn, 'RESEARCH', 'P6')
+  researchTabBtn.addEventListener('click', () => setActiveTab('research'))
+  tabRowA.appendChild(researchTabBtn)
+
+  relicsTabBtn = buildDeckTab(tabRowA, 'RELICS', 'P8', 'relics', 'Relic Compass target unlock: Passage 8 clear')
+
+  contractsTabBtn = buildDeckTab(tabRowB, 'CONTRACTS', 'P12', 'contracts', 'Storm Contracts target unlock: Passage 12 or first elite branch clear')
+  portTabBtn      = buildDeckTab(tabRowB, 'PORT',      'P15', 'port',      'Port Facilities target unlock: Passage 15 clear')
+  trialsTabBtn    = buildDeckTab(tabRowB, 'TRIALS',    'P18', 'trials',    "Captain's Trials target unlock: Passage 18 clear")
+  officersTabBtn  = buildDeckTab(tabRowB, 'OFFICERS',  'P20', 'officers',  'Officers target unlock: Passage 20 clear')
+  ordersTabBtn    = buildDeckTab(tabRowB, 'ORDERS',    'P25', 'orders',    "Captain's Orders target unlock: Passage 25 clear")
+  ledgerTabBtn    = buildDeckTab(tabRowB, 'LEDGER',    'P30', 'ledger',    "Captain's Ledger target unlock: Passage 30 clear")
+
+  logTabBtn = btn('LOG', 'tab-btn') as HTMLButtonElement
   logTabBtn.addEventListener('click', () => setActiveTab('log'))
-  tabRow.appendChild(logTabBtn)
+  tabRowB.appendChild(logTabBtn)
 
-  const debugTab = btn('DEBUG', 'sz-14')
-  debugTab.style.minWidth = '80px'
-  debugTab.style.height = '44px'
-  debugTab.addEventListener('click', () => debugOverlay.classList.toggle('hidden'))
-  tabRow.appendChild(debugTab)
-  panel.appendChild(tabRow)
+  tabRows.appendChild(tabRowA)
+  tabRows.appendChild(tabRowB)
+  panel.appendChild(tabRows)
 
   panel.appendChild(el('hr'))
 
   buildArsenalPanel(panel)
   buildPrestigePanel(panel)
   buildMusterPanel(panel)
+  buildStormheartPanel(panel)
+  buildShipwrightPanel(panel)
+  buildResearchPanel(panel)
+  buildRelicsPanel(panel)
+  buildContractsPanel(panel)
+  buildPortPanel(panel)
+  buildTrialsPanel(panel)
+  buildOfficersPanel(panel)
+  buildOrdersPanel(panel)
+  buildLedgerPanel(panel)
   buildLogPanel(panel)
   refreshSystemLocks()
 
@@ -406,6 +465,15 @@ function buildBottomPanel(root: HTMLElement): void {
   advanceBtn.classList.add('hidden')
   advanceBtn.addEventListener('click', onAdvanceLane)
   panel.appendChild(advanceBtn)
+}
+
+function buildDeckTab(parent: HTMLElement, label: string, passage: string, tab: DeskTab, title: string): HTMLButtonElement {
+  const tabBtn = btn(label, 'tab-btn') as HTMLButtonElement
+  labelDeskTab(tabBtn, label, passage)
+  tabBtn.title = title
+  tabBtn.addEventListener('click', () => setActiveTab(tab))
+  parent.appendChild(tabBtn)
+  return tabBtn
 }
 
 function buildArsenalPanel(parent: HTMLElement): void {
@@ -466,60 +534,82 @@ function buildMusterPanel(parent: HTMLElement): void {
   header.appendChild(el('span', 'sz-11 c-silver', 'Battle-earned crew power'))
   musterSection.appendChild(header)
 
-  // Stat bars
-  const stats = el('div', 'muster-stats')
+  // Tide gauges
+  const gauges = el('div', 'muster-gauges')
 
-  const gStat = el('div', 'muster-stat')
-  const gTop = el('div', 'muster-stat-top')
-  gTop.appendChild(el('span', 'loadout-kicker', 'GUNNERY'))
-  musterGunneryLabel = el('span', 'muster-level-label')
-  gTop.appendChild(musterGunneryLabel)
-  gStat.appendChild(gTop)
-  const gMeter = el('div', 'upgrade-meter')
-  musterGunneryBar = el('div', 'upgrade-meter-fill')
-  gMeter.appendChild(musterGunneryBar)
-  gStat.appendChild(gMeter)
-  musterGunneryBonus = el('span', 'muster-bonus-label')
-  gStat.appendChild(musterGunneryBonus)
-  musterGunneryProgress = el('span', 'muster-progress-label')
-  gStat.appendChild(musterGunneryProgress)
-  stats.appendChild(gStat)
+  function buildGaugeCol(
+    kicker: string,
+    fillClass: string,
+    labelRef: (el: HTMLElement) => void,
+    barRef: (el: HTMLElement) => void,
+    bonusRef: (el: HTMLElement) => void,
+    progressRef: (el: HTMLElement) => void,
+    rateRef: (el: HTMLElement) => void,
+  ): HTMLElement {
+    const col = el('div', 'muster-gauge-col')
 
-  const sStat = el('div', 'muster-stat')
-  const sTop = el('div', 'muster-stat-top')
-  sTop.appendChild(el('span', 'loadout-kicker', 'SEAMANSHIP'))
-  musterSeamanshipLabel = el('span', 'muster-level-label')
-  sTop.appendChild(musterSeamanshipLabel)
-  sStat.appendChild(sTop)
-  const sMeter = el('div', 'upgrade-meter')
-  musterSeamanshipBar = el('div', 'upgrade-meter-fill')
-  sMeter.appendChild(musterSeamanshipBar)
-  sStat.appendChild(sMeter)
-  musterSeamanshipBonus = el('span', 'muster-bonus-label')
-  sStat.appendChild(musterSeamanshipBonus)
-  musterSeamanshipProgress = el('span', 'muster-progress-label')
-  sStat.appendChild(musterSeamanshipProgress)
-  stats.appendChild(sStat)
+    const lvlLabel = el('div', 'muster-gauge-lvl')
+    labelRef(lvlLabel)
+    col.appendChild(lvlLabel)
 
-  musterSection.appendChild(stats)
+    const gauge = el('div', 'muster-gauge')
+    // tick marks at 25 / 50 / 75 % from bottom
+    for (const pct of [25, 50, 75]) {
+      const tick = el('div', 'muster-gauge-tick')
+      tick.style.bottom = `${pct}%`
+      gauge.appendChild(tick)
+    }
+    const fill = el('div', `muster-gauge-fill ${fillClass}`)
+    barRef(fill)
+    gauge.appendChild(fill)
+    col.appendChild(gauge)
 
-  const allocation = el('div', 'muster-allocation')
-  const allocationTop = el('div', 'muster-allocation-top')
-  allocationTop.appendChild(el('span', 'loadout-kicker', 'POWER ALLOCATION'))
-  musterAllocationLabel = el('span', 'muster-level-label')
-  allocationTop.appendChild(musterAllocationLabel)
-  allocation.appendChild(allocationTop)
+    col.appendChild(el('div', 'muster-gauge-kicker', kicker))
 
-  const powerLabels = el('div', 'muster-power-labels')
-  musterGunneryPowerLabel = el('span', 'c-gold')
-  musterSeamanshipPowerLabel = el('span', 'c-teal')
-  powerLabels.append(musterGunneryPowerLabel, musterSeamanshipPowerLabel)
-  allocation.appendChild(powerLabels)
+    const bonus = el('div', 'muster-bonus-label')
+    bonusRef(bonus)
+    col.appendChild(bonus)
 
-  const powerTrack = el('div', 'muster-power-track')
-  musterPowerFill = el('div', 'muster-power-fill')
-  powerTrack.appendChild(musterPowerFill)
-  allocation.appendChild(powerTrack)
+    const progress = el('div', 'muster-progress-label')
+    progressRef(progress)
+    col.appendChild(progress)
+
+    const rate = el('div', 'muster-rate-label')
+    rateRef(rate)
+    col.appendChild(rate)
+
+    return col
+  }
+
+  gauges.appendChild(buildGaugeCol(
+    'GUNNERY', 'muster-gauge-fill--gun',
+    e => { musterGunneryLabel = e },
+    e => { musterGunneryBar = e },
+    e => { musterGunneryBonus = e },
+    e => { musterGunneryProgress = e },
+    e => { musterGunneryRate = e },
+  ))
+  gauges.appendChild(buildGaugeCol(
+    'SEAMANSHIP', 'muster-gauge-fill--sea',
+    e => { musterSeamanshipLabel = e },
+    e => { musterSeamanshipBar = e },
+    e => { musterSeamanshipBonus = e },
+    e => { musterSeamanshipProgress = e },
+    e => { musterSeamanshipRate = e },
+  ))
+
+  musterSection.appendChild(gauges)
+
+  // Drill allocation — slider only, left = Gunnery focus, right = Seamanship focus
+  const drill = el('div', 'muster-drill')
+
+  const drillTop = el('div', 'muster-drill-top')
+  musterGunneryPowerLabel = el('span', 'c-gold sz-12')
+  drillTop.appendChild(musterGunneryPowerLabel)
+  drillTop.appendChild(el('span', 'loadout-kicker', 'DRILL ORDERS'))
+  musterSeamanshipPowerLabel = el('span', 'c-teal sz-12')
+  drillTop.appendChild(musterSeamanshipPowerLabel)
+  drill.appendChild(drillTop)
 
   musterAllocationSlider = document.createElement('input')
   musterAllocationSlider.type = 'range'
@@ -527,15 +617,93 @@ function buildMusterPanel(parent: HTMLElement): void {
   musterAllocationSlider.max = '100'
   musterAllocationSlider.step = '5'
   musterAllocationSlider.className = 'muster-slider'
-  musterAllocationSlider.setAttribute('aria-label', 'Muster power allocation')
+  musterAllocationSlider.setAttribute('aria-label', 'Crew drill allocation — left: Gunnery focus, right: Seamanship focus')
   musterAllocationSlider.addEventListener('input', () => {
-    GameState.setMusterPower(Number(musterAllocationSlider.value))
+    // Slider left = Gunnery focus, so invert: value 0 → gPower 100
+    GameState.setMusterPower(100 - Number(musterAllocationSlider.value))
   })
-  allocation.appendChild(musterAllocationSlider)
+  drill.appendChild(musterAllocationSlider)
 
-  musterSection.appendChild(allocation)
+  musterSection.appendChild(drill)
   parent.appendChild(musterSection)
   refreshMusterUI()
+}
+
+function buildStormheartPanel(parent: HTMLElement): void {
+  stormheartSection = el('section', 'system-panel hidden')
+  stormheartSection.appendChild(systemHeader('STORMHEART', 'Burn Ether Brine into temporary voyage pressure'))
+  parent.appendChild(stormheartSection)
+  refreshStormheartUI()
+}
+
+function buildShipwrightPanel(parent: HTMLElement): void {
+  shipwrightSection = el('section', 'system-panel hidden')
+  shipwrightSection.appendChild(systemHeader("SHIPWRIGHT'S BENCH", 'Craft fittings, build mastery, and awaken modules'))
+  parent.appendChild(shipwrightSection)
+  refreshShipwrightUI()
+}
+
+function buildResearchPanel(parent: HTMLElement): void {
+  researchSection = el('section', 'system-panel hidden')
+  researchSection.appendChild(systemHeader('ADMIRALTY RESEARCH', 'Kills become chart notes across focused branches'))
+  parent.appendChild(researchSection)
+  refreshResearchUI()
+}
+
+function buildRelicsPanel(parent: HTMLElement): void {
+  relicsSection = el('section', 'system-panel hidden')
+  relicsSection.appendChild(systemHeader('RELIC COMPASS', 'Socket one found relic and attune shards from wreckage'))
+  parent.appendChild(relicsSection)
+  refreshRelicsUI()
+}
+
+function buildContractsPanel(parent: HTMLElement): void {
+  contractsSection = el('section', 'system-panel hidden')
+  contractsSection.appendChild(systemHeader('STORM CONTRACTS', 'Turn kill pressure into focused writ rewards'))
+  parent.appendChild(contractsSection)
+  refreshContractsUI()
+}
+
+function buildPortPanel(parent: HTMLElement): void {
+  portSection = el('section', 'system-panel hidden')
+  portSection.appendChild(systemHeader('PORT FACILITIES', 'Spend persistent Doubloons on durable harbor advantages'))
+  parent.appendChild(portSection)
+  refreshPortUI()
+}
+
+function buildTrialsPanel(parent: HTMLElement): void {
+  trialsSection = el('section', 'system-panel hidden')
+  trialsSection.appendChild(systemHeader("CAPTAIN'S TRIALS", 'One-time checks that prove a system has started to matter'))
+  parent.appendChild(trialsSection)
+  refreshTrialsUI()
+}
+
+function buildOfficersPanel(parent: HTMLElement): void {
+  officersSection = el('section', 'system-panel hidden')
+  officersSection.appendChild(systemHeader('OFFICERS', 'Assign one officer to learn from each sunk ship'))
+  parent.appendChild(officersSection)
+  refreshOfficersUI()
+}
+
+function buildOrdersPanel(parent: HTMLElement): void {
+  ordersSection = el('section', 'system-panel hidden')
+  ordersSection.appendChild(systemHeader("CAPTAIN'S ORDERS", 'Automate solved desk chores once their systems are understood'))
+  parent.appendChild(ordersSection)
+  refreshOrdersUI()
+}
+
+function buildLedgerPanel(parent: HTMLElement): void {
+  ledgerSection = el('section', 'system-panel hidden')
+  ledgerSection.appendChild(systemHeader("CAPTAIN'S LEDGER", 'Track the phase ladder and the interlocks already proven'))
+  parent.appendChild(ledgerSection)
+  refreshLedgerUI()
+}
+
+function systemHeader(title: string, subtitle: string): HTMLElement {
+  const header = el('div', 'muster-header-row')
+  header.appendChild(el('span', 'arsenal-header', title))
+  header.appendChild(el('span', 'sz-11 c-silver', subtitle))
+  return header
 }
 
 function buildLogPanel(parent: HTMLElement): void {
@@ -556,20 +724,70 @@ function setActiveTab(tab: DeskTab): void {
   if (shellRoot.classList.contains('mechanics-collapsed')) setMechanicsFocus(false)
   if (tab === 'prestige' && !GameState.isSystemUnlocked('prestige')) tab = 'arsenal'
   if (tab === 'muster' && !GameState.isSystemUnlocked('muster')) tab = 'arsenal'
+  if (tab === 'stormheart' && !GameState.isSystemUnlocked('stormheart')) tab = 'arsenal'
+  if (tab === 'shipwright' && !GameState.isSystemUnlocked('shipwright')) tab = 'arsenal'
+  if (tab === 'research' && !GameState.isSystemUnlocked('research')) tab = 'arsenal'
+  if (tab === 'relics' && !GameState.isSystemUnlocked('relics')) tab = 'arsenal'
+  if (tab === 'contracts' && !GameState.isSystemUnlocked('contracts')) tab = 'arsenal'
+  if (tab === 'port' && !GameState.isSystemUnlocked('port')) tab = 'arsenal'
+  if (tab === 'trials' && !GameState.isSystemUnlocked('trials')) tab = 'arsenal'
+  if (tab === 'officers' && !GameState.isSystemUnlocked('officers')) tab = 'arsenal'
+  if (tab === 'orders' && !GameState.isSystemUnlocked('orders')) tab = 'arsenal'
+  if (tab === 'ledger' && !GameState.isSystemUnlocked('ledger')) tab = 'arsenal'
   arsenalSection.classList.toggle('hidden', tab !== 'arsenal')
   prestigeSection.classList.toggle('hidden', tab !== 'prestige')
   musterSection.classList.toggle('hidden', tab !== 'muster')
+  stormheartSection.classList.toggle('hidden', tab !== 'stormheart')
+  shipwrightSection.classList.toggle('hidden', tab !== 'shipwright')
+  researchSection.classList.toggle('hidden', tab !== 'research')
+  relicsSection.classList.toggle('hidden', tab !== 'relics')
+  contractsSection.classList.toggle('hidden', tab !== 'contracts')
+  portSection.classList.toggle('hidden', tab !== 'port')
+  trialsSection.classList.toggle('hidden', tab !== 'trials')
+  officersSection.classList.toggle('hidden', tab !== 'officers')
+  ordersSection.classList.toggle('hidden', tab !== 'orders')
+  ledgerSection.classList.toggle('hidden', tab !== 'ledger')
   logSection.classList.toggle('hidden', tab !== 'log')
   arsenalTabBtn.classList.toggle('is-active', tab === 'arsenal')
   prestigeTabBtn.classList.toggle('is-active', tab === 'prestige')
   musterTabBtn.classList.toggle('is-active', tab === 'muster')
+  stormheartTabBtn.classList.toggle('is-active', tab === 'stormheart')
+  shipwrightTabBtn.classList.toggle('is-active', tab === 'shipwright')
+  researchTabBtn.classList.toggle('is-active', tab === 'research')
+  relicsTabBtn.classList.toggle('is-active', tab === 'relics')
+  contractsTabBtn.classList.toggle('is-active', tab === 'contracts')
+  portTabBtn.classList.toggle('is-active', tab === 'port')
+  trialsTabBtn.classList.toggle('is-active', tab === 'trials')
+  officersTabBtn.classList.toggle('is-active', tab === 'officers')
+  ordersTabBtn.classList.toggle('is-active', tab === 'orders')
+  ledgerTabBtn.classList.toggle('is-active', tab === 'ledger')
   logTabBtn.classList.toggle('is-active', tab === 'log')
   arsenalTabBtn.classList.toggle('c-gold', tab === 'arsenal')
   prestigeTabBtn.classList.toggle('c-gold', tab === 'prestige')
   musterTabBtn.classList.toggle('c-teal', tab === 'muster')
+  stormheartTabBtn.classList.toggle('c-teal', tab === 'stormheart')
+  shipwrightTabBtn.classList.toggle('c-gold', tab === 'shipwright')
+  researchTabBtn.classList.toggle('c-teal', tab === 'research')
+  relicsTabBtn.classList.toggle('c-gold', tab === 'relics')
+  contractsTabBtn.classList.toggle('c-teal', tab === 'contracts')
+  portTabBtn.classList.toggle('c-gold', tab === 'port')
+  trialsTabBtn.classList.toggle('c-teal', tab === 'trials')
+  officersTabBtn.classList.toggle('c-gold', tab === 'officers')
+  ordersTabBtn.classList.toggle('c-teal', tab === 'orders')
+  ledgerTabBtn.classList.toggle('c-gold', tab === 'ledger')
   logTabBtn.classList.toggle('c-gold', tab === 'log')
   if (tab === 'prestige') refreshPrestigeUI()
   if (tab === 'muster') refreshMusterUI()
+  if (tab === 'stormheart') refreshStormheartUI()
+  if (tab === 'shipwright') refreshShipwrightUI()
+  if (tab === 'research') refreshResearchUI()
+  if (tab === 'relics') refreshRelicsUI()
+  if (tab === 'contracts') refreshContractsUI()
+  if (tab === 'port') refreshPortUI()
+  if (tab === 'trials') refreshTrialsUI()
+  if (tab === 'officers') refreshOfficersUI()
+  if (tab === 'orders') refreshOrdersUI()
+  if (tab === 'ledger') refreshLedgerUI()
 }
 
 function buildDebugOverlay(root: HTMLElement): void {
@@ -610,9 +828,18 @@ function buildDebugOverlay(root: HTMLElement): void {
   }
   debugOverlay.appendChild(dblRow)
 
+  const brineRow = el('div', 'debug-row')
+  brineRow.appendChild(el('span', '', 'Brine:'))
+  for (const amt of [5, 25]) {
+    const b = btn(`+${amt}`, 'sz-13')
+    b.addEventListener('click', () => GameState.addResource('ether_brine', amt))
+    brineRow.appendChild(b)
+  }
+  debugOverlay.appendChild(brineRow)
+
   // Sector jumps
   const laneRow = el('div', 'debug-row')
-  laneRow.appendChild(el('span', '', 'Passages:'))
+  laneRow.appendChild(el('span', '', 'Sectors:'))
   for (const sector of [1, 2, 5, 10]) {
     const label = `S${sector}`
     const b = btn(label, 'sz-13')
@@ -620,6 +847,19 @@ function buildDebugOverlay(root: HTMLElement): void {
     laneRow.appendChild(b)
   }
   debugOverlay.appendChild(laneRow)
+
+  // Unlock all systems
+  const unlockRow = el('div', 'debug-row')
+  unlockRow.appendChild(el('span', '', 'Systems:'))
+  const unlockAllB = btn('UNLOCK ALL', 'sz-13')
+  unlockAllB.addEventListener('click', () => {
+    const allSystems: SystemUnlock[] = ['prestige','muster','stormheart','shipwright','research','relics','contracts','port','trials','officers','orders','ledger']
+    for (const id of allSystems) GameState.unlockSystem(id)
+    refreshSystemLocks()
+    appendLog('Debug: all systems unlocked')
+  })
+  unlockRow.appendChild(unlockAllB)
+  debugOverlay.appendChild(unlockRow)
 
   // Save / Load / Reset
   const ioRow = el('div', 'debug-row')
@@ -651,6 +891,21 @@ function connectSignals(): void {
   sim.onEscortDefeated     = (index, def, rewards) => onEscortDefeated(index, def, rewards)
 
   GameState.on('resource_changed',  (id, amount) => onResourceChanged(id as string, amount as number))
+  GameState.on('stormheart_changed', () => refreshStormheartUI())
+  GameState.on('shipwright_changed', () => refreshShipwrightUI())
+  GameState.on('research_changed', () => refreshResearchUI())
+  GameState.on('relics_changed', () => refreshRelicsUI())
+  GameState.on('contracts_changed', () => refreshContractsUI())
+  GameState.on('port_changed', () => {
+    refreshPortUI()
+    updatePlayerHullUI(GameState.getPlayerHull(), GameState.getPlayerMaxHull())
+  })
+  GameState.on('trials_changed', () => refreshTrialsUI())
+  GameState.on('officers_changed', () => {
+    refreshOfficersUI()
+    refreshCombatPowerVisuals()
+  })
+  GameState.on('orders_changed', () => refreshOrdersUI())
   GameState.on('muster_changed', (...args) => {
     if (!musterSection.classList.contains('hidden')) refreshMusterUI()
     if (args[0] === 'levels') updatePlayerHullUI(GameState.getPlayerHull(), GameState.getPlayerMaxHull())
@@ -678,10 +933,22 @@ function connectSignals(): void {
   })
   GameState.on('returned_to_port', () => {
     refreshSystemLocks()
+    refreshAllResources()
     refreshArsenalUI()
+    refreshStormheartUI()
+    refreshShipwrightUI()
+    refreshResearchUI()
+    refreshRelicsUI()
+    refreshContractsUI()
+    refreshPortUI()
+    refreshTrialsUI()
+    refreshOfficersUI()
+    refreshOrdersUI()
+    refreshLedgerUI()
     setActiveTab(GameState.isSystemUnlocked('muster') ? 'muster' : 'arsenal')
   })
   GameState.on('doctrine_changed', () => refreshDoctrineUI())
+  GameState.on('ship_sunk_recorded', () => refreshRouteUI())
 }
 
 // ── Sim handlers ──────────────────────────────────────────────────────────────
@@ -700,8 +967,15 @@ function onEnemySpawned(def: AnyDef, maxHull: number, isSquadMember: boolean): v
   enemyFamily.textContent = def['family']        ?? '?'
   setHpBar(enemyHpFill, enemyHpLabel, maxHull, maxHull, 'red')
   if (!isSquadMember) {
-    startVisualWave(true)
-    refreshSeaContacts(def, maxHull, maxHull)
+    // Partial refresh: only replace the vanguard group when a normal wave is already
+    // painted, so port/starboard ship CSS animations aren't restarted (visible flash).
+    const hasVanguard = !!seaContactLayer.querySelector('.fleet-wave.is-vanguard-wave')
+    if (hasVanguard) {
+      refreshVanguardContact(def, maxHull, maxHull)
+    } else {
+      startVisualWave(true)
+      refreshSeaContacts(def, maxHull, maxHull)
+    }
   } else {
     // Restore the contact HP bar for the next squad member without rebuilding contacts
     updateCurrentSeaContactHp(maxHull, maxHull)
@@ -732,12 +1006,13 @@ function onEnemyDamaged(hull: number, maxHull: number, dmg: number, evaded: bool
 }
 
 function onEnemyDefeated(_def: AnyDef, rewards: Record<string, number>, isLastInSquad: boolean): void {
+  const anchor = getCurrentSeaTarget() ?? enemyRect
   enemyHpFill.style.width = '0%'
   enemyHpLabel.textContent = '0 / ?'
   if (isLastInSquad) {
     sinkCurrentSeaContact()
   }
-  collectRewardsPassively(rewards)
+  spawnRewardPickups(rewards, anchor)
 }
 
 function onPlayerDamaged(hull: number, maxHull: number, _dmg: number): void {
@@ -788,10 +1063,10 @@ function onSectorCompleted(_sectorId: string, nextId: string): void {
     const nextName = nextSector > 0 ? SectorPlan.getSector(nextSector).displayName : nextId
     advanceBtn.textContent = `▶  CHART COURSE TO ${nextName.toUpperCase()}`
     advanceBtn.classList.remove('hidden')
-    appendLog('<span class="log-green">Passage cleared. New course plotted.</span>')
+    appendLog('<span class="log-green">Sector cleared. New course plotted.</span>')
   } else if (nextId) {
     advanceBtn.classList.add('hidden')
-    appendLog('<span class="log-green">Passage cleared. Auto course continuing.</span>')
+    appendLog('<span class="log-green">Sector cleared. Auto course continuing.</span>')
   } else {
     advanceBtn.classList.add('hidden')
     appendLog('<span class="log-green">Final sector cleared!</span>')
@@ -831,7 +1106,7 @@ function onEscortDefeated(index: number, def: AnyDef, rewards: Record<string, nu
   const contact = simEscorts[index]
   if (contact) markContactSunk(contact)
   simEscorts[index] = null
-  collectRewardsPassively(rewards)
+  spawnRewardPickups(rewards, contact ?? undefined)
   void def
 }
 
@@ -849,13 +1124,34 @@ function refreshDoctrineUI(): void {
 function onResourceChanged(id: string, amount: number): void {
   if (id === 'salvage')   { salvageLabel.textContent = Balance.formatNumber(amount); refreshArsenalUI() }
   if (id === 'doubloons') { doubloonsLabel.textContent = Balance.formatNumber(amount) }
+  if (id === 'ether_brine' || id === 'storm_power') refreshStormheartUI()
+  if (id === 'salvage') refreshShipwrightUI()
+  if (id === 'doubloons') refreshPortUI()
+  if (id === 'ether_brine') refreshTrialsUI()
 }
 
 // ── Prestige / unlocks ───────────────────────────────────────────────────────
+function syncTabLock(tabBtn: HTMLButtonElement, systemId: SystemUnlock): void {
+  const isUnlocked = GameState.isSystemUnlocked(systemId)
+  tabBtn.classList.toggle('is-locked', !isUnlocked)
+  const labelSpan = tabBtn.querySelector<HTMLElement>('.tab-label')
+  if (labelSpan) labelSpan.textContent = isUnlocked ? (tabBtn.dataset.realLabel ?? '') : '????'
+}
+
 function refreshSystemLocks(): void {
   if (!prestigeTabBtn || !musterTabBtn) return
-  prestigeTabBtn.classList.toggle('hidden', !GameState.isSystemUnlocked('prestige'))
-  musterTabBtn.classList.toggle('hidden', !GameState.isSystemUnlocked('muster'))
+  syncTabLock(prestigeTabBtn, 'prestige')
+  syncTabLock(musterTabBtn, 'muster')
+  syncTabLock(stormheartTabBtn, 'stormheart')
+  syncTabLock(shipwrightTabBtn, 'shipwright')
+  syncTabLock(researchTabBtn, 'research')
+  syncTabLock(relicsTabBtn, 'relics')
+  syncTabLock(contractsTabBtn, 'contracts')
+  syncTabLock(portTabBtn, 'port')
+  syncTabLock(trialsTabBtn, 'trials')
+  syncTabLock(officersTabBtn, 'officers')
+  syncTabLock(ordersTabBtn, 'orders')
+  syncTabLock(ledgerTabBtn, 'ledger')
   if (!GameState.isSystemUnlocked('muster')) musterSection.classList.add('hidden')
 }
 
@@ -881,7 +1177,7 @@ function refreshPrestigeUI(): void {
     prestigeLoadoutList.appendChild(card)
   }
 
-  const canReturn = GameState.hasDefeatedBoss('lane_02_boss')
+  const canReturn = GameState.hasDefeatedBoss('lane_02_boss') || GameState.hasDefeatedBoss('sector_002_boss')
   returnPortBtn.disabled = !canReturn
   returnPortNote.textContent = canReturn
     ? 'Return resets salvage, route distance, Arsenal upgrades, and Muster drill levels. Boss milestones, unlocked systems, and Doubloons persist.'
@@ -894,13 +1190,13 @@ function getPrestigeMilestones(): Array<{ kicker: string; title: string; body: s
       kicker: 'BOSS I',
       title: 'Defeat The Salt Widow',
       body: 'Unlocks Prestige planning and shows the next voyage goal.',
-      done: () => GameState.hasDefeatedBoss('lane_01_boss'),
+      done: () => GameState.hasDefeatedBoss('lane_01_boss') || GameState.hasDefeatedBoss('sector_001_boss'),
     },
     {
       kicker: 'BOSS II',
       title: 'Defeat The Cracked Bell',
       body: 'Makes Return to Port available. Prestige after this clear unlocks Muster.',
-      done: () => GameState.hasDefeatedBoss('lane_02_boss'),
+      done: () => GameState.hasDefeatedBoss('lane_02_boss') || GameState.hasDefeatedBoss('sector_002_boss'),
     },
     {
       kicker: 'RETURN',
@@ -939,7 +1235,7 @@ function getPrestigeLoadoutSlots(): Array<{ kicker: string; name: string; body: 
 }
 
 function onReturnToPort(): void {
-  if (!GameState.hasDefeatedBoss('lane_02_boss')) {
+  if (!GameState.hasDefeatedBoss('lane_02_boss') && !GameState.hasDefeatedBoss('sector_002_boss')) {
     appendLog('<span class="log-silver">The harbor will not take you back as legend yet. Clear the second boss first.</span>')
     return
   }
@@ -993,6 +1289,10 @@ function onBuyUpgrade(upg: AnyDef): void {
   }
 }
 
+// Rolling XP sample buffer for rate estimation (90-second window)
+const musterXpSamples: Array<{ t: number; gXp: number; sXp: number }> = []
+const MUSTER_RATE_WINDOW_MS = 90_000
+
 function refreshMusterUI(): void {
   if (!musterGunneryBar) return
   const g = GameState.getMusterGunnery()
@@ -1005,20 +1305,410 @@ function refreshMusterUI(): void {
   const sPower = GameState.getMusterSeamanshipPower()
   const gPct = Math.min(100, (gXp / gNeed) * 100)
   const sPct = Math.min(100, (sXp / sNeed) * 100)
-  musterGunneryBar.style.width    = `${gPct}%`
-  musterGunneryLabel.textContent  = `Lv. ${g}`
-  musterGunneryBonus.textContent  = `+${((Balance.gunneryBonus(g) - 1) * 100).toFixed(0)}% weapon damage`
-  musterGunneryProgress.textContent = `${Balance.formatNumber(gXp)} / ${Balance.formatNumber(gNeed)} muster`
-  musterSeamanshipBar.style.width   = `${sPct}%`
-  musterSeamanshipLabel.textContent = `Lv. ${s}`
-  musterSeamanshipBonus.textContent = `+${((Balance.seamanshipHullBonus(s) - 1) * 100).toFixed(0)}% max hull`
-  musterSeamanshipProgress.textContent = `${Balance.formatNumber(sXp)} / ${Balance.formatNumber(sNeed)} muster`
 
-  musterAllocationSlider.value = `${gPower}`
-  musterAllocationLabel.textContent = `Gain cap: ${MUSTER_MAX_LEVELS_PER_SECOND}/sec`
-  musterGunneryPowerLabel.textContent = `Gunnery ${gPower}%`
+  // Sample XP for rate estimation
+  const now = Date.now()
+  musterXpSamples.push({ t: now, gXp, sXp })
+  while (musterXpSamples.length > 1 && now - musterXpSamples[0].t > MUSTER_RATE_WINDOW_MS)
+    musterXpSamples.shift()
+
+  let gRate = 0, sRate = 0
+  if (musterXpSamples.length >= 2) {
+    const oldest = musterXpSamples[0]
+    const dtMin = (now - oldest.t) / 60_000
+    if (dtMin >= 5 / 60) {   // at least 5 seconds of history
+      gRate = Math.round((gXp - oldest.gXp) / dtMin)
+      sRate = Math.round((sXp - oldest.sXp) / dtMin)
+    }
+  }
+
+  // Tide gauges fill bottom-to-top via height
+  musterGunneryBar.style.height     = `${gPct}%`
+  musterGunneryLabel.textContent    = `Lv. ${g}`
+  musterGunneryBonus.textContent    = `+${((Balance.gunneryBonus(g) - 1) * 100).toFixed(0)}% weapon damage`
+  musterGunneryProgress.textContent = `${Balance.formatNumber(gXp)} / ${Balance.formatNumber(gNeed)}`
+  musterGunneryRate.textContent     = gRate > 0 ? `~${Balance.formatNumber(gRate)}/min` : '—'
+  musterSeamanshipBar.style.height     = `${sPct}%`
+  musterSeamanshipLabel.textContent    = `Lv. ${s}`
+  musterSeamanshipBonus.textContent    = `+${((Balance.seamanshipHullBonus(s) - 1) * 100).toFixed(0)}% max hull`
+  musterSeamanshipProgress.textContent = `${Balance.formatNumber(sXp)} / ${Balance.formatNumber(sNeed)}`
+  musterSeamanshipRate.textContent     = sRate > 0 ? `~${Balance.formatNumber(sRate)}/min` : '—'
+
+  // Drill allocation slider — left = Gunnery focus, right = Seamanship focus
+  musterAllocationSlider.value           = `${100 - gPower}`
+  musterGunneryPowerLabel.textContent    = `Gunnery ${gPower}%`
   musterSeamanshipPowerLabel.textContent = `Seamanship ${sPower}%`
-  musterPowerFill.style.width = `${gPower}%`
+}
+
+const STORM_BOOSTS: Array<{ id: StormBoostId; name: string; body: string }> = [
+  { id: 'thunder_broadside', name: 'Thunder Broadside', body: '+20% weapon damage while Storm Power lasts.' },
+  { id: 'fair_wind', name: 'Fair Wind', body: '+35% forward sector distance gain.' },
+  { id: 'deep_salvage', name: 'Deep Salvage', body: '+25% salvage pickup value.' },
+]
+
+function refreshStormheartUI(): void {
+  if (!stormheartSection) return
+  stormheartSection.querySelectorAll('.system-grid, .system-diagnostic').forEach(node => node.remove())
+  const grid = el('div', 'system-grid')
+  const power = GameState.getResource('storm_power')
+  const brine = GameState.getResource('ether_brine')
+  const active = GameState.getStormBoosts()
+  const summary = el('div', 'system-card')
+  summary.appendChild(el('span', 'loadout-kicker', 'FURNACE PRESSURE'))
+  summary.appendChild(el('span', 'upgrade-name', `${Balance.formatNumber(brine)} Ether Brine · ${Balance.formatNumber(power)} Storm Power`))
+  summary.appendChild(el('span', 'upgrade-desc', `${active.length}/${GameState.getStormMaxBoosts()} boosts inside limit. Extra boosts drain faster.`))
+  const burn = btn('BURN 5 BRINE', 'btn-lg sz-13') as HTMLButtonElement
+  burn.disabled = brine < 5
+  burn.addEventListener('click', () => {
+    if (GameState.burnEtherBrine()) appendLog('<span class="log-teal">Stormheart pressure rising.</span>')
+    refreshStormheartUI()
+  })
+  summary.appendChild(burn)
+  grid.appendChild(summary)
+  for (const boost of STORM_BOOSTS) {
+    const card = el('div', 'system-card')
+    const isActive = GameState.isStormBoostActive(boost.id)
+    card.appendChild(el('span', 'loadout-kicker', isActive ? 'ACTIVE BOOST' : 'BOOST'))
+    card.appendChild(el('span', 'upgrade-name', boost.name))
+    card.appendChild(el('span', 'upgrade-desc', boost.body))
+    const toggle = btn(isActive ? 'DAMPEN' : 'IGNITE', 'btn-lg sz-13') as HTMLButtonElement
+    toggle.disabled = !isActive && power <= 0
+    toggle.addEventListener('click', () => {
+      GameState.toggleStormBoost(boost.id)
+      refreshStormheartUI()
+      refreshCombatPowerVisuals()
+    })
+    card.appendChild(toggle)
+    grid.appendChild(card)
+  }
+  stormheartSection.appendChild(grid)
+  stormheartSection.appendChild(el('div', 'system-diagnostic', 'Source: rare kill pickups. Sink: active boosts. Reset: Ether Brine and Storm Power reset on Return to Port.'))
+}
+
+function refreshShipwrightUI(): void {
+  if (!shipwrightSection) return
+  shipwrightSection.querySelectorAll('.system-grid, .system-diagnostic').forEach(node => node.remove())
+  const state = GameState.getShipwrightState()
+  const grid = el('div', 'system-grid')
+  for (const recipe of SHIPWRIGHT_RECIPES) {
+    const mastery = state.mastery[recipe.id] ?? 0
+    const active = state.active_recipe === recipe.id
+    const progress = active ? Math.min(100, (state.progress / recipe.seconds) * 100) : 0
+    const card = el('div', 'system-card')
+    card.appendChild(el('span', 'loadout-kicker', active ? 'ON THE BENCH' : 'BLUEPRINT'))
+    card.appendChild(el('span', 'upgrade-name', recipe.displayName))
+    card.appendChild(el('span', 'upgrade-desc', `Mastery ${mastery}/${recipe.masteryCap}. Cost ${Balance.formatNumber(recipe.salvageCost)} Salvage. ${describeShipwrightEffect(recipe.id, mastery)}`))
+    const meter = el('div', 'upgrade-meter')
+    const fill = el('div', 'upgrade-meter-fill')
+    fill.style.width = `${progress}%`
+    meter.appendChild(fill)
+    card.appendChild(meter)
+    const craft = btn(active ? 'CRAFTING' : 'CRAFT', 'btn-lg sz-13') as HTMLButtonElement
+    craft.disabled = Boolean(state.active_recipe) || GameState.getResource('salvage') < recipe.salvageCost
+    craft.addEventListener('click', () => {
+      if (GameState.startShipwrightRecipe(recipe.id)) appendLog(`<span class="log-gold">${recipe.displayName} laid on the bench.</span>`)
+      refreshShipwrightUI()
+    })
+    card.appendChild(craft)
+    grid.appendChild(card)
+  }
+  shipwrightSection.appendChild(grid)
+  shipwrightSection.appendChild(el('div', 'system-diagnostic', 'Source: Salvage crafting. Persistent: Blueprint Mastery. Visible effects: salvage nets and fair wind fittings feed pickups and route speed.'))
+}
+
+function describeShipwrightEffect(id: string, mastery: number): string {
+  if (id === 'salvage_nets') return `Current: +${mastery * 6}% salvage pickup value.`
+  if (id === 'fair_wind_rigging') return `Current: +${mastery * 3}% route rigging preview; Stormheart Fair Wind handles active speed.`
+  return mastery >= 5 ? 'Standing Supply established.' : 'Improves future fitting work.'
+}
+
+function refreshResearchUI(): void {
+  if (!researchSection) return
+  researchSection.querySelectorAll('.system-grid, .system-diagnostic').forEach(node => node.remove())
+  const grid = el('div', 'system-grid')
+  const names: Record<ResearchBranchId, string> = {
+    gunnery: 'Gunnery',
+    shipwrighting: 'Shipwrighting',
+    navigation: 'Navigation',
+    occult: 'Occult',
+  }
+  for (const branch of RESEARCH_BRANCHES) {
+    const progress = GameState.getResearchProgress(branch)
+    const rank = Math.floor(progress / 100)
+    const card = el('div', 'system-card')
+    const focused = GameState.getResearchFocus() === branch
+    card.appendChild(el('span', 'loadout-kicker', focused ? 'FOCUSED' : 'BRANCH'))
+    card.appendChild(el('span', 'upgrade-name', names[branch]))
+    card.appendChild(el('span', 'upgrade-desc', `Rank ${rank}. ${describeResearchEffect(branch, rank)}`))
+    const meter = el('div', 'upgrade-meter')
+    const fill = el('div', 'upgrade-meter-fill')
+    fill.style.width = `${progress % 100}%`
+    meter.appendChild(fill)
+    card.appendChild(meter)
+    const focus = btn(focused ? 'FOCUSED' : 'FOCUS', 'btn-lg sz-13') as HTMLButtonElement
+    focus.disabled = focused
+    focus.addEventListener('click', () => {
+      GameState.setResearchFocus(branch)
+      refreshResearchUI()
+    })
+    card.appendChild(focus)
+    grid.appendChild(card)
+  }
+  researchSection.appendChild(grid)
+  researchSection.appendChild(el('div', 'system-diagnostic', 'Source: every kill. Focus: 2.5x branch gain without stopping other branches. Route density: Black Reef favors Gunnery/Shipwrighting; Storm Line favors Navigation/Occult.'))
+}
+
+function describeResearchEffect(branch: ResearchBranchId, rank: number): string {
+  if (branch === 'gunnery') return `Current: +${rank}% target reading and impact doctrine diagnostics.`
+  if (branch === 'shipwrighting') return `Current: +${rank * 5}% Shipwright craft speed and +${rank * 2}% salvage analysis.`
+  if (branch === 'navigation') return `Current: route and starting-sector chart knowledge rank ${rank}.`
+  return `Current: improves Ether Brine and relic preview knowledge rank ${rank}.`
+}
+
+function refreshRelicsUI(): void {
+  if (!relicsSection) return
+  relicsSection.querySelectorAll('.system-grid, .system-diagnostic').forEach(node => node.remove())
+  const state = GameState.getRelicState()
+  const grid = el('div', 'system-grid')
+  for (const relic of RELICS) {
+    const shards = state.shards[relic.id] ?? 0
+    const rank = GameState.getRelicRank(relic.id)
+    const active = state.active_relic === relic.id
+    const card = el('div', 'system-card')
+    card.appendChild(el('span', 'loadout-kicker', active ? 'SOCKETED' : 'RELIC'))
+    card.appendChild(el('span', 'upgrade-name', relic.displayName))
+    card.appendChild(el('span', 'upgrade-desc', `Rank ${rank}/${relic.maxRank}. ${shards % 10}/10 shards toward next rank. ${describeRelicEffect(relic.id, rank)}`))
+    const meter = el('div', 'upgrade-meter')
+    const fill = el('div', 'upgrade-meter-fill')
+    fill.style.width = `${rank >= relic.maxRank ? 100 : (shards % 10) * 10}%`
+    meter.appendChild(fill)
+    card.appendChild(meter)
+    const socket = btn(active ? 'SOCKETED' : 'SOCKET', 'btn-lg sz-13') as HTMLButtonElement
+    socket.disabled = active
+    socket.addEventListener('click', () => {
+      GameState.setActiveRelic(relic.id)
+      refreshRelicsUI()
+    })
+    card.appendChild(socket)
+    grid.appendChild(card)
+  }
+  relicsSection.appendChild(grid)
+  relicsSection.appendChild(el('div', 'system-diagnostic', 'Source: rare wreckage shards from kills and bosses. Persistent: shards and socket choice. Interlock: Research Occult, Officers, and Storm Line routes improve discovery.'))
+}
+
+function describeRelicEffect(id: RelicId, rank: number): string {
+  if (id === 'cannon_ruby') return `Socket effect: +${rank * 4}% weapon damage.`
+  if (id === 'netted_astrolabe') return `Socket effect: +${rank * 5}% salvage pickup value.`
+  return `Socket effect: +${(rank * 1.5).toFixed(1)}% Ether Brine drop chance.`
+}
+
+function refreshContractsUI(): void {
+  if (!contractsSection) return
+  contractsSection.querySelectorAll('.system-grid, .system-diagnostic').forEach(node => node.remove())
+  const state = GameState.getContractState()
+  const grid = el('div', 'system-grid')
+  for (const contract of CONTRACTS) {
+    const active = state.active_contract === contract.id
+    const card = el('div', 'system-card')
+    card.appendChild(el('span', 'loadout-kicker', active ? 'CHARTED WRIT' : 'WRIT'))
+    card.appendChild(el('span', 'upgrade-name', contract.displayName))
+    card.appendChild(el('span', 'upgrade-desc', `Charge ${Math.floor(state.charge)}/${contract.chargeCost}. Completed ${state.completions[contract.id] ?? 0}. Reward: ${formatRewardMap(contract.reward)}.`))
+    const meter = el('div', 'upgrade-meter')
+    const fill = el('div', 'upgrade-meter-fill')
+    fill.style.width = `${Math.min(100, (state.charge / contract.chargeCost) * 100)}%`
+    meter.appendChild(fill)
+    card.appendChild(meter)
+    const pick = btn(active ? 'RUN WRIT' : 'CHART', 'btn-lg sz-13') as HTMLButtonElement
+    pick.disabled = active ? state.charge < contract.chargeCost : false
+    pick.addEventListener('click', () => {
+      if (!active) GameState.setActiveContract(contract.id)
+      else if (GameState.completeActiveContract()) appendLog(`<span class="log-gold">${contract.displayName} paid out.</span>`)
+      refreshContractsUI()
+      refreshAllResources()
+    })
+    card.appendChild(pick)
+    grid.appendChild(card)
+  }
+  contractsSection.appendChild(grid)
+  contractsSection.appendChild(el('div', 'system-diagnostic', `Source: sunk ships fill contract charge; Observatory adds +${Math.round(GameState.portContractBonus() * 100)}% contract handling. Sink: run one chosen writ for targeted rewards.`))
+}
+
+function refreshPortUI(): void {
+  if (!portSection) return
+  portSection.querySelectorAll('.system-grid, .system-diagnostic').forEach(node => node.remove())
+  const grid = el('div', 'system-grid')
+  for (const facility of PORT_FACILITIES) {
+    const rank = GameState.getPortFacilityRank(facility.id)
+    const cost = GameState.portUpgradeCost(facility.id)
+    const card = el('div', 'system-card')
+    card.appendChild(el('span', 'loadout-kicker', 'FACILITY'))
+    card.appendChild(el('span', 'upgrade-name', facility.displayName))
+    card.appendChild(el('span', 'upgrade-desc', `Rank ${rank}/${facility.maxRank}. ${describePortEffect(facility.id, rank)}`))
+    const up = btn(rank >= facility.maxRank ? 'MAXED' : `UPGRADE ${cost} DB`, 'btn-lg sz-13') as HTMLButtonElement
+    up.disabled = rank >= facility.maxRank || GameState.getResource('doubloons') < cost
+    up.addEventListener('click', () => {
+      if (GameState.upgradePortFacility(facility.id)) appendLog(`<span class="log-gold">${facility.displayName} upgraded.</span>`)
+      refreshPortUI()
+    })
+    card.appendChild(up)
+    grid.appendChild(card)
+  }
+  portSection.appendChild(grid)
+  portSection.appendChild(el('div', 'system-diagnostic', 'Source: persistent Doubloons from rare drops, contracts, and trials. Sink: durable harbor ranks. Reset: facilities persist across Return to Port.'))
+}
+
+function describePortEffect(id: PortFacilityId, rank: number): string {
+  if (id === 'drydock') return `Current: +${rank * 5}% max hull.`
+  if (id === 'foundry') return `Current: +${rank * 4}% salvage pickup value.`
+  if (id === 'observatory') return `Current: +${rank * 6}% contract handling and extra charge from kills.`
+  return `Current: +${rank}% rare drop chance.`
+}
+
+function refreshTrialsUI(): void {
+  if (!trialsSection) return
+  trialsSection.querySelectorAll('.system-grid, .system-diagnostic').forEach(node => node.remove())
+  const completions = GameState.getTrialCompletions()
+  const trials = [
+    { id: 'gunnery_trial', name: 'Gunnery Trial', req: 'Long Nine upgrade level 5', ready: GameState.getUpgradeLevel('long_nine_upgrade') >= 5 },
+    { id: 'shipwright_trial', name: 'Shipwright Trial', req: 'Any blueprint mastery 1', ready: Object.values(GameState.getShipwrightState().mastery).some(v => v >= 1) },
+    { id: 'storm_trial', name: 'Storm Trial', req: 'Hold 5 Ether Brine', ready: GameState.getResource('ether_brine') >= 5 },
+    { id: 'research_trial', name: 'Research Trial', req: 'Any Research branch rank 1', ready: RESEARCH_BRANCHES.some(branch => GameState.getResearchProgress(branch) >= 100) },
+  ]
+  const grid = el('div', 'system-grid')
+  for (const trial of trials) {
+    const done = Boolean(completions[trial.id])
+    const card = el('div', 'system-card')
+    card.appendChild(el('span', 'loadout-kicker', done ? 'CLEARED' : trial.ready ? 'READY' : 'TRIAL'))
+    card.appendChild(el('span', 'upgrade-name', trial.name))
+    card.appendChild(el('span', 'upgrade-desc', `${trial.req}. Reward: Doubloons and ledger proof.`))
+    const complete = btn(done ? 'CLEARED' : 'CLAIM', 'btn-lg sz-13') as HTMLButtonElement
+    complete.disabled = done || !trial.ready
+    complete.addEventListener('click', () => {
+      if (GameState.completeTrial(trial.id)) appendLog(`<span class="log-gold">${trial.name} cleared.</span>`)
+      refreshTrialsUI()
+    })
+    card.appendChild(complete)
+    grid.appendChild(card)
+  }
+  trialsSection.appendChild(grid)
+  trialsSection.appendChild(el('div', 'system-diagnostic', 'Source: system proficiency checks. Persistent: one-time clears. Interlock: trials validate Arsenal, Shipwright, Stormheart, and Research before later phase gates.'))
+}
+
+function refreshOfficersUI(): void {
+  if (!officersSection) return
+  officersSection.querySelectorAll('.system-grid, .system-diagnostic').forEach(node => node.remove())
+  const state = GameState.getOfficerState()
+  const grid = el('div', 'system-grid')
+  for (const officer of OFFICERS) {
+    const active = state.active_officer === officer.id
+    const xp = state.xp[officer.id] ?? 0
+    const rank = GameState.getOfficerRank(officer.id)
+    const card = el('div', 'system-card')
+    card.appendChild(el('span', 'loadout-kicker', active ? 'ON WATCH' : 'OFFICER'))
+    card.appendChild(el('span', 'upgrade-name', officer.displayName))
+    card.appendChild(el('span', 'upgrade-desc', `Rank ${rank}. Learns from kills while assigned. Post: ${officer.post}. ${describeOfficerEffect(officer.id, rank)}`))
+    const meter = el('div', 'upgrade-meter')
+    const fill = el('div', 'upgrade-meter-fill')
+    fill.style.width = `${xp % 100}%`
+    meter.appendChild(fill)
+    card.appendChild(meter)
+    const assign = btn(active ? 'ASSIGNED' : 'ASSIGN', 'btn-lg sz-13') as HTMLButtonElement
+    assign.disabled = active
+    assign.addEventListener('click', () => {
+      GameState.setActiveOfficer(officer.id)
+      refreshOfficersUI()
+    })
+    card.appendChild(assign)
+    grid.appendChild(card)
+  }
+  officersSection.appendChild(grid)
+  officersSection.appendChild(el('div', 'system-diagnostic', 'Source: the assigned officer gains XP from kills. Persistent: officer XP and assignment. Interlock: officers push combat, salvage, route speed, or rare drops.'))
+}
+
+function describeOfficerEffect(id: OfficerId, rank: number): string {
+  if (id === 'gunner') return `Current: +${rank * 3}% weapon damage.`
+  if (id === 'boatswain') return `Current: +${rank * 4}% max hull.`
+  if (id === 'navigator') return `Current: +${rank * 3}% forward route speed.`
+  if (id === 'quartermaster') return `Current: +${rank * 4}% salvage pickup value.`
+  return `Current: +${rank}% brine and relic odds.`
+}
+
+function refreshOrdersUI(): void {
+  if (!ordersSection) return
+  ordersSection.querySelectorAll('.system-grid, .system-diagnostic').forEach(node => node.remove())
+  const orders = GameState.getOrdersState()
+  const grid = el('div', 'system-grid')
+  const brine = el('div', 'system-card')
+  brine.appendChild(el('span', 'loadout-kicker', 'STORMHEART ORDER'))
+  brine.appendChild(el('span', 'upgrade-name', 'Auto Burn Brine'))
+  brine.appendChild(el('span', 'upgrade-desc', 'When Storm Power is nearly empty, spend 5 Ether Brine to restore pressure.'))
+  const burn = btn(orders.auto_burn_brine ? 'ON' : 'OFF', 'btn-lg sz-13') as HTMLButtonElement
+  burn.addEventListener('click', () => GameState.setOrder('auto_burn_brine', !orders.auto_burn_brine))
+  brine.appendChild(burn)
+  grid.appendChild(brine)
+
+  const research = el('div', 'system-card')
+  research.appendChild(el('span', 'loadout-kicker', 'RESEARCH ORDER'))
+  research.appendChild(el('span', 'upgrade-name', 'Focus Rule'))
+  research.appendChild(el('span', 'upgrade-desc', `Current automatic focus: ${orders.auto_research_focus}.`))
+  for (const branch of RESEARCH_BRANCHES) {
+    const pick = btn(branch.toUpperCase(), 'btn-lg sz-13') as HTMLButtonElement
+    pick.disabled = orders.auto_research_focus === branch
+    pick.addEventListener('click', () => GameState.setOrder('auto_research_focus', branch))
+    research.appendChild(pick)
+  }
+  grid.appendChild(research)
+
+  const craft = el('div', 'system-card')
+  craft.appendChild(el('span', 'loadout-kicker', 'SHIPWRIGHT ORDER'))
+  craft.appendChild(el('span', 'upgrade-name', 'Craft Queue'))
+  craft.appendChild(el('span', 'upgrade-desc', orders.auto_shipwright_recipe ? `Auto-starting ${orders.auto_shipwright_recipe}.` : 'No automatic craft selected.'))
+  const clear = btn('NONE', 'btn-lg sz-13') as HTMLButtonElement
+  clear.disabled = !orders.auto_shipwright_recipe
+  clear.addEventListener('click', () => GameState.setOrder('auto_shipwright_recipe', ''))
+  craft.appendChild(clear)
+  for (const recipe of SHIPWRIGHT_RECIPES) {
+    const pick = btn(recipe.displayName.toUpperCase(), 'btn-lg sz-13') as HTMLButtonElement
+    pick.disabled = orders.auto_shipwright_recipe === recipe.id
+    pick.addEventListener('click', () => GameState.setOrder('auto_shipwright_recipe', recipe.id))
+    craft.appendChild(pick)
+  }
+  grid.appendChild(craft)
+
+  ordersSection.appendChild(grid)
+  ordersSection.appendChild(el('div', 'system-diagnostic', 'Source: unlocked solved-system rules. Sink: attention reduction. Orders currently manage Stormheart burn, Research focus, and Shipwright queue starts.'))
+}
+
+function refreshLedgerUI(): void {
+  if (!ledgerSection) return
+  ledgerSection.querySelectorAll('.system-grid, .system-diagnostic').forEach(node => node.remove())
+  const proofs = [
+    { name: 'Passage Boss Clear', done: GameState.persistent.defeated_bosses.length > 0 },
+    { name: 'Return to Port', done: GameState.getReturnCount() > 0 },
+    { name: 'Muster Allocated', done: GameState.getMusterGunnery() + GameState.getMusterSeamanship() > 0 },
+    { name: 'Stormheart Fed', done: GameState.getResource('storm_power') > 0 || GameState.getResource('ether_brine') > 0 },
+    { name: 'Shipwright Mastery', done: Object.values(GameState.getShipwrightState().mastery).some(v => v > 0) },
+    { name: 'Research Rank', done: RESEARCH_BRANCHES.some(branch => GameState.getResearchProgress(branch) >= 100) },
+    { name: 'Relic Socketed', done: GameState.getRelicRank(GameState.getActiveRelic()) > 0 },
+    { name: 'Contract Paid', done: Object.values(GameState.getContractState().completions).some(v => v > 0) },
+    { name: 'Port Built', done: PORT_FACILITIES.some(f => GameState.getPortFacilityRank(f.id) > 0) },
+    { name: 'Trial Cleared', done: Object.values(GameState.getTrialCompletions()).some(v => v > 0) },
+  ]
+  const grid = el('div', 'system-grid')
+  for (const proof of proofs) {
+    const card = el('div', 'system-card')
+    card.appendChild(el('span', 'loadout-kicker', proof.done ? 'LOGGED' : 'OPEN'))
+    card.appendChild(el('span', 'upgrade-name', proof.name))
+    card.appendChild(el('span', 'upgrade-desc', proof.done ? 'Recorded in the Captain\'s Ledger.' : 'Still needs a visible system proof.'))
+    grid.appendChild(card)
+  }
+  const done = proofs.filter(p => p.done).length
+  ledgerSection.appendChild(grid)
+  ledgerSection.appendChild(el('div', 'system-diagnostic', `Ledger proof ${done}/${proofs.length}. Later this becomes the phase gate for Captain's Ledger, Flagship Phase, and Legend Reset.`))
+}
+
+function formatRewardMap(reward: Record<string, number>): string {
+  return Object.entries(reward).map(([id, amount]) => `${Balance.formatNumber(amount)} ${id}`).join(', ')
 }
 
 function refreshArsenalUI(): void {
@@ -1164,7 +1854,7 @@ function refreshMilestoneChoicesOnCard(refs: ArsenalCardRefs): void {
       choiceBtn.appendChild(el('span', 'choice-name', choice['display_name'] ?? 'Choice'))
       choiceBtn.appendChild(el('span', 'choice-desc', choice['description'] ?? ''))
       choiceBtn.addEventListener('click', () => {
-        GameState.applyMilestoneChoice(upgradeId, tier, dmgMul, costMul)
+        GameState.applyMilestoneChoice(upgradeId, tier, dmgMul, costMul, `${choice['id'] ?? ''}`)
         appendLog(`<span class="log-gold">Tier ${tier + 1}: ${choice['display_name'] ?? 'applied'}.</span>`)
       })
       choiceRow.appendChild(choiceBtn)
@@ -1239,7 +1929,7 @@ function refreshLaneLabel(): void {
 
 function refreshWatersTitle(): void {
   const sector = SectorPlan.getSector(GameState.getCurrentSector())
-  laneLabel.textContent = `Passage ${sector.sector} · ${sector.displayName}`
+  laneLabel.textContent = `Sector ${sector.sector} · ${sector.displayName}`
 }
 
 function refreshRouteUI(): void {
@@ -1252,10 +1942,17 @@ function refreshRouteUI(): void {
 
   routeMeterFill.style.width = `${pct}%`
   const sector = SectorPlan.getSector(GameState.getCurrentSector())
-  const boss = sector.boss as AnyDef | undefined
-  const bossState = GameState.hasDefeatedBoss(boss?.['id'] ?? '') ? 'boss first-clear logged' : 'boss ahead'
-  routeDistanceLabel.textContent = `${sector.routeName}  ${Math.floor(distance)} / ${Math.floor(goal)} nmi`
-  routeDistanceLabel.title = `Passage ${sector.sector}: ${sector.displayName}; ${bossState}`
+  const bossState = GameState.hasDefeatedCurrentSectorBoss(sector.sector) ? 'boss first-clear logged' : 'boss ahead'
+  const unlocks = sector.firstClearUnlocks.length > 0 ? `; first clear: ${sector.firstClearUnlocks.join(', ')}` : ''
+  routeDistanceLabel.textContent = `Sector ${sector.sector} · ${sector.routeName} · ${Math.floor(distance)} / ${Math.floor(goal)} nmi · ${bossState}`
+  routeDistanceLabel.title = `Sector ${sector.sector}: ${sector.displayName}; route tag ${sector.routeTag}; ${bossState}${unlocks}`
+  if (sectorDiagnostic) {
+    const sunk = GameState.getShipsSunkThisSector()
+    const best = GameState.getBestShipsSunkForCurrentSector()
+    const salvageMul = GameState.salvageRewardMultiplier()
+    const salvageNote = salvageMul > 1 ? ` · salvage x${salvageMul.toFixed(2)}` : ''
+    sectorDiagnostic.textContent = `Sector sunk: ${sunk} · best ${best}${salvageNote}`
+  }
   autoProgressBtn.textContent = auto ? 'A' : 'A'
   autoProgressBtn.classList.toggle('is-active', auto)
   autoProgressBtn.classList.toggle('is-muted', !auto)
@@ -1385,6 +2082,25 @@ function refreshSeaContacts(
     })
   }
   appendSeaWaveGroup('Horizon Fleet', 'is-horizon-wave', horizonContacts)
+}
+
+/** Replace only the vanguard contact without touching port/starboard ships.
+ *  Prevents their CSS spawn animations from restarting on every enemy spawn. */
+function refreshVanguardContact(def: AnyDef, hull: number, maxHull: number): void {
+  if (!seaContactLayer) return
+  // Remove stale vanguard group and clear the HP-fill reference so no
+  // stale element gets written to after the old contact is gone.
+  seaContactLayer.querySelector('.fleet-wave.is-vanguard-wave')?.remove()
+  currentContactHpFill = null
+  if (!def || laneCleared || playerFleeing) return
+  appendSeaWaveGroup('Vanguard Wake', 'is-vanguard-wave', [{
+    slot: VANGUARD_CONTACT_SLOT,
+    def,
+    status: 'current',
+    caption: 'Under fire',
+    hull,
+    maxHull,
+  }])
 }
 
 function appendSeaWaveGroup(_label: string, className: string, contacts: SeaWaveContact[]): void {
@@ -1679,7 +2395,7 @@ function debugJumpSector(sector: number): void {
   GameState.setCurrentSector(sector)
   refreshLaneLabel()
   sim.startCombat()
-  appendLog(`<span class="log-silver">DEBUG: charted to Passage ${sector}</span>`)
+  appendLog(`<span class="log-silver">DEBUG: charted to Sector ${sector}</span>`)
 }
 
 function debugLoad(): void {
@@ -1702,9 +2418,21 @@ export function refreshAll(): void {
   playerFleeing = false
   clearLootDrops()
   currentLaneId = `sector_${GameState.getCurrentSector()}`
+  refreshSystemLocks()
   refreshLaneLabel()
   refreshAllResources()
   refreshArsenalUI()
+  refreshStormheartUI()
+  refreshShipwrightUI()
+  refreshResearchUI()
+  refreshRelicsUI()
+  refreshContractsUI()
+  refreshPortUI()
+  refreshTrialsUI()
+  refreshOfficersUI()
+  refreshOrdersUI()
+  refreshLedgerUI()
+  refreshPrestigeUI()
   refreshMusterUI()
 }
 
@@ -1760,28 +2488,31 @@ function processLootDrops(now: number): void {
   nextLootDropAt = now + 12_000 + Math.random() * 8_000
 }
 
-function collectRewardsPassively(rewards: Record<string, number>): void {
+function spawnRewardPickups(rewards: Record<string, number>, anchor?: HTMLElement): void {
   const entries = Object.entries(rewards).filter(([, amount]) => Number(amount) > 0)
   for (const [resource, amount] of entries) {
     const n = Math.max(1, Math.round(Number(amount)))
-    GameState.addResource(resource, n)
-    appendLog(`<span class="log-gold">+${Balance.formatNumber(n)} ${formatResourceName(resource)}</span>`)
+    spawnLootDrop(resource, n, anchor, true)
+    appendLog(`<span class="log-gold">${formatResourceName(resource)} wreckage surfaced.</span>`)
   }
   // small bonus doubloon chance on kills
   const bossBonus = GameState.isBossPhase() ? 0.18 : 0.035
   const routeBonus = SectorPlan.getSector(GameState.getCurrentSector()).route === 'B' ? 0.02 : 0
   if (!entries.some(([id]) => id === 'doubloons') && Math.random() < bossBonus + routeBonus) {
     const bonus = GameState.isBossPhase() ? 3 : 1
-    GameState.addResource('doubloons', bonus)
-    appendLog(`<span class="log-gold">+${bonus} Doubloons (bonus)</span>`)
+    spawnLootDrop('doubloons', bonus, anchor, true)
+    appendLog('<span class="log-gold">Doubloons glint in the wreckage.</span>')
   }
 }
 
 
-function spawnLootDrop(resourceId?: string, amountOverride?: number, anchor?: HTMLElement): void {
-  if (!combatRow) return
+function spawnLootDrop(resourceId?: string, amountOverride?: number, anchor?: HTMLElement, force = false): boolean {
+  if (!combatRow) return false
   const existing = combatRow.querySelectorAll('.loot-drop')
-  if (existing.length >= MAX_LOOT_DROPS) return
+  if (existing.length >= MAX_LOOT_DROPS) {
+    if (!force) return false
+    existing[0]?.remove()
+  }
 
   const resource = resourceId ?? (Math.random() < 0.045 ? 'doubloons' : 'salvage')
   const scalar = Balance.rewardScalar(GameState.getRouteDistance())
@@ -1810,6 +2541,7 @@ function spawnLootDrop(resourceId?: string, amountOverride?: number, anchor?: HT
     drop.classList.add('is-fading')
     window.setTimeout(() => drop.remove(), 260)
   }, lifetime)
+  return true
 }
 
 function lootDropPosition(anchor?: HTMLElement): { x: number; y: number } {
@@ -1833,7 +2565,7 @@ function lootDropTravel(origin: { x: number; y: number }): { x: number; y: numbe
   return {
     x: -28 + Math.random() * 56,
     y: Math.max(120, fallPx),
-    ms: 16_000 + Math.random() * 6_000,
+    ms: 22_000 + Math.random() * 8_000,
   }
 }
 
@@ -1844,6 +2576,17 @@ function collectLootDrop(drop: HTMLElement): void {
   if (amount <= 0) return
   GameState.addResource(resource, amount)
   appendLog(`<span class="log-gold">Recovered +${Balance.formatNumber(amount)} ${formatResourceName(resource)}.</span>`)
+  // Freeze the element at its current rendered position before switching animations.
+  // Without this, loot-collect restarts from the element's original CSS top/left (the
+  // spawn point, often above the combat area), causing a visible flash there on click.
+  if (combatRow?.isConnected) {
+    const base = combatRow.getBoundingClientRect()
+    const rect = drop.getBoundingClientRect()
+    drop.style.left = `${((rect.left + rect.width  * 0.5 - base.left) / Math.max(1, base.width))  * 100}%`
+    drop.style.top  = `${((rect.top  + rect.height * 0.5 - base.top)  / Math.max(1, base.height)) * 100}%`
+    drop.style.setProperty('--drift-x', '0px')
+    drop.style.setProperty('--drift-y', '0px')
+  }
   drop.classList.add('is-collected')
   window.setTimeout(() => drop.remove(), 180)
 }
@@ -1895,12 +2638,12 @@ function vfxShootAndHit(damage: number, evaded: boolean, escortTarget?: HTMLElem
 
   spawnMuzzleSmoke(1, level)
   const target = escortTarget ?? pickPlayerVolleyTarget(0)
-  const isPrimaryHit = !escortTarget && target === getCurrentSeaTarget()
+  const isSelectedHit = !escortTarget && target === getCurrentSeaTarget()
   spawnProjectile(projColor, level, 0, 1, target, () => {
     const targetAlive = target.isConnected && !target.classList.contains('is-sinking')
     if (targetAlive) flashTarget(target, '#ffffff', isBoss ? '#F2B134' : '#E0443E', 150)
     if (targetAlive) spawnImpactSplash(target, projColor, level)
-    if (!escortTarget && !isPrimaryHit) applyContactDamage(target, visualFleetDamage)
+    if (!escortTarget && !isSelectedHit) applyContactDamage(target, visualFleetDamage)
     if (targetAlive) spawnDamageNumber(target, damage, evaded, isBoss && !escortTarget)
   })
   if (!escortTarget) playerShotCursor += 1
@@ -2115,4 +2858,12 @@ function btn(text: string, extraClasses = ''): HTMLElement {
   b.textContent = text
   b.className   = ['btn', extraClasses].filter(Boolean).join(' ')
   return b
+}
+
+function labelDeskTab(button: HTMLButtonElement, label: string, passage: string): void {
+  button.textContent = ''
+  button.dataset.realLabel = label
+  button.appendChild(el('span', 'tab-label', label))
+  button.appendChild(el('span', 'tab-passage', passage))
+  button.title ||= `${label} target unlock: ${passage}`
 }

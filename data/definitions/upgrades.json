@@ -7,10 +7,15 @@
       "target_weapon": "long_nine_cannons",
       "cost_resource": "salvage",
       "base_cost": 50.0,
-      "cost_scale": 2.0,
-      "max_level": 10,
+      "cost_scale": 1.18,
       "effect": "weapon_damage",
-      "effect_note": "Damage scales via Balance.weapon_damage(weapon_def, level)"
+      "effect_scale": 2.0,
+      "effect_note": "Damage scales via Balance.weapon_damage(weapon_def, level)",
+      "milestone_choices": [
+        { "id": "standard",   "display_name": "Steady Powder",   "description": "+25% damage this tier.",                "dmg_mul": 1.25, "cost_mul": 1.0  },
+        { "id": "overcharge", "display_name": "Overcharge",      "description": "+40% damage, +20% future upgrade cost.", "dmg_mul": 1.40, "cost_mul": 1.20 },
+        { "id": "efficient",  "display_name": "Powder Economy",  "description": "+10% damage, -20% future upgrade cost.", "dmg_mul": 1.10, "cost_mul": 0.80 }
+      ]
     },
     {
       "id": "harpoon_upgrade",
@@ -19,10 +24,33 @@
       "target_weapon": "harpoon_battery",
       "cost_resource": "salvage",
       "base_cost": 75.0,
-      "cost_scale": 2.0,
-      "max_level": 10,
+      "cost_scale": 1.2,
       "effect": "weapon_damage",
-      "effect_note": "Only applies when Harpoon Battery is the active weapon"
+      "effect_scale": 3.0,
+      "effect_note": "Only applies when Harpoon Battery is the active weapon",
+      "milestone_choices": [
+        { "id": "standard",   "display_name": "Barbed Standard", "description": "+25% damage this tier.",                "dmg_mul": 1.25, "cost_mul": 1.0  },
+        { "id": "overcharge", "display_name": "Deep Strike",     "description": "+40% damage, +20% future upgrade cost.", "dmg_mul": 1.40, "cost_mul": 1.20 },
+        { "id": "efficient",  "display_name": "Lean Arsenal",    "description": "+10% damage, -20% future upgrade cost.", "dmg_mul": 1.10, "cost_mul": 0.80 }
+      ]
+    },
+    {
+      "id": "starter_hull_planking",
+      "display_name": "Hull: Reinforced Planking",
+      "description": "Thicker planking and better bracing for the Saltwind Drifter. +12% base hull per level.",
+      "target_ship": "starter_ship",
+      "target_category": "ship",
+      "cost_resource": "salvage",
+      "base_cost": 60.0,
+      "cost_scale": 1.16,
+      "effect": "ship_hull",
+      "effect_scale": 14.0,
+      "effect_note": "Applies before Seamanship's crew handling hull bonus",
+      "milestone_choices": [
+        { "id": "standard",    "display_name": "Layered Planking",  "description": "+25% hull this tier.",                "hull_mul": 1.25, "cost_mul": 1.0  },
+        { "id": "ironclad",    "display_name": "Iron Plating",      "description": "+40% hull, +20% future upgrade cost.", "hull_mul": 1.40, "cost_mul": 1.20 },
+        { "id": "lightweight", "display_name": "Lightweight Trim",  "description": "+10% hull, -20% future upgrade cost.", "hull_mul": 1.10, "cost_mul": 0.80 }
+      ]
     }
   ]
 }

@@ -12,9 +12,17 @@
       "id": "doubloons",
       "display_name": "Doubloons",
       "color": "#F2B134",
-      "persistence_tier": "run",
+      "persistence_tier": "persistent",
       "icon": "placeholder_doubloons",
-      "description": "Prize coins from boss kills and trade routes. Spent on harbor services."
+      "description": "Prize coins from boss kills and trade routes. Spent on harbor services. Persists through Return to Port."
+    },
+    {
+      "id": "ether_brine",
+      "display_name": "Ether Brine",
+      "color": "#7B4FA3",
+      "persistence_tier": "run",
+      "icon": "placeholder_ether_brine",
+      "description": "Distilled essence harvested from defeated enemies. Resets on Return to Port. Fuels Stormheart Furnace upgrades."
     }
   ]
 }

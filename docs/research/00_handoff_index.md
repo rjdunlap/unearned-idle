@@ -25,6 +25,7 @@ Use "lane" only as an internal progression/data term when helpful. The player-fa
 - [../design/07_web_combat_upgrade_layout_notes.md](../design/07_web_combat_upgrade_layout_notes.md): implementation notes for the open-sea combat window and upgrade workspace.
 - [../design/08_bullet_heaven_synthesis_backlog.md](../design/08_bullet_heaven_synthesis_backlog.md): high-signal backlog from Bullet Heaven research.
 - [../design/09_worldbuilding_mechanics_synthesis.md](../design/09_worldbuilding_mechanics_synthesis.md): faction, region, relic, boss, and Captain's Desk synthesis.
+- [../design/10_ub_systems_roadmap_from_usi.md](../design/10_ub_systems_roadmap_from_usi.md): UB-native systems roadmap translated from USI research and filtered through the visual design bible.
 
 ## Research Archive
 
@@ -35,6 +36,8 @@ These files are useful background, not implementation orders. Prefer the synthes
 - [03_bullet_heaven_steam_genre_research.md](03_bullet_heaven_steam_genre_research.md): Steam-focused learnings from Vampire Survivors, Brotato, Halls of Torment, Deep Rock Galactic: Survivor, 20 Minutes Till Dawn, Soulstone Survivors, Death Must Die, and Nordic Ashes.
 - [05_gemini_bullet_heaven_research_response.md](05_gemini_bullet_heaven_research_response.md): condensed external-model response pasted by the user. Treat as brainstorm/synthesis, not verified source truth.
 - [06_user_worldbuilding_mechanics_brainstorm.md](06_user_worldbuilding_mechanics_brainstorm.md): preserved user brainstorm for factions, regions, relics, bosses, and exploration mechanics.
+- [07_unnamed_space_idle_systems_todo.md](07_unnamed_space_idle_systems_todo.md): tactical carryover backlog for USI-inspired sectors, waves, bosses, routes, prestige, Arsenal milestones, and defense systems.
+- [08_unnamed_space_idle_mid_late_mechanics_survey.md](08_unnamed_space_idle_mid_late_mechanics_survey.md): source-based survey of USI mid/late systems including Challenges, Task List, Capital Gameplay, Reinforce, Fleet, AI automation, and UB translations.
 
 ## External Prompts
 
@@ -51,6 +54,7 @@ These remain useful, but some details predate the web prototype and the open-sea
 - [../design/03_mvp_and_technical_plan.md](../design/03_mvp_and_technical_plan.md): Godot-first technical plan and MVP scope.
 - [../design/04_progression_content_taxonomy.md](../design/04_progression_content_taxonomy.md): resources, unlocks, content categories, formulas, and data tables.
 - [../design/06_visual_design_bible.md](../design/06_visual_design_bible.md): visual direction, palette, UI tone, and production guidance.
+- [../design/10_ub_systems_roadmap_from_usi.md](../design/10_ub_systems_roadmap_from_usi.md): system-by-system todo list with design fit, mechanical brief, UI language, research prompts, and open questions.
 - [../project_management/07_mvp_pm_handoff.md](../project_management/07_mvp_pm_handoff.md): older PM handoff.
 - [../project_management/08_mvp_execution_board.md](../project_management/08_mvp_execution_board.md): older milestone task board.
 - [../project_management/09_sprint_01_lane_1_playable.md](../project_management/09_sprint_01_lane_1_playable.md): older Sprint 01 plan.

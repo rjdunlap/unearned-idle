@@ -26,12 +26,36 @@ export const Balance = {
     return Math.max(0, rawDmg * (1 - wardReduction))
   },
 
-  upgradeCost(baseCost: number, scale: number, level: number): number {
-    return baseCost * Math.pow(scale, level)
+  upgradeCost(baseCost: number, scale: number, level: number, costMuls?: number[]): number {
+    return baseCost * Math.pow(scale, level) * this.upgradeCostMultiplier(level, costMuls)
   },
 
-  weaponDamage(baseDamage: number, scalePerLevel: number, upgradeLevel: number): number {
-    return baseDamage * (1 + scalePerLevel * upgradeLevel)
+  upgradeCostMultiplier(level: number, costMuls?: number[]): number {
+    const milestones = Math.floor(Math.max(0, level) / 5)
+    if (!costMuls || milestones === 0) return 1.0
+    let result = 1.0
+    for (let i = 0; i < milestones; i++) result *= costMuls[i] ?? 1.0
+    return result
+  },
+
+  weaponDamage(baseDamage: number, incrementPerLevel: number, upgradeLevel: number, muls?: number[]): number {
+    return (baseDamage + incrementPerLevel * upgradeLevel) * this.upgradeMilestoneMultiplier(upgradeLevel, muls)
+  },
+
+  shipHull(baseHull: number, upgradeLevel: number, incrementPerLevel: number, muls?: number[]): number {
+    return (baseHull + incrementPerLevel * upgradeLevel) * this.upgradeMilestoneMultiplier(upgradeLevel, muls)
+  },
+
+  upgradeMilestoneMultiplier(level: number, muls?: number[]): number {
+    const milestones = Math.floor(Math.max(0, level) / 5)
+    if (!muls || muls.length === 0) return Math.pow(1.25, milestones)
+    let result = 1.0
+    for (let i = 0; i < milestones; i++) result *= muls[i] ?? 1.25
+    return result
+  },
+
+  nextUpgradeMilestone(level: number): number {
+    return Math.ceil((level + 1) / 5) * 5
   },
 
   weaponFireRate(fireRateTicks: number): number {
@@ -44,6 +68,36 @@ export const Balance = {
     if (armor >= 0.30 && dtype === 'cannon') return 'Armor high — use Harpoons'
     if (ward  >= 0.30 && dtype === 'cannon') return 'Ward high — use Shrine Lantern'
     return ''
+  },
+
+  // Progressive difficulty: +8% hull/damage per 30 nmi band
+  distanceScalar(distance: number): number {
+    return 1 + Math.floor(distance / 30) * 0.08
+  },
+
+  // Rewards scale faster than difficulty: +12% per 30 nmi band
+  rewardScalar(distance: number): number {
+    return 1 + Math.floor(distance / 30) * 0.12
+  },
+
+  musterXpForNextLevel(level: number): number {
+    return Math.round(8 * Math.pow(1.25, level))
+  },
+
+  musterProgressReward(enemyMaxHull: number, isBoss: boolean): number {
+    const divisor = isBoss ? 10 : 12
+    const floor = isBoss ? 20 : 4
+    return Math.max(floor, Math.round(enemyMaxHull / divisor))
+  },
+
+  // +3% weapon damage per gunnery level
+  gunneryBonus(levels: number): number {
+    return 1 + levels * 0.03
+  },
+
+  // +3% max hull per seamanship level
+  seamanshipHullBonus(levels: number): number {
+    return 1 + levels * 0.03
   },
 
   formatNumber(value: number): string {

@@ -1,12 +1,13 @@
 {
   "items": [
     {
-      "id": "lane_01",
+      "id": "sector_001",
       "display_name": "Saltglass Shallows",
       "region": "Saltglass Expanse",
+      "route": "A",
       "distance": 240,
-      "wave_count": 3,
       "wave_enemies": ["privateer_cutter", "privateer_sloop", "privateer_cutter"],
+      "first_clear_unlocks": [],
       "boss": {
         "id": "lane_01_boss",
         "display_name": "The Salt Widow",
@@ -23,17 +24,16 @@
           "doubloons": 30.0
         },
         "description": "A veteran privateer captain. Faster fire rate than her crew. Defeat her to enter Widow's Crossing."
-      },
-      "unlocks_lane": "lane_02",
-      "description": "Sun-bright shallows patrolled by Privateer cutters in the Saltglass Expanse."
+      }
     },
     {
-      "id": "lane_02",
+      "id": "sector_002",
       "display_name": "Widow's Crossing",
       "region": "Saltglass Expanse",
+      "route": "A",
       "distance": 320,
-      "wave_count": 3,
       "wave_enemies": ["privateer_sloop", "ironclad_cutter", "privateer_sloop"],
+      "first_clear_unlocks": [],
       "boss": {
         "id": "lane_02_boss",
         "display_name": "The Cracked Bell",
@@ -50,9 +50,7 @@
           "doubloons": 60.0
         },
         "description": "An armored ironclad brig. Cannon damage barely dents it. Switch to Harpoon Battery to pierce its armor."
-      },
-      "unlocks_lane": "lane_03",
-      "description": "Ironclads begin appearing here. Cannon fire loses effectiveness — armor counters matter."
+      }
     }
   ]
 }

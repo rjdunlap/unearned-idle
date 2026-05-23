@@ -4,6 +4,7 @@ import enemiesData from '@data/definitions/enemies.json'
 import lanesData from '@data/definitions/lanes.json'
 import weaponsData from '@data/definitions/weapons.json'
 import upgradesData from '@data/definitions/upgrades.json'
+import sectorsData from '@data/definitions/sectors.json'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyDef = Record<string, any> & { id: string }
@@ -16,12 +17,17 @@ function upgradeTargetsWeapon(upgrade: AnyDef, weaponId: string): boolean {
   return upgrade['weapon_id'] === weaponId || upgrade['target_weapon'] === weaponId
 }
 
+function upgradeTargetsShip(upgrade: AnyDef, shipId: string): boolean {
+  return upgrade['ship_id'] === shipId || upgrade['target_ship'] === shipId || upgrade['target_category'] === 'ship'
+}
+
 const resources = resourcesData.items as AnyDef[]
 const ships     = shipsData.items as AnyDef[]
 const enemies   = enemiesData.items as AnyDef[]
 const lanes     = lanesData.items as AnyDef[]
 const weapons   = weaponsData.items as AnyDef[]
 const upgrades  = upgradesData.items as AnyDef[]
+const sectors   = sectorsData.items as AnyDef[]
 
 export const Definitions = {
   getResource:          (id: string) => findById(resources, id),
@@ -30,7 +36,13 @@ export const Definitions = {
   getLane:              (id: string) => findById(lanes, id),
   getWeapon:            (id: string) => findById(weapons, id),
   getUpgrade:           (id: string) => findById(upgrades, id),
+  getSectorDef:         (sector: number) => findById(sectors, `sector_${String(sector).padStart(3, '0')}`),
   getUpgradeForWeapon:  (weaponId: string) => upgrades.find(u => upgradeTargetsWeapon(u, weaponId)),
   getUpgradesForWeapon: (weaponId: string) => upgrades.filter(u => upgradeTargetsWeapon(u, weaponId)),
+  getUpgradesForShip:   (shipId: string) => upgrades.filter(u => upgradeTargetsShip(u, shipId)),
   allLanes:             () => lanes,
+  allResources:         () => resources,
+  allShips:             () => ships,
+  allWeapons:           () => weapons,
+  allEnemies:           () => enemies,
 }

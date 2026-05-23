@@ -1134,8 +1134,10 @@ function onResourceChanged(id: string, amount: number): void {
 function syncTabLock(tabBtn: HTMLButtonElement, systemId: SystemUnlock): void {
   const isUnlocked = GameState.isSystemUnlocked(systemId)
   tabBtn.classList.toggle('is-locked', !isUnlocked)
-  const labelSpan = tabBtn.querySelector<HTMLElement>('.tab-label')
-  if (labelSpan) labelSpan.textContent = isUnlocked ? (tabBtn.dataset.realLabel ?? '') : '????'
+  const labelSpan   = tabBtn.querySelector<HTMLElement>('.tab-label')
+  const passageSpan = tabBtn.querySelector<HTMLElement>('.tab-passage')
+  if (labelSpan)   labelSpan.textContent = isUnlocked ? (tabBtn.dataset.realLabel ?? '') : '????'
+  if (passageSpan) passageSpan.classList.toggle('hidden', isUnlocked)
 }
 
 function refreshSystemLocks(): void {

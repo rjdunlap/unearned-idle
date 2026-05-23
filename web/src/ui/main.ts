@@ -612,7 +612,7 @@ function buildDebugOverlay(root: HTMLElement): void {
 
   // Sector jumps
   const laneRow = el('div', 'debug-row')
-  laneRow.appendChild(el('span', '', 'Sectors:'))
+  laneRow.appendChild(el('span', '', 'Passages:'))
   for (const sector of [1, 2, 5, 10]) {
     const label = `S${sector}`
     const b = btn(label, 'sz-13')
@@ -788,10 +788,10 @@ function onSectorCompleted(_sectorId: string, nextId: string): void {
     const nextName = nextSector > 0 ? SectorPlan.getSector(nextSector).displayName : nextId
     advanceBtn.textContent = `▶  CHART COURSE TO ${nextName.toUpperCase()}`
     advanceBtn.classList.remove('hidden')
-    appendLog('<span class="log-green">Sector cleared. New course plotted.</span>')
+    appendLog('<span class="log-green">Passage cleared. New course plotted.</span>')
   } else if (nextId) {
     advanceBtn.classList.add('hidden')
-    appendLog('<span class="log-green">Sector cleared. Auto course continuing.</span>')
+    appendLog('<span class="log-green">Passage cleared. Auto course continuing.</span>')
   } else {
     advanceBtn.classList.add('hidden')
     appendLog('<span class="log-green">Final sector cleared!</span>')
@@ -1255,7 +1255,7 @@ function refreshRouteUI(): void {
   const boss = sector.boss as AnyDef | undefined
   const bossState = GameState.hasDefeatedBoss(boss?.['id'] ?? '') ? 'boss first-clear logged' : 'boss ahead'
   routeDistanceLabel.textContent = `${sector.routeName}  ${Math.floor(distance)} / ${Math.floor(goal)} nmi`
-  routeDistanceLabel.title = `Sector ${sector.sector}: ${sector.displayName}; ${bossState}`
+  routeDistanceLabel.title = `Passage ${sector.sector}: ${sector.displayName}; ${bossState}`
   autoProgressBtn.textContent = auto ? 'A' : 'A'
   autoProgressBtn.classList.toggle('is-active', auto)
   autoProgressBtn.classList.toggle('is-muted', !auto)
@@ -1679,7 +1679,7 @@ function debugJumpSector(sector: number): void {
   GameState.setCurrentSector(sector)
   refreshLaneLabel()
   sim.startCombat()
-  appendLog(`<span class="log-silver">DEBUG: charted to Sector ${sector}</span>`)
+  appendLog(`<span class="log-silver">DEBUG: charted to Passage ${sector}</span>`)
 }
 
 function debugLoad(): void {

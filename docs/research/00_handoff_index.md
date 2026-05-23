@@ -26,6 +26,7 @@ Use "lane" only as an internal progression/data term when helpful. The player-fa
 - [../design/08_bullet_heaven_synthesis_backlog.md](../design/08_bullet_heaven_synthesis_backlog.md): high-signal backlog from Bullet Heaven research.
 - [../design/09_worldbuilding_mechanics_synthesis.md](../design/09_worldbuilding_mechanics_synthesis.md): faction, region, relic, boss, and Captain's Desk synthesis.
 - [../design/10_ub_systems_roadmap_from_usi.md](../design/10_ub_systems_roadmap_from_usi.md): UB-native systems roadmap translated from USI research and filtered through the visual design bible.
+- [../project_management/12_usi_mechanics_next_stage_handoff.md](../project_management/12_usi_mechanics_next_stage_handoff.md): next-stage execution handoff for source-checking USI mechanics, passive pickups, multi-ship targeting, sector cleanup, Arsenal polish, and the Muster reset decision.
 
 ## Research Archive
 
@@ -45,6 +46,7 @@ These files are useful background, not implementation orders. Prefer the synthes
 - [claude_review_prompt.md](claude_review_prompt.md): older Claude review prompt. Use only if you need the original review framing.
 - [../project_management/10_development_start_prompt.md](../project_management/10_development_start_prompt.md): older implementation-start prompt for a development agent.
 - [../project_management/11_open_sea_combat_ui_handoff_prompt.md](../project_management/11_open_sea_combat_ui_handoff_prompt.md): current copy-ready prompt for continuing the open-sea combat UI prototype.
+- [../project_management/12_usi_mechanics_next_stage_handoff.md](../project_management/12_usi_mechanics_next_stage_handoff.md): copy-ready prompt and acceptance checks for the next USI-inspired mechanics stage.
 
 ## Broader Design Docs
 

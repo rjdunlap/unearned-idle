@@ -18,6 +18,7 @@
 
 /* ── Panels ─────────────────────────────── */
 #app.ub-shell {
+  position: relative;
   transition: grid-template-columns 0.22s ease;
 }
 #app.ub-shell.mechanics-collapsed {
@@ -133,24 +134,51 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.wave-label  { font-size: 12px; color: var(--silver); white-space: nowrap; }
 .boss-banner { font-size: 13px; font-weight: 700; color: var(--gold); white-space: nowrap; }
-.title-focus-btn {
-  height: 30px;
-  padding: 0 10px;
-  border-color: rgba(34, 166, 161, 0.36);
-  background: rgba(10, 26, 38, 0.5);
+.title-focus-btn.btn {
+  position: absolute;
+  z-index: 8;
+  top: 50%;
+  width: 28px;
+  height: 64px;
+  padding: 0;
+  transform: translateY(-50%);
+  border-color: rgba(242, 177, 52, 0.42);
+  border-radius: 3px;
+  background:
+    linear-gradient(90deg, rgba(16, 18, 22, 0.72), rgba(185, 110, 53, 0.26) 48%, rgba(16, 18, 22, 0.72)),
+    rgba(10, 26, 38, 0.86);
+  color: rgba(232, 216, 184, 0.72);
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 0 0 1px rgba(16, 18, 22, 0.45), 0 8px 18px rgba(0, 0, 0, 0.22);
 }
-.title-focus-btn[aria-pressed="true"] {
+.title-focus-btn.btn::before,
+.title-focus-btn.btn::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  height: 1px;
+  background: rgba(242, 177, 52, 0.38);
+  pointer-events: none;
+}
+.title-focus-btn.btn::before { top: 11px; }
+.title-focus-btn.btn::after { bottom: 11px; }
+.title-focus-btn.btn[aria-pressed="true"] {
   border-color: rgba(242, 177, 52, 0.78);
-  background: rgba(242, 177, 52, 0.14);
+  background:
+    linear-gradient(90deg, rgba(16, 18, 22, 0.72), rgba(242, 177, 52, 0.22) 48%, rgba(16, 18, 22, 0.72)),
+    rgba(10, 26, 38, 0.86);
 }
 .route-nav {
   display: grid;
   grid-template-columns: minmax(92px, 1fr) auto;
   align-items: center;
   gap: 8px;
-  min-height: 34px;
+  row-gap: 7px;
+  min-height: 24px;
 }
 .route-meter {
   position: relative;
@@ -174,42 +202,58 @@
   white-space: nowrap;
 }
 .course-controls {
-  grid-column: 1 / -1;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 24;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 5px;
+  grid-template-columns: 42px;
+  gap: 6px;
 }
 .course-btn {
-  height: 28px;
+  width: 42px;
+  height: 42px;
   min-width: 0;
-  padding: 0 6px;
-  font-size: 11px;
+  padding: 0;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   color: rgba(232, 216, 184, 0.78);
   overflow: hidden;
   text-overflow: ellipsis;
+  text-align: center;
+  background: rgba(10, 26, 38, 0.72);
+  border-color: rgba(205, 217, 217, 0.16);
 }
 .course-btn.is-active {
   border-color: rgba(242, 177, 52, 0.74);
   color: var(--gold);
   background: rgba(242, 177, 52, 0.13);
 }
+.course-btn.is-muted {
+  color: rgba(205, 217, 217, 0.38);
+}
 .doctrine-controls {
   display: grid;
-  grid-template-columns: auto repeat(3, minmax(0, 1fr));
-  align-items: center;
-  gap: 5px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 6px;
 }
-.doctrine-kicker {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--copper);
-  letter-spacing: 1px;
-  padding-right: 2px;
+.targeting-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.targeting-mode-label {
+  color: var(--silver);
+  font-size: 11px;
 }
 .doctrine-btn {
-  height: 28px;
+  height: 42px;
   min-width: 0;
-  padding: 0 6px;
+  padding: 0 8px;
   font-size: 11px;
   color: rgba(232, 216, 184, 0.78);
   overflow: hidden;
@@ -301,6 +345,16 @@
     radial-gradient(ellipse at 54% 8%, rgba(242, 177, 52, 0.12), transparent 24%),
     linear-gradient(180deg, rgba(205, 217, 217, 0.08), transparent 24%, rgba(10, 26, 38, 0.22)),
     rgba(10, 26, 38, 0.18);
+}
+.sea-ability-dock {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 24;
+  display: grid;
+  grid-template-columns: 132px 132px;
+  gap: 8px;
+  pointer-events: auto;
 }
 .ub-shell.mechanics-collapsed .combat-row {
   min-height: calc(100vh - 156px);
@@ -609,8 +663,9 @@
 .loot-drop {
   --drift-x: 0px;
   --drift-y: 0px;
+  --drift-ms: 18000ms;
   position: absolute;
-  z-index: 26;
+  z-index: 1;
   width: 32px;
   height: 32px;
   padding: 0;
@@ -619,8 +674,9 @@
   background: rgba(16, 18, 22, 0.68);
   box-shadow: 0 0 18px rgba(242, 177, 52, 0.22);
   cursor: pointer;
+  pointer-events: auto;
   transform: translate(-50%, -50%);
-  animation: loot-bob 1.6s ease-in-out infinite;
+  animation: loot-drift var(--drift-ms) linear forwards;
 }
 .loot-drop::before,
 .loot-drop::after {
@@ -641,6 +697,27 @@
   border-radius: 50%;
   background: radial-gradient(circle at 36% 30%, #FFE0A0, var(--gold) 48%, #9E6328 100%);
   box-shadow: 0 0 12px rgba(242, 177, 52, 0.58);
+}
+.loot-drop.is-ether-brine::before {
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 42% 34%, rgba(205, 217, 217, 0.9), var(--violet) 46%, #35214d 100%);
+  box-shadow: 0 0 14px rgba(123, 79, 163, 0.62);
+}
+.loot-drop-label {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  margin-top: 3px;
+  transform: translateX(-50%);
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(10, 26, 38, 0.72);
+  color: var(--text);
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
 }
 .loot-drop:hover {
   border-color: var(--gold);
@@ -822,6 +899,26 @@
   }
   50% {
     transform: translate(-50%, -50%) translate(var(--drift-x), var(--drift-y)) scale(1.06);
+  }
+}
+
+@keyframes loot-drift {
+  0% {
+    transform: translate(-50%, -50%) translate(0, 0) scale(1);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  45% {
+    transform: translate(-50%, -50%) translate(calc(var(--drift-x) * 0.45), calc(var(--drift-y) * 0.45)) scale(1.04);
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) translate(var(--drift-x), var(--drift-y)) scale(0.96);
+    opacity: 0;
   }
 }
 
@@ -1192,14 +1289,15 @@
 
 /* ── Combat log ─────────────────────────── */
 .combat-log-wrap {
-  flex: 0 0 92px;
+  flex: 1 1 auto;
   background: rgba(10, 26, 38, 0.72);
-  border-top: 1px solid rgba(205, 217, 217, 0.14);
+  border: 1px solid rgba(205, 217, 217, 0.14);
+  border-radius: 4px;
   overflow: hidden;
-  min-height: 82px;
+  min-height: 360px;
 }
 .combat-log {
-  padding: 6px 8px;
+  padding: 10px 12px;
   font-size: 12px;
   color: var(--silver);
   height: 100%;
@@ -1306,6 +1404,11 @@
   font-size: 16px;
   font-weight: 700;
   color: var(--text);
+}
+.arsenal-targeting-panel {
+  border: 1px solid rgba(34, 166, 161, 0.22);
+  background: rgba(10, 26, 38, 0.34);
+  padding: 10px;
 }
 .arsenal-ability-row {
   display: grid;
@@ -1541,6 +1644,13 @@ hr { border: none; border-top: 1px solid rgba(205,217,217,0.15); }
 }
 
 /* ── Prestige panel ─────────────────────── */
+.log-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
 .prestige-panel {
   display: flex;
   flex-direction: column;
@@ -1722,21 +1832,26 @@ hr { border: none; border-top: 1px solid rgba(205,217,217,0.15); }
     gap: 6px;
   }
   .course-controls {
-    gap: 4px;
+    top: 8px;
+    right: 8px;
+    grid-template-columns: 36px;
+    gap: 5px;
   }
   .course-btn {
-    height: 27px;
-    padding: 0 4px;
-    font-size: 10px;
+    width: 36px;
+    height: 36px;
+    font-size: 13px;
   }
   .combat-row {
     min-height: 438px;
     padding: 0;
   }
-  .sea-horizon {
-    top: 50px;
+  .sea-ability-dock {
     left: 8px;
-    right: 8px;
+    bottom: 8px;
+    grid-template-columns: minmax(0, 1fr);
+    width: min(148px, 42%);
+    gap: 6px;
   }
   .sea-contact {
     width: 70px;
@@ -1808,7 +1923,7 @@ hr { border: none; border-top: 1px solid rgba(205,217,217,0.15); }
   }
   .ship-block-player {
     bottom: 28px;
-    left: 50%;
+    left: 66%;
     transform: translateX(-50%);
   }
   .ship-rect {
@@ -1836,6 +1951,9 @@ hr { border: none; border-top: 1px solid rgba(205,217,217,0.15); }
     min-height: 70px;
   }
   .arsenal-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .doctrine-controls {
     grid-template-columns: minmax(0, 1fr);
   }
   .arsenal-ability-row {

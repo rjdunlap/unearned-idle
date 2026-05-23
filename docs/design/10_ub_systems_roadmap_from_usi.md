@@ -52,7 +52,7 @@ Use USI-style reset behavior unless the visual bible or UB fiction gives a stron
 | Doubloons | No | Durable prize currency for port services, unlocks, and longer-term purchases. |
 | Infamy / Infamy Marks | No | Prestige identity and milestone currency. |
 | Boss first-clears | No | Tutorial/goal-setting milestones. |
-| Muster levels and XP | No by default | Earned crew training should feel persistent once unlocked. |
+| Muster levels and XP | Yes for the current prototype | Decision note 2026-05-22: Return to Port resets Muster during this early spine so each voyage is a fresh crew-drill allocation test. What persists instead is the Muster system unlock, boss first-clears, Return count, and future best-record/catch-up hooks. Revisit before Officers. |
 | Blueprint Mastery / Standing Supply | No | Synth-style permanent recipe progress. |
 | Crafted module active tiers | Mostly reset, restore from Standing Supply | USI-style module reset with catch-up from mastered materials. |
 | Research unlocks | No | Permanent knowledge. |
@@ -208,6 +208,7 @@ Muster should feel like assigning crew attention, not buying stats. It fits the 
 - Add clearer power allocation visual.
 - Tie allocation to small combat effect differences.
 - Add future branches after Officers unlock.
+- Current reset contract decision: Muster resets on Return to Port in the web prototype. Boss milestones and the system unlock persist; officer-like catch-up should be added later if repeated early drills start feeling punitive.
 
 ### Research Prompts
 

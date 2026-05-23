@@ -18,12 +18,12 @@ type ArsenalCardRefs = {
   button: HTMLButtonElement
   milestoneContainer: HTMLElement
 }
-type DeskTab = 'arsenal' | 'prestige' | 'muster'
+type DeskTab = 'arsenal' | 'prestige' | 'muster' | 'log'
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 let shellRoot:       HTMLElement
+let oceanPanel:      HTMLElement
 let laneLabel:       HTMLElement
-let waveLabel:       HTMLElement
 let bossBanner:      HTMLElement
 let titleFocusBtn:   HTMLButtonElement
 let routeDistanceLabel: HTMLElement
@@ -32,6 +32,7 @@ let autoProgressBtn: HTMLButtonElement
 let courseForwardBtn: HTMLButtonElement
 let courseHoldBtn: HTMLButtonElement
 let courseRetreatBtn: HTMLButtonElement
+let seaAbilityDock: HTMLElement
 let fleetTrack:      HTMLElement
 let seaContactLayer: HTMLElement
 let playerRect:      HTMLElement
@@ -48,7 +49,7 @@ let combatRow:       HTMLElement   // positioned container for VFX
 let salvageLabel:    HTMLElement
 let doubloonsLabel:  HTMLElement
 let arsenalHeader:   HTMLElement
-let arsenalAbilityRow: HTMLElement
+let arsenalTargetingPanel: HTMLElement
 let arsenalList:     HTMLElement
 let arsenalSection:  HTMLElement
 let arsenalCards:    ArsenalCardRefs[] = []
@@ -57,7 +58,9 @@ let arsenalWeaponId = ''
 let arsenalTabBtn: HTMLButtonElement
 let prestigeTabBtn: HTMLButtonElement
 let musterTabBtn: HTMLButtonElement
+let logTabBtn: HTMLButtonElement
 let prestigeSection: HTMLElement
+let logSection: HTMLElement
 let prestigeMilestoneList: HTMLElement
 let prestigeLoadoutList: HTMLElement
 let returnPortBtn: HTMLButtonElement
@@ -100,14 +103,14 @@ let playerFleeing = false
 let currentLaneId  = 'lane_01'
 let nextLaneId     = ''
 let laneCleared    = false
-const LOG_MAX     = 8
+const LOG_MAX     = 40
 const logLines: string[] = []
 const VISUAL_WAVE_INTERVAL_MS = 30_000
 const VISUAL_WAVE_SPAWN_WINDOW_MS = 10_000
 const FLEET_CONTACT_DAMAGE = 1
 const CONTACT_DISTANCE_STEP = SectorPlan.encounterDistance
-const MAX_LOOT_DROPS = 6
-const LOOT_DROP_LIFETIME_MS = 7200
+const MAX_LOOT_DROPS = 3
+const LOOT_DROP_LIFETIME_MS = 18_000
 
 type SeaContactStatus = 'current' | 'escort' | 'incoming' | 'looming' | 'boss'
 type SeaContactSlot = {
@@ -134,7 +137,7 @@ const CONTACT_SLOTS: SeaContactSlot[] = [
   { x: 72, y: 58, rot: 28,  scale: 0.84, delay: 4 },
 ]
 
-// Primary target (settled in front of player, upper-center)
+// Selected target (settled in front of player, upper-center)
 const VANGUARD_CONTACT_SLOT: SeaContactSlot = { x: 58, y: 29, rot: -10, scale: 1.08, delay: 0 }
 
 // Port raiders — settled in left zone, animation enters from the left edge
@@ -151,14 +154,6 @@ const STARBOARD_WAVE_SLOTS: SeaContactSlot[] = [
   { x: 83, y: 49, rot: -28, scale: 0.96, delay: 3 },
   { x: 93, y: 66, rot: -22, scale: 0.74, delay: 6 },
   { x: 75, y: 59, rot: -18, scale: 0.68, delay: 8 },
-]
-
-// Horizon fleet — settled in upper zone, animation enters from above
-const HORIZON_WAVE_SLOTS: SeaContactSlot[] = [
-  { x: 34, y: 14, rot: 10,  scale: 0.66, delay: 0 },
-  { x: 51, y: 11, rot: -2,  scale: 0.76, delay: 3 },
-  { x: 68, y: 15, rot: -14, scale: 0.64, delay: 6 },
-  { x: 58, y: 22, rot: -8,  scale: 0.58, delay: 9 },
 ]
 
 const BOSS_CONTACT_SLOT: SeaContactSlot = { x: 56, y: 25, rot: -10, scale: 1.18, delay: 0 }
@@ -197,31 +192,27 @@ function buildUI(root: HTMLElement): void {
 
 function buildSeaLanePanel(root: HTMLElement): void {
   const panel = el('div', 'panel-ocean')
+  oceanPanel = panel
   root.appendChild(panel)
 
   // Title row
   const titleRow = el('div', 'lane-title-row')
   laneLabel  = el('span', 'lane-label')
-  waveLabel  = el('span', 'wave-label')
   bossBanner = el('span', 'boss-banner hidden', 'BOSS')
-  titleFocusBtn = btn('SEA FOCUS', 'title-focus-btn sz-12 c-gold') as HTMLButtonElement
-  titleFocusBtn.title = "Collapse the Captain's Desk"
-  titleFocusBtn.addEventListener('click', toggleMechanicsFocus)
-  titleRow.append(laneLabel, waveLabel, bossBanner, titleFocusBtn)
+  titleRow.append(laneLabel, bossBanner)
   panel.appendChild(titleRow)
 
   buildCourseControls(panel)
-  buildDoctrineControls(panel)
 
   // Combat row (positioned container for VFX projectiles)
   combatRow = el('div', 'combat-row')
   panel.appendChild(combatRow)
 
   combatRow.appendChild(el('div', 'sea-grid'))
-  const horizon = el('div', 'sea-horizon')
-  horizon.appendChild(el('span', 'sea-horizon-kicker', 'AT THE HORIZON'))
-  horizon.appendChild(el('span', 'sea-horizon-line'))
-  combatRow.appendChild(horizon)
+  buildSeaCourseControls(combatRow)
+  seaAbilityDock = el('div', 'sea-ability-dock')
+  buildArsenalAbilityButtons(seaAbilityDock)
+  combatRow.appendChild(seaAbilityDock)
 
   seaContactLayer = el('div', 'sea-contact-layer')
   combatRow.appendChild(seaContactLayer)
@@ -231,16 +222,17 @@ function buildSeaLanePanel(root: HTMLElement): void {
   buildEnemyBlock(combatRow)
   buildPlayerBlock(combatRow)
 
+  titleFocusBtn = btn('⋮', 'title-focus-btn sz-12 c-gold') as HTMLButtonElement
+  titleFocusBtn.title = "Collapse the Captain's Desk"
+  titleFocusBtn.setAttribute('aria-label', "Toggle Captain's Desk")
+  titleFocusBtn.addEventListener('click', toggleMechanicsFocus)
+  root.appendChild(titleFocusBtn)
+  updateFocusHandlePosition()
+
   // Counter hint
   counterHint = el('span', 'counter-hint hidden')
   panel.appendChild(counterHint)
 
-  // Combat log
-  const logWrap = el('div', 'combat-log-wrap')
-  logWrap.style.flex = '1'
-  combatLog = el('div', 'combat-log')
-  logWrap.appendChild(combatLog)
-  panel.appendChild(logWrap)
 }
 
 function buildCourseControls(parent: HTMLElement): void {
@@ -250,43 +242,52 @@ function buildCourseControls(parent: HTMLElement): void {
   meter.appendChild(routeMeterFill)
   routeDistanceLabel = el('span', 'route-distance-label')
   nav.append(meter, routeDistanceLabel)
+  parent.appendChild(nav)
+}
 
+function buildSeaCourseControls(parent: HTMLElement): void {
   const controls = el('div', 'course-controls')
-  autoProgressBtn = btn('AUTO ON', 'course-btn') as HTMLButtonElement
+  autoProgressBtn = btn('A', 'course-btn') as HTMLButtonElement
   autoProgressBtn.title = 'Automatically sail after each victory'
+  autoProgressBtn.setAttribute('aria-label', 'Toggle auto progress')
   autoProgressBtn.addEventListener('click', () => GameState.setAutoProgress(!GameState.isAutoProgress()))
 
-  courseForwardBtn = btn('FORWARD', 'course-btn') as HTMLButtonElement
+  courseForwardBtn = btn('>', 'course-btn') as HTMLButtonElement
   courseForwardBtn.title = 'Push into deeper water after victories'
+  courseForwardBtn.setAttribute('aria-label', 'Forward')
   courseForwardBtn.addEventListener('click', () => GameState.setCourseMode('forward'))
 
-  courseHoldBtn = btn('HOLD', 'course-btn') as HTMLButtonElement
+  courseHoldBtn = btn('||', 'course-btn') as HTMLButtonElement
   courseHoldBtn.title = 'Keep fighting at this distance'
+  courseHoldBtn.setAttribute('aria-label', 'Hold')
   courseHoldBtn.addEventListener('click', () => GameState.setCourseMode('hold'))
 
-  courseRetreatBtn = btn('BACK', 'course-btn') as HTMLButtonElement
+  courseRetreatBtn = btn('<', 'course-btn') as HTMLButtonElement
   courseRetreatBtn.title = 'Win fights while sailing back toward safer water'
+  courseRetreatBtn.setAttribute('aria-label', 'Back')
   courseRetreatBtn.addEventListener('click', () => GameState.setCourseMode('retreat'))
 
   controls.append(autoProgressBtn, courseForwardBtn, courseHoldBtn, courseRetreatBtn)
-  nav.appendChild(controls)
-  parent.appendChild(nav)
+  parent.appendChild(controls)
 }
 
 function buildDoctrineControls(parent: HTMLElement): void {
   const row = el('div', 'doctrine-controls')
-  row.appendChild(el('span', 'doctrine-kicker', 'DOCTRINE'))
+  const header = el('div', 'targeting-header')
+  header.appendChild(el('span', 'loadout-kicker', 'TARGETING'))
+  header.appendChild(el('span', 'targeting-mode-label', 'Weapon order'))
+  row.appendChild(header)
 
-  doctrineFocusBtn = btn('FOCUS', 'doctrine-btn sz-12') as HTMLButtonElement
-  doctrineFocusBtn.title = 'All fire on the primary target'
+  doctrineFocusBtn = btn('Keep Target', 'doctrine-btn sz-12') as HTMLButtonElement
+  doctrineFocusBtn.title = 'USI-like target swapping: stay on the selected or boss target.'
   doctrineFocusBtn.addEventListener('click', () => GameState.setDoctrine('focus'))
 
-  doctrineSuppressionBtn = btn('SUPPRESSION', 'doctrine-btn sz-12') as HTMLButtonElement
-  doctrineSuppressionBtn.title = 'Alternate fire between primary and escort targets'
+  doctrineSuppressionBtn = btn('Change Target', 'doctrine-btn sz-12') as HTMLButtonElement
+  doctrineSuppressionBtn.title = 'USI-like target swapping: cycle selected and escort targets.'
   doctrineSuppressionBtn.addEventListener('click', () => GameState.setDoctrine('suppression'))
 
-  doctrineScatterBtn = btn('SCATTER', 'doctrine-btn sz-12') as HTMLButtonElement
-  doctrineScatterBtn.title = 'Fire randomly across all visible targets'
+  doctrineScatterBtn = btn('Avoid Overlap', 'doctrine-btn sz-12') as HTMLButtonElement
+  doctrineScatterBtn.title = 'USI-like overlap rule: spread shots across visible threats.'
   doctrineScatterBtn.addEventListener('click', () => GameState.setDoctrine('scatter'))
 
   row.append(doctrineFocusBtn, doctrineSuppressionBtn, doctrineScatterBtn)
@@ -310,7 +311,7 @@ function buildPlayerBlock(parent: HTMLElement): void {
 
 function buildEnemyBlock(parent: HTMLElement): void {
   const block = el('div', 'ship-block ship-block-enemy')
-  block.appendChild(el('span', 'target-kicker c-copper', 'TARGET LOCK'))
+  block.appendChild(el('span', 'target-kicker c-copper', 'SELECTED TARGET'))
   enemyFamily = el('span', 'sz-11 c-copper', 'Privateers')
   block.appendChild(enemyFamily)
   enemyRect = el('div', 'ship-rect ship-rect-enemy')
@@ -387,6 +388,12 @@ function buildBottomPanel(root: HTMLElement): void {
   musterTabBtn.addEventListener('click', () => setActiveTab('muster'))
   tabRow.appendChild(musterTabBtn)
 
+  logTabBtn = btn('LOG', 'tab-btn sz-14') as HTMLButtonElement
+  logTabBtn.style.minWidth = '80px'
+  logTabBtn.style.height = '44px'
+  logTabBtn.addEventListener('click', () => setActiveTab('log'))
+  tabRow.appendChild(logTabBtn)
+
   const debugTab = btn('DEBUG', 'sz-14')
   debugTab.style.minWidth = '80px'
   debugTab.style.height = '44px'
@@ -399,6 +406,7 @@ function buildBottomPanel(root: HTMLElement): void {
   buildArsenalPanel(panel)
   buildPrestigePanel(panel)
   buildMusterPanel(panel)
+  buildLogPanel(panel)
   refreshSystemLocks()
 
   advanceBtn = btn('▶  CHART NEXT WATERS', 'btn-advance sz-16 c-gold') as HTMLButtonElement
@@ -410,10 +418,10 @@ function buildBottomPanel(root: HTMLElement): void {
 function buildArsenalPanel(parent: HTMLElement): void {
   arsenalSection = el('section', 'arsenal-panel')
   arsenalHeader = el('span', 'arsenal-header')
-  arsenalAbilityRow = el('div', 'arsenal-ability-row')
-  buildArsenalAbilityButtons(arsenalAbilityRow)
+  arsenalTargetingPanel = el('div', 'arsenal-targeting-panel')
+  buildDoctrineControls(arsenalTargetingPanel)
   arsenalList = el('div', 'arsenal-grid')
-  arsenalSection.append(arsenalHeader, arsenalAbilityRow, arsenalList)
+  arsenalSection.append(arsenalHeader, arsenalTargetingPanel, arsenalList)
   parent.appendChild(arsenalSection)
   refreshArsenalUI()
 }
@@ -537,18 +545,35 @@ function buildMusterPanel(parent: HTMLElement): void {
   refreshMusterUI()
 }
 
+function buildLogPanel(parent: HTMLElement): void {
+  logSection = el('section', 'log-panel hidden')
+  const header = el('div', 'muster-header-row')
+  header.appendChild(el('span', 'arsenal-header', 'LOG'))
+  header.appendChild(el('span', 'sz-11 c-silver', 'Kills, wreckage, drops, and voyage notices'))
+  logSection.appendChild(header)
+
+  const logWrap = el('div', 'combat-log-wrap')
+  combatLog = el('div', 'combat-log')
+  logWrap.appendChild(combatLog)
+  logSection.appendChild(logWrap)
+  parent.appendChild(logSection)
+}
+
 function setActiveTab(tab: DeskTab): void {
   if (tab === 'prestige' && !GameState.isSystemUnlocked('prestige')) tab = 'arsenal'
   if (tab === 'muster' && !GameState.isSystemUnlocked('muster')) tab = 'arsenal'
   arsenalSection.classList.toggle('hidden', tab !== 'arsenal')
   prestigeSection.classList.toggle('hidden', tab !== 'prestige')
   musterSection.classList.toggle('hidden', tab !== 'muster')
+  logSection.classList.toggle('hidden', tab !== 'log')
   arsenalTabBtn.classList.toggle('is-active', tab === 'arsenal')
   prestigeTabBtn.classList.toggle('is-active', tab === 'prestige')
   musterTabBtn.classList.toggle('is-active', tab === 'muster')
+  logTabBtn.classList.toggle('is-active', tab === 'log')
   arsenalTabBtn.classList.toggle('c-gold', tab === 'arsenal')
   prestigeTabBtn.classList.toggle('c-gold', tab === 'prestige')
   musterTabBtn.classList.toggle('c-teal', tab === 'muster')
+  logTabBtn.classList.toggle('c-gold', tab === 'log')
   if (tab === 'prestige') refreshPrestigeUI()
   if (tab === 'muster') refreshMusterUI()
 }
@@ -624,7 +649,7 @@ function connectSignals(): void {
   sim.onBossSpawned        = onBossSpawned
   sim.onBossDefeated       = onBossDefeated
   sim.onWaveCompleted      = onWaveCompleted
-  sim.onLaneCompleted      = onLaneCompleted
+  sim.onSectorCompleted    = onSectorCompleted
   sim.onCombatLog          = (msg) => appendLog(msg)
   sim.onCounterHint        = onCounterHint
   sim.onEscortSpawned      = (index, def, maxHull) => onEscortSpawned(index, def, maxHull)
@@ -701,9 +726,6 @@ function onEnemySpawned(def: AnyDef, maxHull: number, isSquadMember: boolean): v
 
 function onEnemyApproaching(rangeNmi: number, maxRange: number): void {
   const pct = maxRange > 0 ? Math.max(0, (rangeNmi / maxRange) * 100) : 0
-  waveLabel.textContent = rangeNmi > 0.3
-    ? `${rangeNmi.toFixed(1)} nmi out`
-    : 'ENGAGING'
   // Dim the enemy block while out of range
   enemyRect.style.opacity = `${0.45 + 0.55 * (1 - pct / 100)}`
   void pct
@@ -719,12 +741,14 @@ function onEnemyDamaged(hull: number, maxHull: number, dmg: number, evaded: bool
   if (evaded) appendLog('<span class="log-silver">— Evaded!</span>')
 }
 
-function onEnemyDefeated(_def: AnyDef, _rewards: Record<string, number>, isLastInSquad: boolean): void {
+function onEnemyDefeated(_def: AnyDef, rewards: Record<string, number>, isLastInSquad: boolean): void {
+  const anchor = getCurrentSeaTarget() ?? undefined
   enemyHpFill.style.width = '0%'
   enemyHpLabel.textContent = '0 / ?'
   if (isLastInSquad) {
     sinkCurrentSeaContact()
   }
+  spawnRewardPickups(rewards, anchor)
 }
 
 function onPlayerDamaged(hull: number, maxHull: number, _dmg: number): void {
@@ -750,7 +774,6 @@ function onBossSpawned(def: AnyDef, maxHull: number): void {
   onEnemySpawned(def, maxHull, false)
   combatRow.classList.add('is-boss-fight')
   bossBanner.classList.remove('hidden')
-  waveLabel.textContent = 'Flagship contact'
   refreshFleetTrack()
   markCurrentSeaTargetAsBoss(def, maxHull)
   enemyName.style.color = '#F2B134'
@@ -766,15 +789,13 @@ function onBossDefeated(_def: AnyDef): void {
 }
 
 function onWaveCompleted(_waveIndex: number): void {
-  waveLabel.textContent = `${Math.floor(GameState.getRouteDistance())} nmi`
   refreshFleetTrack()
 }
 
-function onLaneCompleted(_laneId: string, nextId: string): void {
+function onSectorCompleted(_sectorId: string, nextId: string): void {
   nextLaneId            = nextId
   laneCleared           = true
   combatRow.classList.remove('is-boss-fight')
-  waveLabel.textContent = 'Sector Clear'
   bossBanner.classList.add('hidden')
   refreshFleetTrack()
   if (nextId && !GameState.isAutoProgress()) {
@@ -823,9 +844,8 @@ function onEscortDefeated(index: number, def: AnyDef, rewards: Record<string, nu
   const contact = simEscorts[index]
   if (contact) markContactSunk(contact)
   simEscorts[index] = null
-  const rewardStr = Object.entries(rewards).map(([id, a]) => `${Balance.formatNumber(a as number)} ${id}`).join(', ')
-  appendLog(`${def['display_name'] ?? 'Escort'} sunk! +${rewardStr}`)
-  onResourceChanged('salvage', GameState.getResource('salvage'))
+  spawnRewardPickups(rewards, contact ?? undefined)
+  void def
 }
 
 // ── Doctrine UI ────────────────────────────────────────────────────────────────
@@ -877,7 +897,7 @@ function refreshPrestigeUI(): void {
   const canReturn = GameState.hasDefeatedBoss('lane_02_boss')
   returnPortBtn.disabled = !canReturn
   returnPortNote.textContent = canReturn
-    ? 'Return resets salvage, route distance, and Arsenal upgrades. Boss milestones and unlocked systems persist. Muster opens after this return.'
+    ? 'Return resets salvage, route distance, Arsenal upgrades, and Muster drill levels. Boss milestones, unlocked systems, and Doubloons persist.'
     : 'Clear the second boss to make Return to Port available.'
 }
 
@@ -1233,7 +1253,7 @@ function refreshLaneLabel(): void {
 
 function refreshWatersTitle(): void {
   const sector = SectorPlan.getSector(GameState.getCurrentSector())
-  laneLabel.textContent = `${sector.region} / ${sector.displayName}`
+  laneLabel.textContent = `Sector ${sector.sector} · ${sector.routeName} · ${sector.displayName}`
 }
 
 function refreshRouteUI(): void {
@@ -1245,17 +1265,15 @@ function refreshRouteUI(): void {
   const auto = GameState.isAutoProgress()
 
   routeMeterFill.style.width = `${pct}%`
-  routeDistanceLabel.textContent = `Sector ${GameState.getCurrentSector()}  ${Math.floor(distance)} / ${Math.floor(goal)} nmi`
-  waveLabel.textContent = GameState.isBossPhase()
-    ? 'Flagship contact'
-    : mode === 'hold'
-      ? 'Holding position'
-      : mode === 'retreat'
-        ? 'Falling back'
-      : `Wave ${GameState.getWaveIndex() + 1}`
-
-  autoProgressBtn.textContent = auto ? 'AUTO ON' : 'AUTO OFF'
+  const sector = SectorPlan.getSector(GameState.getCurrentSector())
+  const boss = sector.boss as AnyDef | undefined
+  const bossState = GameState.hasDefeatedBoss(boss?.['id'] ?? '') ? 'boss first-clear logged' : 'boss ahead'
+  routeDistanceLabel.textContent = `${sector.routeName}  ${Math.floor(distance)} / ${Math.floor(goal)} nmi`
+  routeDistanceLabel.title = `Sector ${sector.sector}: ${sector.displayName}; ${bossState}`
+  autoProgressBtn.textContent = auto ? 'A' : 'A'
   autoProgressBtn.classList.toggle('is-active', auto)
+  autoProgressBtn.classList.toggle('is-muted', !auto)
+  autoProgressBtn.title = auto ? 'Auto progress on' : 'Auto progress off'
   courseForwardBtn.classList.toggle('is-active', mode === 'forward')
   courseHoldBtn.classList.toggle('is-active', mode === 'hold')
   courseRetreatBtn.classList.toggle('is-active', mode === 'retreat')
@@ -1320,16 +1338,33 @@ function setMechanicsFocus(collapsed: boolean): void {
   const mobileLayout = window.matchMedia('(max-width: 760px)').matches
   shellRoot.classList.toggle('mechanics-collapsed', collapsed && !mobileLayout)
   refreshMechanicsToggle()
+  window.requestAnimationFrame(updateFocusHandlePosition)
 }
 
 function refreshMechanicsToggle(): void {
   if (!titleFocusBtn || !statusRailBtn || !deskRailBtn) return
   const collapsed = shellRoot.classList.contains('mechanics-collapsed')
-  titleFocusBtn.textContent = collapsed ? 'OPEN DESK' : 'SEA FOCUS'
+  titleFocusBtn.textContent = '⋮'
   titleFocusBtn.title = collapsed ? "Open the Captain's Desk" : "Collapse the Captain's Desk"
   titleFocusBtn.setAttribute('aria-pressed', `${collapsed}`)
   statusRailBtn.setAttribute('aria-expanded', `${!collapsed}`)
   deskRailBtn.setAttribute('aria-expanded', `${!collapsed}`)
+}
+
+function updateFocusHandlePosition(): void {
+  if (!titleFocusBtn || !oceanPanel || !shellRoot) return
+  const rootRect = shellRoot.getBoundingClientRect()
+  const collapsed = shellRoot.classList.contains('mechanics-collapsed')
+  if (collapsed) {
+    titleFocusBtn.style.left = `${Math.max(8, rootRect.width - 104)}px`
+    titleFocusBtn.style.top = '92px'
+    return
+  }
+
+  const oceanRect = oceanPanel.getBoundingClientRect()
+  const seamX = oceanRect.right - rootRect.left
+  titleFocusBtn.style.left = `${Math.max(8, seamX - 30)}px`
+  titleFocusBtn.style.top = '50%'
 }
 
 function refreshSeaContacts(
@@ -1372,11 +1407,9 @@ function refreshSeaContacts(
     }
     appendSeaWaveGroup('Port Escort', 'is-port-wave', [
       escortContact(BOSS_ESCORT_SLOTS[0], 0, 'Port escort'),
-      escortContact(PORT_WAVE_SLOTS[1], 1, 'Port escort'),
     ])
     appendSeaWaveGroup('Starboard Escort', 'is-starboard-wave', [
       escortContact(BOSS_ESCORT_SLOTS[1], 1, 'Starboard escort'),
-      escortContact(STARBOARD_WAVE_SLOTS[1], 2, 'Starboard escort'),
     ])
     appendSeaWaveGroup('Flagship Line', 'is-horizon-wave', [
       {
@@ -1387,8 +1420,6 @@ function refreshSeaContacts(
         hull: activeHull,
         maxHull: activeMaxHull,
       },
-      escortContact(BOSS_ESCORT_SLOTS[2], 2, 'Forward escort'),
-      escortContact(BOSS_ESCORT_SLOTS[3], 3, 'Forward escort'),
     ])
     return
   }
@@ -1414,28 +1445,17 @@ function refreshSeaContacts(
       def: waveEnemyDef(index === 0 ? 0 : -1),
       status: (index <= 1 ? 'escort' : 'incoming') as SeaContactStatus,
       caption: 'Port fleet',
-    })))
+    })).slice(0, 1))
 
     appendSeaWaveGroup('Starboard Cutters', 'is-starboard-wave', STARBOARD_WAVE_SLOTS.map((slot, index) => ({
       slot,
       def: waveEnemyDef(index <= 1 ? 1 : 0),
       status: (index <= 1 ? 'escort' : 'incoming') as SeaContactStatus,
       caption: 'Starboard fleet',
-    })))
+    })).slice(0, 1))
   }
 
-  const incomingIds = waves.length === 0
-    ? []
-    : [waves[(distanceBand + 1) % waves.length], waves[(distanceBand + 2) % waves.length]]
-  const horizonContacts: SeaWaveContact[] = HORIZON_WAVE_SLOTS.map((slot, index) => {
-    const id = incomingIds[index % Math.max(1, incomingIds.length)] ?? waves[distanceBand % Math.max(1, waves.length)]
-    return {
-      slot,
-      def: Definitions.getEnemy(id),
-      status: 'incoming' as SeaContactStatus,
-      caption: 'Closing fleet',
-    }
-  })
+  const horizonContacts: SeaWaveContact[] = []
 
   if (bossDef && GameState.getRouteDistance() >= GameState.getRouteDistanceGoal() * 0.72) {
     horizonContacts.push({
@@ -1857,36 +1877,79 @@ function tickFleetContactSim(): void {
 
 function processLootDrops(now: number): void {
   if (now < nextLootDropAt) return
-  spawnLootDrop(false)
-  nextLootDropAt = now + 1800 + Math.random() * 2400
+  spawnLootDrop()
+  nextLootDropAt = now + 12_000 + Math.random() * 8_000
 }
 
-function spawnLootDrop(forceDoubloonChance: boolean): void {
+function spawnRewardPickups(rewards: Record<string, number>, anchor?: HTMLElement): void {
+  const entries = Object.entries(rewards).filter(([, amount]) => Number(amount) > 0)
+  for (const [resource, amount] of entries) {
+    spawnLootDrop(resource, Math.max(1, Math.round(Number(amount))), anchor)
+  }
+
+  const bossBonus = GameState.isBossPhase() ? 0.18 : 0.035
+  const routeBonus = SectorPlan.getSector(GameState.getCurrentSector()).route === 'B' ? 0.02 : 0
+  if (!entries.some(([id]) => id === 'doubloons') && Math.random() < bossBonus + routeBonus) {
+    spawnLootDrop('doubloons', GameState.isBossPhase() ? 3 : 1, anchor)
+  }
+}
+
+function spawnLootDrop(resourceId?: string, amountOverride?: number, anchor?: HTMLElement): void {
   if (!combatRow) return
   const existing = combatRow.querySelectorAll('.loot-drop')
   if (existing.length >= MAX_LOOT_DROPS) return
 
-  const isDoubloon = Math.random() < (forceDoubloonChance ? 0.26 : 0.16)
-  const amount = isDoubloon ? 1 : Math.round(7 + Math.random() * 19)
+  const resource = resourceId ?? (Math.random() < 0.045 ? 'doubloons' : 'salvage')
+  const amount = amountOverride ?? (resource === 'doubloons' ? 1 : Math.round(5 + Math.random() * 14))
   const drop = document.createElement('button')
   drop.type = 'button'
-  drop.className = `loot-drop ${isDoubloon ? 'is-doubloon' : 'is-salvage'}`
-  drop.style.left = `${12 + Math.random() * 76}%`
-  drop.style.top = `${18 + Math.random() * 58}%`
-  drop.style.setProperty('--drift-x', `${-18 + Math.random() * 36}px`)
-  drop.style.setProperty('--drift-y', `${-16 + Math.random() * 20}px`)
-  drop.dataset.resource = isDoubloon ? 'doubloons' : 'salvage'
+  drop.className = `loot-drop is-${resource.replace('_', '-')}`
+  const origin = lootDropPosition(anchor)
+  const travel = lootDropTravel(origin)
+  drop.style.left = `${origin.x}%`
+  drop.style.top = `${origin.y}%`
+  drop.style.setProperty('--drift-x', `${travel.x}px`)
+  drop.style.setProperty('--drift-y', `${travel.y}px`)
+  drop.style.setProperty('--drift-ms', `${travel.ms}ms`)
+  drop.dataset.resource = resource
   drop.dataset.amount = `${amount}`
   drop.dataset.lootId = `${++lootDropSerial}`
-  drop.title = isDoubloon ? 'Doubloon cache' : 'Salvage cache'
-  drop.setAttribute('aria-label', isDoubloon ? 'Collect doubloons' : 'Collect salvage')
+  drop.title = `${Balance.formatNumber(amount)} ${formatResourceName(resource)}`
+  drop.setAttribute('aria-label', `Collect ${Balance.formatNumber(amount)} ${formatResourceName(resource)}`)
+  drop.appendChild(el('span', 'loot-drop-label', `+${Balance.formatNumber(amount)}`))
   drop.addEventListener('click', () => collectLootDrop(drop))
   combatRow.appendChild(drop)
+  const lifetime = Number.parseFloat(drop.style.getPropertyValue('--drift-ms')) || LOOT_DROP_LIFETIME_MS
   window.setTimeout(() => {
     if (!drop.isConnected) return
     drop.classList.add('is-fading')
     window.setTimeout(() => drop.remove(), 260)
-  }, LOOT_DROP_LIFETIME_MS)
+  }, lifetime)
+}
+
+function lootDropPosition(anchor?: HTMLElement): { x: number; y: number } {
+  if (!anchor || !anchor.isConnected || !combatRow) {
+    return { x: 12 + Math.random() * 76, y: -4 - Math.random() * 10 }
+  }
+  const base = combatRow.getBoundingClientRect()
+  const rect = anchor.getBoundingClientRect()
+  const x = ((rect.left + rect.width * 0.5 - base.left) / Math.max(1, base.width)) * 100
+  const y = ((rect.top + rect.height * 0.55 - base.top) / Math.max(1, base.height)) * 100
+  return {
+    x: Math.max(8, Math.min(92, x + (Math.random() - 0.5) * 9)),
+    y: Math.max(12, Math.min(82, y + (Math.random() - 0.5) * 8)),
+  }
+}
+
+function lootDropTravel(origin: { x: number; y: number }): { x: number; y: number; ms: number } {
+  const base = combatRow?.getBoundingClientRect()
+  const height = Math.max(1, base?.height ?? 520)
+  const fallPx = height * (1.12 - origin.y / 100)
+  return {
+    x: -28 + Math.random() * 56,
+    y: Math.max(120, fallPx),
+    ms: 16_000 + Math.random() * 6_000,
+  }
 }
 
 function collectLootDrop(drop: HTMLElement): void {

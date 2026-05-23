@@ -6,6 +6,7 @@ type AnyDef = Record<string, any>
 export interface SectorDef {
   sector: number
   route: 'A' | 'B' | 'C'
+  routeName: string
   displayName: string
   region: string
   distance: number
@@ -79,6 +80,7 @@ export const SectorPlan = {
     const def: SectorDef = {
       sector: safeSector,
       route,
+      routeName: ROUTE_NAMES[route],
       displayName: authored?.['display_name'] ?? `Sector ${safeSector}`,
       region: authored?.['region'] ?? ROUTE_NAMES[route],
       distance: authored?.['distance'] ?? (180 + Math.min(420, Math.floor((safeSector - 1) / 2) * 15)),

@@ -81,6 +81,22 @@ This note turns Unnamed Space Idle (USI) research into an implementation backlog
 
 ## Combat Wave Todo
 
+### Passive Drops Source Check
+
+USI behavior checked against local roadmap notes plus the USI wiki pages for Resources, Gameplay, and V-Device on 2026-05-22:
+
+- Salvage has two related sources: every defeated enemy grants normal Salvage, while larger Scrap chunks are visible battlefield pickups that can be clicked or later auto-collected through a Synth module.
+- Void Matter is enemy-kill based, not a manual active ability. It has less than 100% drop chance, with chance and amount affected by sector/enemy data and later systems.
+- V-Device shards unlock after early sectors; destroyed enemies drop shards whose type, amount, and chance depend on sector, and duplicates fill Resonance.
+- Energy Voids are the separate active/clickable timed battlefield boost. They are not the model for ordinary salvage, Void Matter, or shard drops.
+
+UB translation for the current prototype:
+
+- Salvage should appear as common wreckage pickups spawned by normal combat kills. It can be clicked now; later automation can collect it once the player has solved that chore.
+- Doubloons should be rare, persistent sea pickups, weighted toward bosses and prize ships.
+- Ether Brine should stay a run-resetting rare combat drop for the future Stormheart Furnace. Do not surface it as a spendable system until Stormheart has a source, sink, reset rule, and UI home.
+- Pickups should linger long enough to read as sea objects and rewards from wreckage, not short reaction tests.
+
 ### Immediate
 
 - Maintain multiple visible enemy ships with individual health states.
@@ -88,6 +104,20 @@ This note turns Unnamed Space Idle (USI) research into an implementation backlog
 - Player shots should hit selected or auto-selected targets.
 - Side ships should fire and take damage from player volleys or support effects.
 - Sunk ships should remain as wreckage briefly instead of causing the whole wave to disappear.
+
+### Targeting Source Check
+
+USI behavior checked against local notes plus the USI Core wiki page on 2026-05-22:
+
+- Targeting settings live with Core weapons rather than on the battlefield itself, and unlock after early sector progress.
+- The menu is weapon-specific and covers type priority, stat priority, target swapping, and target overlap.
+- USI targeting is about defining weapon behavior in advance, not constantly clicking enemies during combat.
+
+UB translation for the current prototype:
+
+- Targeting belongs in Arsenal as "Targeting Orders" for the current weapon.
+- Keep the sea view focused on readable selected-target reticles and incoming fire.
+- Prototype orders map to USI-like ideas: keep/change target and allow/avoid overlap. Later, per-weapon target priority can expand into nearest, lowest hull, highest threat, and boss focus.
 
 ### Soon
 

@@ -63,7 +63,7 @@ export class Sim {
   onBossSpawned?:       (def: AnyDef, maxHull: number) => void
   onBossDefeated?:      (def: AnyDef) => void
   onWaveCompleted?:     (encounterIndex: number) => void
-  onLaneCompleted?:     (laneId: string, nextLaneId: string) => void
+  onSectorCompleted?:   (sectorId: string, nextSectorId: string) => void
   onCombatLog?:         (msg: string) => void
   onCounterHint?:       (hint: string) => void
   onEscortSpawned?:     (index: number, def: AnyDef, maxHull: number) => void
@@ -212,7 +212,7 @@ export class Sim {
     if (escortIdx >= 0) {
       const escort = this._escorts[escortIdx]
       if (!escort || escort.hull <= 0) {
-        this._fireAtPrimary(baseDmg, dtype)
+        this._fireAtSelectedTarget(baseDmg, dtype)
         return
       }
       const evasion = escort.def['evasion'] ?? 0
@@ -225,11 +225,11 @@ export class Sim {
       this.onEscortDamaged?.(escortIdx, escort.hull, escort.maxHull, effective, evaded)
       if (escort.hull <= 0) this._onEscortDefeated(escortIdx)
     } else {
-      this._fireAtPrimary(baseDmg, dtype)
+      this._fireAtSelectedTarget(baseDmg, dtype)
     }
   }
 
-  private _fireAtPrimary(baseDmg: number, dtype: DamageType): void {
+  private _fireAtSelectedTarget(baseDmg: number, dtype: DamageType): void {
     const evasion = this._enemy['evasion'] ?? 0
     const evaded  = evasion > 0 && Math.random() < evasion
     let effective = 0
@@ -256,7 +256,7 @@ export class Sim {
       return -1
     }
 
-    // suppression: cycle primary → escorts → primary → …
+    // suppression: cycle selected target -> escorts -> selected target -> ...
     this._doctrineShot = (this._doctrineShot + 1) % (1 + activeEscorts.length)
     if (this._doctrineShot === 0) return -1
     let count = 0
@@ -270,10 +270,9 @@ export class Sim {
     const escort = this._escorts[index]
     if (!escort) return
     const rewards = this._scaleRewards(escort.def['rewards'] ?? { salvage: 10 })
-    for (const [id, amt] of Object.entries(rewards)) GameState.addResource(id, amt)
     this.onEscortDefeated?.(index, escort.def, rewards)
     const rewardStr = Object.entries(rewards).map(([id, a]) => `${Balance.formatNumber(a as number)} ${id}`).join(', ')
-    this.onCombatLog?.(`${escort.def['display_name'] ?? 'Escort'} sunk! +${rewardStr}`)
+    this.onCombatLog?.(`${escort.def['display_name'] ?? 'Escort'} sunk! Wreckage visible${rewardStr ? `: ${rewardStr}` : '.'}`)
   }
 
   private _enemyFires(ship: AnyDef | undefined): void {
@@ -296,21 +295,19 @@ export class Sim {
     this._doctrineShot = 0
     if (this._bossActive) {
       const rewards = this._scaleRewards(this._enemy['rewards'] ?? {})
-      for (const [id, amt] of Object.entries(rewards)) GameState.addResource(id, amt)
       this._awardMusterProgress(true)
       this.onEnemyDefeated?.(this._enemy, rewards, true)
       const rewardStr = Object.entries(rewards).map(([id, a]) => `${Balance.formatNumber(a as number)} ${id}`).join(', ')
-      this.onCombatLog?.(`${this._enemy['display_name'] ?? 'Enemy'} defeated! +${rewardStr}`)
+      this.onCombatLog?.(`${this._enemy['display_name'] ?? 'Enemy'} defeated! Prize wreckage visible${rewardStr ? `: ${rewardStr}` : '.'}`)
       this._onBossCleared()
       return
     }
 
     const rewards = this._scaleRewards(this._enemy['rewards'] ?? {})
-    for (const [id, amt] of Object.entries(rewards)) GameState.addResource(id, amt)
     this._awardMusterProgress(false)
     this.onEnemyDefeated?.(this._enemy, rewards, true)
     const rewardStr = Object.entries(rewards).map(([id, a]) => `${Balance.formatNumber(a as number)} ${id}`).join(', ')
-    this.onCombatLog?.(`${this._enemy['display_name'] ?? 'Enemy'} defeated! +${rewardStr}`)
+    this.onCombatLog?.(`${this._enemy['display_name'] ?? 'Enemy'} defeated! Wreckage visible${rewardStr ? `: ${rewardStr}` : '.'}`)
 
     this._encounter++
     GameState.advanceWave()
@@ -336,7 +333,7 @@ export class Sim {
     GameState.setRouteDistance(this._routeGoal())
     const nextSector = SectorPlan.nextSector(sector.sector)
     const nextId = nextSector > sector.sector ? `sector_${nextSector}` : ''
-    this.onLaneCompleted?.(`sector_${sector.sector}`, nextId)
+    this.onSectorCompleted?.(`sector_${sector.sector}`, nextId)
     if (nextId && GameState.isAutoProgress()) {
       GameState.advanceSector()
       this._reset()
@@ -394,21 +391,25 @@ export class Sim {
     const sectorDef = SectorPlan.getSector(GameState.getCurrentSector())
     const allIds    = sectorDef.enemyIds
     if (allIds.length < 2) return
-    const primaryId = this._enemy['id'] ?? ''
-    const escortId  = allIds.find(id => id !== primaryId) ?? allIds[0]
-    const escortDef = Definitions.getEnemy(escortId)
-    if (!escortDef) return
-    const scalar   = Balance.distanceScalar(GameState.getRouteDistance())
-    const hull     = Math.round((escortDef['hull'] ?? 20) * scalar * 0.7)
-    const escort: SimTarget = {
-      def:       escortDef,
-      hull,
-      maxHull:   hull,
-      scaledDmg: (escortDef['damage'] ?? 3) * scalar * 0.5,
-      fireTimer: Math.floor(Math.random() * 5),
+    const selectedId = this._enemy['id'] ?? ''
+    const escortIds  = allIds.filter(id => id !== selectedId)
+    const scalar     = Balance.distanceScalar(GameState.getRouteDistance())
+    const count      = Math.min(2, Math.max(1, escortIds.length))
+    for (let index = 0; index < count; index++) {
+      const escortId = escortIds[index % escortIds.length] ?? allIds[(index + 1) % allIds.length]
+      const escortDef = Definitions.getEnemy(escortId)
+      if (!escortDef) continue
+      const hull = Math.round((escortDef['hull'] ?? 20) * scalar * 0.7)
+      const escort: SimTarget = {
+        def:       escortDef,
+        hull,
+        maxHull:   hull,
+        scaledDmg: (escortDef['damage'] ?? 3) * scalar * 0.5,
+        fireTimer: Math.floor(Math.random() * 5),
+      }
+      this._escorts.push(escort)
+      this.onEscortSpawned?.(index, escortDef, hull)
     }
-    this._escorts.push(escort)
-    this.onEscortSpawned?.(0, escortDef, hull)
   }
 
   private _spawnBoss(): void {

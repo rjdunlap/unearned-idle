@@ -1769,6 +1769,213 @@ hr { border: none; border-top: 1px solid rgba(205,217,217,0.15); }
   .muster-gauge { height: 90px; }
 }
 
+/* ── Stormheart Furnace panel ───────────── */
+.stormheart-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Arc gauge zone — centres the SVG and readout */
+.furnace-gauge-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+.furnace-arc-svg {
+  width: 200px;
+  height: 150px;
+  max-width: 100%;
+  display: block;
+}
+
+/* Power value + label sit just below the needle hub */
+.furnace-power-readout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  margin-top: -12px;  /* pull up under the arc's bottom */
+}
+.furnace-power-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--teal);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  transition: color 300ms ease;
+}
+.furnace-power-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--copper);
+}
+
+/* Brine + burn row */
+.furnace-brine-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: rgba(16, 28, 44, 0.60);
+  border: 1px solid rgba(205, 217, 217, 0.10);
+  border-radius: 4px;
+  padding: 8px 10px;
+}
+.furnace-brine-amount {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--teal);
+}
+.furnace-burn-btn {
+  background: rgba(185, 110, 53, 0.14);
+  border: 1px solid rgba(185, 110, 53, 0.40);
+  color: var(--copper);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: background 150ms, opacity 150ms;
+}
+.furnace-burn-btn:not(:disabled):hover { background: rgba(185, 110, 53, 0.26); }
+.furnace-burn-btn:disabled { opacity: 0.38; cursor: default; }
+
+/* Drain / boost status strip */
+.furnace-drain-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: rgba(205, 217, 217, 0.65);
+  padding: 0 2px;
+}
+.furnace-drain-rate  { color: rgba(205, 217, 217, 0.65); }
+.furnace-boost-status { text-align: right; }
+
+/* Valve board */
+.furnace-valves {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.furnace-valve {
+  display: grid;
+  grid-template-columns: 28px 10px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  background: rgba(16, 28, 44, 0.72);
+  border: 1px solid rgba(205, 217, 217, 0.10);
+  border-left: 3px solid rgba(140, 98, 57, 0.42);
+  border-radius: 4px;
+  padding: 8px 10px;
+  transition: border-left-color 200ms ease, background 200ms ease;
+}
+.furnace-valve.is-open {
+  border-left-color: var(--teal);
+  background: rgba(34, 166, 161, 0.06);
+}
+.furnace-valve.is-overlimit {
+  border-left-color: var(--red);
+  background: rgba(224, 68, 62, 0.06);
+}
+
+/* Valve lever icon: horizontal pipe + rotating handle */
+.valve-icon {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.valve-pipe-h {
+  position: absolute;
+  width: 100%;
+  height: 3px;
+  background: rgba(140, 98, 57, 0.52);
+  border-radius: 2px;
+  transition: background 200ms;
+}
+.furnace-valve.is-open .valve-pipe-h {
+  background: rgba(34, 166, 161, 0.52);
+}
+.valve-handle {
+  position: absolute;
+  width: 6px;
+  height: 18px;
+  background: linear-gradient(180deg, #C47A3A 0%, #8C6239 100%);
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transform-origin: center center;
+  transform: rotate(0deg);      /* closed: perpendicular = vertical handle */
+  transition: transform 180ms ease, background 180ms ease;
+}
+.furnace-valve.is-open .valve-handle {
+  transform: rotate(-50deg);    /* open: lever turned, valve flowing */
+  background: linear-gradient(180deg, rgba(34, 166, 161, 0.92) 0%, rgba(12, 90, 88, 0.92) 100%);
+}
+
+/* Glow indicator dot */
+.valve-glow {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(205, 217, 217, 0.06);
+  border: 1px solid rgba(205, 217, 217, 0.18);
+  flex-shrink: 0;
+  transition: background 200ms, box-shadow 200ms, border-color 200ms;
+}
+.furnace-valve.is-open .valve-glow {
+  background: var(--teal);
+  border-color: rgba(34, 166, 161, 0.60);
+  box-shadow: 0 0 7px rgba(34, 166, 161, 0.60);
+}
+.furnace-valve.is-overlimit .valve-glow {
+  background: var(--red);
+  border-color: rgba(224, 68, 62, 0.60);
+  box-shadow: 0 0 7px rgba(224, 68, 62, 0.60);
+}
+
+/* Valve text block */
+.valve-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.valve-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 200ms;
+}
+.furnace-valve.is-open     .valve-name { color: var(--teal); }
+.furnace-valve.is-overlimit .valve-name { color: var(--red);  }
+.valve-desc {
+  font-size: 10px;
+  color: rgba(205, 217, 217, 0.62);
+}
+
+/* Valve toggle button */
+.valve-btn {
+  min-width: 52px;
+  padding: 5px 8px;
+  font-size: 11px;
+}
+
+@media (max-width: 520px) {
+  .furnace-arc-svg { width: 170px; height: 128px; }
+  .furnace-power-value { font-size: 22px; }
+}
+
 /* ── Prestige panel ─────────────────────── */
 .log-panel {
   display: flex;

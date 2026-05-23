@@ -99,6 +99,16 @@ let musterGunneryPowerLabel: HTMLElement
 let musterSeamanshipPowerLabel: HTMLElement
 let musterGunneryRate: HTMLElement
 let musterSeamanshipRate: HTMLElement
+// Stormheart Furnace DOM refs (built once, updated by refreshStormheartUI)
+let furnaceArcFill:    SVGPathElement | null  = null
+let furnaceNeedle:     SVGLineElement | null  = null
+let furnacePowerValue: HTMLElement | null     = null
+let furnaceBrineAmount: HTMLElement | null    = null
+let furnaceDrainRate:  HTMLElement | null     = null
+let furnaceBoostStatus: HTMLElement | null    = null
+let furnaceBurnBtn:    HTMLButtonElement | null = null
+const furnaceValveRows = new Map<StormBoostId, HTMLElement>()
+const furnaceValveBtns = new Map<StormBoostId, HTMLButtonElement>()
 let advanceBtn:      HTMLButtonElement
 let statusRailBtn:   HTMLButtonElement
 let deskRailBtn:     HTMLButtonElement
@@ -629,9 +639,174 @@ function buildMusterPanel(parent: HTMLElement): void {
   refreshMusterUI()
 }
 
+// ── Stormheart arc-gauge constants ────────────────────────────────────────────
+// Gauge arc: 240° clockwise from lower-left (150°) through top to lower-right (30°)
+// ViewBox 200×150, center (100, 110), radius 70.
+// Start:  x = 100 + 70*cos(150°) ≈ 39,  y = 110 + 70*sin(150°) = 145
+// End:    x = 100 + 70*cos(30°)  ≈ 161, y = 110 + 70*sin(30°)  = 145
+const FURNACE_ARC_PATH   = 'M 39,145 A 70,70 0 1,1 161,145'
+const FURNACE_ARC_LEN    = 293   // 2π × 70 × (240/360) ≈ 293 px
+const FURNACE_STORM_MAX  = 100   // display ceiling for arc fill (soft cap)
+const FURNACE_CX = 100, FURNACE_CY = 110, FURNACE_R = 70
+
+function furnaceNeedleEnd(pct: number): { x: number; y: number } {
+  const rad = (150 + 240 * pct) * Math.PI / 180
+  return { x: FURNACE_CX + FURNACE_R * Math.cos(rad), y: FURNACE_CY + FURNACE_R * Math.sin(rad) }
+}
+
+function furnaceArcColor(pct: number): string {
+  if (pct >= 0.50) return '#22A6A1'  // teal — safe
+  if (pct >= 0.25) return '#F2B134'  // gold — caution
+  return '#E0443E'                    // red  — critical
+}
+
 function buildStormheartPanel(parent: HTMLElement): void {
-  stormheartSection = el('section', 'system-panel hidden')
-  stormheartSection.appendChild(systemHeader('STORMHEART', 'Burn Ether Brine into temporary voyage pressure'))
+  stormheartSection = el('section', 'stormheart-panel hidden')
+
+  // Header
+  const header = el('div', 'muster-header-row')
+  header.appendChild(el('span', 'arsenal-header', 'STORMHEART'))
+  header.appendChild(el('span', 'sz-11 c-silver', 'Burn Ether Brine into temporary voyage pressure'))
+  stormheartSection.appendChild(header)
+
+  // ── Arc gauge ────────────────────────────────────────────────────────────────
+  const gaugeZone = el('div', 'furnace-gauge-zone')
+
+  const NS = 'http://www.w3.org/2000/svg'
+  const svg = document.createElementNS(NS, 'svg') as SVGSVGElement
+  svg.setAttribute('viewBox', '0 0 200 150')
+  svg.setAttribute('class', 'furnace-arc-svg')
+  svg.setAttribute('aria-label', 'Storm Power gauge')
+
+  // Background arc track
+  const arcBg = document.createElementNS(NS, 'path') as SVGPathElement
+  arcBg.setAttribute('d', FURNACE_ARC_PATH)
+  arcBg.setAttribute('fill', 'none')
+  arcBg.setAttribute('stroke', 'rgba(205,217,217,0.09)')
+  arcBg.setAttribute('stroke-width', '10')
+  arcBg.setAttribute('stroke-linecap', 'round')
+  svg.appendChild(arcBg)
+
+  // Danger-zone overlay: first 20 % of arc = low-power warning region
+  // When the fill recedes below 20 %, this dim-red band is revealed.
+  const dangerLen = Math.round(FURNACE_ARC_LEN * 0.20)  // ≈ 59 px
+  const arcDanger = document.createElementNS(NS, 'path') as SVGPathElement
+  arcDanger.setAttribute('d', FURNACE_ARC_PATH)
+  arcDanger.setAttribute('fill', 'none')
+  arcDanger.setAttribute('stroke', 'rgba(224,68,62,0.22)')
+  arcDanger.setAttribute('stroke-width', '10')
+  arcDanger.setAttribute('stroke-linecap', 'round')
+  arcDanger.setAttribute('stroke-dasharray', `${dangerLen} ${FURNACE_ARC_LEN - dangerLen}`)
+  svg.appendChild(arcDanger)
+
+  // Fill arc (dynamic — stroke-dasharray updated by refreshStormheartUI)
+  const arcFill = document.createElementNS(NS, 'path') as SVGPathElement
+  arcFill.setAttribute('d', FURNACE_ARC_PATH)
+  arcFill.setAttribute('fill', 'none')
+  arcFill.setAttribute('stroke', '#22A6A1')
+  arcFill.setAttribute('stroke-width', '10')
+  arcFill.setAttribute('stroke-linecap', 'round')
+  arcFill.setAttribute('stroke-dasharray', `0 ${FURNACE_ARC_LEN}`)
+  furnaceArcFill = arcFill
+  svg.appendChild(arcFill)
+
+  // Low-power tick mark at 20 % position (angle = 150 + 48 = 198°)
+  const tickRad = 198 * Math.PI / 180
+  const [tx1, ty1] = [FURNACE_CX + (FURNACE_R - 6) * Math.cos(tickRad), FURNACE_CY + (FURNACE_R - 6) * Math.sin(tickRad)]
+  const [tx2, ty2] = [FURNACE_CX + (FURNACE_R - 14) * Math.cos(tickRad), FURNACE_CY + (FURNACE_R - 14) * Math.sin(tickRad)]
+  const tick = document.createElementNS(NS, 'line') as SVGLineElement
+  tick.setAttribute('x1', tx1.toFixed(1)); tick.setAttribute('y1', ty1.toFixed(1))
+  tick.setAttribute('x2', tx2.toFixed(1)); tick.setAttribute('y2', ty2.toFixed(1))
+  tick.setAttribute('stroke', 'rgba(224,68,62,0.55)')
+  tick.setAttribute('stroke-width', '2')
+  tick.setAttribute('stroke-linecap', 'round')
+  svg.appendChild(tick)
+
+  // Needle
+  const needle = document.createElementNS(NS, 'line') as SVGLineElement
+  needle.setAttribute('x1', String(FURNACE_CX)); needle.setAttribute('y1', String(FURNACE_CY))
+  needle.setAttribute('x2', '39');               needle.setAttribute('y2', '145') // 0 % start
+  needle.setAttribute('stroke', 'rgba(255,255,255,0.80)')
+  needle.setAttribute('stroke-width', '1.5')
+  needle.setAttribute('stroke-linecap', 'round')
+  furnaceNeedle = needle
+  svg.appendChild(needle)
+
+  // Center hub (copper)
+  const hub = document.createElementNS(NS, 'circle') as SVGCircleElement
+  hub.setAttribute('cx', String(FURNACE_CX)); hub.setAttribute('cy', String(FURNACE_CY))
+  hub.setAttribute('r', '5')
+  hub.setAttribute('fill', '#B96E35')
+  svg.appendChild(hub)
+
+  gaugeZone.appendChild(svg)
+
+  // Power readout beneath the arc
+  const powerReadout = el('div', 'furnace-power-readout')
+  furnacePowerValue = el('span', 'furnace-power-value', '0')
+  powerReadout.appendChild(furnacePowerValue)
+  powerReadout.appendChild(el('span', 'furnace-power-label', 'STORM POWER'))
+  gaugeZone.appendChild(powerReadout)
+
+  stormheartSection.appendChild(gaugeZone)
+
+  // ── Brine + burn row ─────────────────────────────────────────────────────────
+  const brineRow = el('div', 'furnace-brine-row')
+  furnaceBrineAmount = el('span', 'furnace-brine-amount', '0 Ether Brine')
+  brineRow.appendChild(furnaceBrineAmount)
+  const burnBtn = btn('BURN 5 BRINE', 'furnace-burn-btn') as HTMLButtonElement
+  burnBtn.addEventListener('click', () => {
+    if (GameState.burnEtherBrine()) appendLog('<span class="log-teal">Stormheart pressure rising.</span>')
+  })
+  furnaceBurnBtn = burnBtn
+  brineRow.appendChild(burnBtn)
+  stormheartSection.appendChild(brineRow)
+
+  // Drain / boost status strip
+  const drainRow = el('div', 'furnace-drain-row')
+  furnaceDrainRate  = el('span', 'furnace-drain-rate')
+  furnaceBoostStatus = el('span', 'furnace-boost-status')
+  drainRow.appendChild(furnaceDrainRate)
+  drainRow.appendChild(furnaceBoostStatus)
+  stormheartSection.appendChild(drainRow)
+
+  // ── Valve board ──────────────────────────────────────────────────────────────
+  const valveBoard = el('div', 'furnace-valves')
+  for (const boost of STORM_BOOSTS) {
+    const row = el('div', 'furnace-valve')
+
+    // Valve lever icon (CSS-only: horizontal pipe + rotating handle)
+    const icon = el('div', 'valve-icon')
+    icon.appendChild(el('div', 'valve-pipe-h'))
+    icon.appendChild(el('div', 'valve-handle'))
+    row.appendChild(icon)
+
+    // Lit indicator dot
+    row.appendChild(el('div', 'valve-glow'))
+
+    // Name + effect text
+    const text = el('div', 'valve-text')
+    text.appendChild(el('span', 'valve-name', boost.name))
+    text.appendChild(el('span', 'valve-desc', boost.body))
+    row.appendChild(text)
+
+    // Toggle button
+    const toggleBtn = btn('OPEN', 'valve-btn') as HTMLButtonElement
+    toggleBtn.addEventListener('click', () => {
+      GameState.toggleStormBoost(boost.id)
+      refreshCombatPowerVisuals()
+    })
+    row.appendChild(toggleBtn)
+
+    furnaceValveRows.set(boost.id, row)
+    furnaceValveBtns.set(boost.id, toggleBtn)
+    valveBoard.appendChild(row)
+  }
+  stormheartSection.appendChild(valveBoard)
+
+  stormheartSection.appendChild(el('div', 'system-diagnostic',
+    'Source: rare kill pickups. Sink: active boosts. Reset: Ether Brine and Storm Power reset on Return to Port.'))
+
   parent.appendChild(stormheartSection)
   refreshStormheartUI()
 }
@@ -1358,42 +1533,54 @@ const STORM_BOOSTS: Array<{ id: StormBoostId; name: string; body: string }> = [
 ]
 
 function refreshStormheartUI(): void {
-  if (!stormheartSection) return
-  stormheartSection.querySelectorAll('.system-grid, .system-diagnostic').forEach(node => node.remove())
-  const grid = el('div', 'system-grid')
-  const power = GameState.getResource('storm_power')
-  const brine = GameState.getResource('ether_brine')
-  const active = GameState.getStormBoosts()
-  const summary = el('div', 'system-card')
-  summary.appendChild(el('span', 'loadout-kicker', 'FURNACE PRESSURE'))
-  summary.appendChild(el('span', 'upgrade-name', `${Balance.formatNumber(brine)} Ether Brine · ${Balance.formatNumber(power)} Storm Power`))
-  summary.appendChild(el('span', 'upgrade-desc', `${active.length}/${GameState.getStormMaxBoosts()} boosts inside limit. Extra boosts drain faster.`))
-  const burn = btn('BURN 5 BRINE', 'btn-lg sz-13') as HTMLButtonElement
-  burn.disabled = brine < 5
-  burn.addEventListener('click', () => {
-    if (GameState.burnEtherBrine()) appendLog('<span class="log-teal">Stormheart pressure rising.</span>')
-    refreshStormheartUI()
-  })
-  summary.appendChild(burn)
-  grid.appendChild(summary)
+  if (!furnaceArcFill) return   // panel not yet built
+
+  const power    = GameState.getResource('storm_power')
+  const brine    = GameState.getResource('ether_brine')
+  const active   = GameState.getStormBoosts()
+  const maxBoosts = GameState.getStormMaxBoosts()
+  const overLimit = Math.max(0, active.length - maxBoosts)
+  const drainPerSec = active.length * 0.42 + overLimit * 0.7
+
+  // Arc fill: dasharray = "fillLen gapLen"
+  const pct     = Math.min(1, power / FURNACE_STORM_MAX)
+  const fillLen = Math.round(FURNACE_ARC_LEN * pct)
+  furnaceArcFill.setAttribute('stroke-dasharray', `${fillLen} ${FURNACE_ARC_LEN}`)
+  furnaceArcFill.setAttribute('stroke', furnaceArcColor(pct))
+
+  // Needle position
+  const { x, y } = furnaceNeedleEnd(pct)
+  furnaceNeedle!.setAttribute('x2', x.toFixed(1))
+  furnaceNeedle!.setAttribute('y2', y.toFixed(1))
+
+  // Text readouts
+  furnacePowerValue!.textContent  = Balance.formatNumber(power)
+  furnacePowerValue!.style.color  = furnaceArcColor(pct)
+  furnaceBrineAmount!.textContent = `${Math.floor(brine)} Ether Brine`
+  furnaceDrainRate!.textContent   = drainPerSec > 0
+    ? `${drainPerSec.toFixed(2)}/s drain`
+    : 'no drain'
+  let statusText = `${active.length} / ${maxBoosts} boosts`
+  if (overLimit > 0) statusText += ` · ${overLimit} over limit — draining fast`
+  furnaceBoostStatus!.textContent = statusText
+  furnaceBoostStatus!.style.color = overLimit > 0
+    ? 'rgba(224,68,62,0.85)'
+    : 'rgba(205,217,217,0.65)'
+
+  // Burn button
+  furnaceBurnBtn!.disabled = brine < 5
+
+  // Valve rows
   for (const boost of STORM_BOOSTS) {
-    const card = el('div', 'system-card')
-    const isActive = GameState.isStormBoostActive(boost.id)
-    card.appendChild(el('span', 'loadout-kicker', isActive ? 'ACTIVE BOOST' : 'BOOST'))
-    card.appendChild(el('span', 'upgrade-name', boost.name))
-    card.appendChild(el('span', 'upgrade-desc', boost.body))
-    const toggle = btn(isActive ? 'DAMPEN' : 'IGNITE', 'btn-lg sz-13') as HTMLButtonElement
-    toggle.disabled = !isActive && power <= 0
-    toggle.addEventListener('click', () => {
-      GameState.toggleStormBoost(boost.id)
-      refreshStormheartUI()
-      refreshCombatPowerVisuals()
-    })
-    card.appendChild(toggle)
-    grid.appendChild(card)
+    const isOpen  = GameState.isStormBoostActive(boost.id)
+    const overRow = isOpen && overLimit > 0
+    const row     = furnaceValveRows.get(boost.id)!
+    const boostBtn = furnaceValveBtns.get(boost.id)!
+    row.classList.toggle('is-open', isOpen)
+    row.classList.toggle('is-overlimit', overRow)
+    boostBtn.textContent = isOpen ? 'CLOSE' : 'OPEN'
+    boostBtn.disabled    = !isOpen && power <= 0
   }
-  stormheartSection.appendChild(grid)
-  stormheartSection.appendChild(el('div', 'system-diagnostic', 'Source: rare kill pickups. Sink: active boosts. Reset: Ether Brine and Storm Power reset on Return to Port.'))
 }
 
 function refreshShipwrightUI(): void {

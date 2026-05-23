@@ -1001,17 +1001,16 @@ function onEnemyDamaged(hull: number, maxHull: number, dmg: number, evaded: bool
   currentEnemyMaxHull = maxHull
   setHpBar(enemyHpFill, enemyHpLabel, hull, maxHull, 'red')
   updateCurrentSeaContactHp(hull, maxHull)
-  vfxShootAndHit(dmg, evaded)
+  vfxShootAndHit(dmg, evaded, undefined, hull === 0)
   if (evaded) appendLog('<span class="log-silver">— Evaded!</span>')
 }
 
-function onEnemyDefeated(_def: AnyDef, rewards: Record<string, number>, isLastInSquad: boolean): void {
+function onEnemyDefeated(_def: AnyDef, rewards: Record<string, number>, _isLastInSquad: boolean): void {
   const anchor = getCurrentSeaTarget() ?? enemyRect
   enemyHpFill.style.width = '0%'
   enemyHpLabel.textContent = '0 / ?'
-  if (isLastInSquad) {
-    sinkCurrentSeaContact()
-  }
+  // Visual sinking is deferred to the kill-shot projectile's onHit callback so
+  // the ship stays alive until the cannonball actually lands.
   spawnRewardPickups(rewards, anchor)
 }
 
@@ -2412,13 +2411,6 @@ function pickEnemyShooter(): HTMLElement {
   return shooter ?? fallback ?? enemyRect
 }
 
-function sinkCurrentSeaContact(): void {
-  const current = seaContactLayer?.querySelector('.sea-contact.is-current, .sea-contact.is-boss')
-  if (current instanceof HTMLElement) {
-    const state = getContactState(current)
-    setContactHp(current, 0, state?.maxHull ?? 1)
-  }
-}
 
 function getPlayerWeaponId(): string {
   return GameState.getSelectedWeapon()
@@ -2676,7 +2668,7 @@ function applyFleetContactDamageToPlayer(contact: HTMLElement): void {
 }
 
 // ── VFX ───────────────────────────────────────────────────────────────────────
-function vfxShootAndHit(damage: number, evaded: boolean, escortTarget?: HTMLElement): void {
+function vfxShootAndHit(damage: number, evaded: boolean, escortTarget?: HTMLElement, isKillShot = false): void {
   // Muzzle flash on player
   flashRect(playerRect, 'rgba(255,235,128,1)', '#22A6A1', 80)
 
@@ -2694,12 +2686,38 @@ function vfxShootAndHit(damage: number, evaded: boolean, escortTarget?: HTMLElem
   spawnMuzzleSmoke(1, level)
   const target = escortTarget ?? pickPlayerVolleyTarget(0)
   const isSelectedHit = !escortTarget && target === getCurrentSeaTarget()
-  spawnProjectile(projColor, level, 0, 1, target, () => {
-    const targetAlive = target.isConnected && !target.classList.contains('is-sinking')
-    if (targetAlive) flashTarget(target, '#ffffff', isBoss ? '#F2B134' : '#E0443E', 150)
-    if (targetAlive) spawnImpactSplash(target, projColor, level)
-    if (!escortTarget && !isSelectedHit) applyContactDamage(target, visualFleetDamage)
-    if (targetAlive) spawnDamageNumber(target, damage, evaded, isBoss && !escortTarget)
+
+  // Compute intended hit point in combatRow-relative pixels.
+  // Sea contacts use CSS --x/--y variables (final destination %) so the projectile
+  // aims at the correct position even while the ship is mid arrival-animation.
+  const base = combatRow.getBoundingClientRect()
+  let hitX: number, hitY: number
+  if (target.classList.contains('sea-contact')) {
+    const xStr = target.style.getPropertyValue('--x')
+    const yStr = target.style.getPropertyValue('--y')
+    hitX = (parseFloat(xStr) || 50) / 100 * base.width
+    hitY = (parseFloat(yStr) || 50) / 100 * base.height
+  } else {
+    const r = target.getBoundingClientRect()
+    hitX = r.left + r.width  / 2 - base.left
+    hitY = r.top  + r.height / 2 - base.top
+  }
+
+  spawnProjectile(projColor, level, 0, 1, hitX, hitY, () => {
+    if (isKillShot && !escortTarget) {
+      // Kill shot: show death effects, then visually sink the contact.
+      // The ship stays at full opacity until the cannonball actually lands.
+      if (target.isConnected) flashTarget(target, '#ffffff', isBoss ? '#F2B134' : '#E0443E', 150)
+      spawnImpactSplashAtPos(hitX, hitY, projColor, level)
+      spawnDamageNumberAtPos(hitX, hitY, damage, evaded, isBoss)
+      if (target.isConnected) markContactSunk(target)
+    } else {
+      const targetAlive = target.isConnected && !target.classList.contains('is-sinking')
+      if (targetAlive) flashTarget(target, '#ffffff', isBoss ? '#F2B134' : '#E0443E', 150)
+      if (targetAlive) spawnImpactSplash(target, projColor, level)
+      if (!escortTarget && !isSelectedHit) applyContactDamage(target, visualFleetDamage)
+      if (targetAlive) spawnDamageNumber(target, damage, evaded, isBoss && !escortTarget)
+    }
   })
   if (!escortTarget) playerShotCursor += 1
 }
@@ -2709,18 +2727,18 @@ function spawnProjectile(
   powerLevel: number,
   index: number,
   total: number,
-  target: HTMLElement,
+  hitX: number,
+  hitY: number,
   onHit: () => void,
   subdued = false,
 ): void {
   const fromRect = playerRect.getBoundingClientRect()
-  const toRect   = target.getBoundingClientRect()
   const base     = combatRow.getBoundingClientRect()
 
   const startBaseX = fromRect.left + fromRect.width  / 2 - base.left - 6
   const startBaseY = fromRect.top  + fromRect.height / 2 - base.top  - 2
-  const endBaseX   = toRect.left   + toRect.width    / 2 - base.left - 6
-  const endBaseY   = toRect.top    + toRect.height   / 2 - base.top  - 2
+  const endBaseX   = hitX - 6
+  const endBaseY   = hitY - 2
   const dx = endBaseX - startBaseX
   const dy = endBaseY - startBaseY
   const len = Math.max(1, Math.hypot(dx, dy))
@@ -2852,6 +2870,43 @@ function spawnDamageNumber(target: HTMLElement, damage: number, evaded: boolean,
   lbl.style.top     = `${y - 38}px`
   lbl.style.opacity = '0'
 
+  setTimeout(() => lbl.remove(), 800)
+}
+
+/** Like spawnImpactSplash but takes combatRow-relative pixel coords directly. */
+function spawnImpactSplashAtPos(bx: number, by: number, color: string, powerLevel: number): void {
+  const splash = document.createElement('div')
+  splash.className = 'impact-splash'
+  const size = 38 + Math.min(28, powerLevel * 3)
+  splash.style.cssText = [
+    `border-color:${color}`,
+    `color:${color}`,
+    `left:${bx - size / 2}px`,
+    `top:${by - size / 2}px`,
+    `width:${size}px`,
+    `height:${size}px`,
+  ].join(';')
+  combatRow.appendChild(splash)
+  splash.getBoundingClientRect()
+  splash.style.opacity = '0'
+  splash.style.transform = 'scale(1.65)'
+  setTimeout(() => splash.remove(), 520)
+}
+
+/** Like spawnDamageNumber but takes combatRow-relative pixel coords directly. */
+function spawnDamageNumberAtPos(bx: number, by: number, damage: number, evaded: boolean, isBoss: boolean): void {
+  if (!evaded && damage <= 0) return
+  const lbl = document.createElement('div')
+  lbl.className = 'dmg-number'
+  lbl.textContent = evaded ? 'EVADE' : `-${Balance.formatNumber(damage)}`
+  lbl.style.color = evaded ? '#CDD9D9' : isBoss ? '#F2B134' : '#E0443E'
+  const x = bx + (Math.random() - 0.5) * 20
+  const y = by - 10
+  lbl.style.cssText += `left:${x}px;top:${y}px;opacity:1;font-size:${evaded ? 13 : 15}px;`
+  combatRow.appendChild(lbl)
+  lbl.getBoundingClientRect()
+  lbl.style.top     = `${y - 38}px`
+  lbl.style.opacity = '0'
   setTimeout(() => lbl.remove(), 800)
 }
 

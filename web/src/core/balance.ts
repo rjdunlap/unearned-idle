@@ -70,21 +70,23 @@ export const Balance = {
     return ''
   },
 
-  // Progressive difficulty: compound 14% per 30 nmi band, ×1.6 per sector.
-  // Sector factor is gentle so upgrades let players stay relevant; reward
-  // growth outpaces it so the reward/effort ratio improves with depth.
+  // Progressive difficulty: 14% per 30 nmi band, cumulative across sectors.
+  // Sectors 1–2 are 180 nmi (6 bands); 1 entry-bonus band is added at each
+  // sector crossing so the scalar never drops — S2 start is ~14% above S1
+  // end, S3 start ~14% above S2 end, and so on.
   distanceScalar(distance: number, sector = 1): number {
-    const band = Math.floor(distance / 30)
-    return Math.pow(1.6, Math.max(0, sector - 1)) * Math.pow(1.14, band)
+    const BANDS_PER_SECTOR = 6
+    const band = Math.max(0, sector - 1) * (BANDS_PER_SECTOR + 1) + Math.floor(distance / 30)
+    return Math.pow(1.14, band)
   },
 
-  // Reward scalar: compound 30% per 30 nmi band, ×3 per sector.
-  // This produces ~5× across a full sector's distance bands, and a clear
-  // jump between sectors — matching the USI pattern of stacked exponential
-  // growth rather than the flat +12% linear the old formula used.
+  // Reward scalar: 30% per 30 nmi band, cumulative across sectors.
+  // 1 entry-bonus band at each crossing gives a ~30% jump on sector entry —
+  // rewards always climb, never reset to a lower value when advancing sectors.
   rewardScalar(distance: number, sector = 1): number {
-    const band = Math.floor(distance / 30)
-    return Math.pow(3, Math.max(0, sector - 1)) * Math.pow(1.30, band)
+    const BANDS_PER_SECTOR = 6
+    const band = Math.max(0, sector - 1) * (BANDS_PER_SECTOR + 1) + Math.floor(distance / 30)
+    return Math.pow(1.30, band)
   },
 
   musterXpForNextLevel(level: number): number {

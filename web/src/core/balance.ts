@@ -70,14 +70,21 @@ export const Balance = {
     return ''
   },
 
-  // Progressive difficulty: +8% hull/damage per 30 nmi band
-  distanceScalar(distance: number): number {
-    return 1 + Math.floor(distance / 30) * 0.08
+  // Progressive difficulty: compound 14% per 30 nmi band, ×1.6 per sector.
+  // Sector factor is gentle so upgrades let players stay relevant; reward
+  // growth outpaces it so the reward/effort ratio improves with depth.
+  distanceScalar(distance: number, sector = 1): number {
+    const band = Math.floor(distance / 30)
+    return Math.pow(1.6, Math.max(0, sector - 1)) * Math.pow(1.14, band)
   },
 
-  // Rewards scale faster than difficulty: +12% per 30 nmi band
-  rewardScalar(distance: number): number {
-    return 1 + Math.floor(distance / 30) * 0.12
+  // Reward scalar: compound 30% per 30 nmi band, ×3 per sector.
+  // This produces ~5× across a full sector's distance bands, and a clear
+  // jump between sectors — matching the USI pattern of stacked exponential
+  // growth rather than the flat +12% linear the old formula used.
+  rewardScalar(distance: number, sector = 1): number {
+    const band = Math.floor(distance / 30)
+    return Math.pow(3, Math.max(0, sector - 1)) * Math.pow(1.30, band)
   },
 
   musterXpForNextLevel(level: number): number {

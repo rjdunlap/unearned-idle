@@ -311,7 +311,7 @@ export class Sim {
   }
 
   private _scaleRewards(base: Record<string, number>): Record<string, number> {
-    const scalar = Balance.rewardScalar(GameState.getRouteDistance())
+    const scalar = Balance.rewardScalar(GameState.getRouteDistance(), GameState.getCurrentSector())
     const out: Record<string, number> = {}
     for (const [id, amt] of Object.entries(base)) {
       const rewardMul = id === 'salvage' ? GameState.salvageRewardMultiplier() * GameState.stormSalvageMultiplier() : 1
@@ -449,7 +449,7 @@ export class Sim {
     if (allIds.length < 2) return
     const selectedId = this._enemy['id'] ?? ''
     const escortIds  = allIds.filter(id => id !== selectedId)
-    const scalar     = Balance.distanceScalar(GameState.getRouteDistance())
+    const scalar     = Balance.distanceScalar(GameState.getRouteDistance(), GameState.getCurrentSector())
     const count      = Math.min(2, Math.max(1, escortIds.length))
     for (let index = 0; index < count; index++) {
       const escortId = escortIds[index % escortIds.length] ?? allIds[(index + 1) % allIds.length]
@@ -483,7 +483,7 @@ export class Sim {
   }
 
   private _setEnemy(def: AnyDef): void {
-    const scalar           = Balance.distanceScalar(GameState.getRouteDistance())
+    const scalar           = Balance.distanceScalar(GameState.getRouteDistance(), GameState.getCurrentSector())
     this._enemy            = def
     this._enemyMaxHull     = Math.round((def['hull'] ?? 30) * scalar)
     this._enemyHull        = this._enemyMaxHull

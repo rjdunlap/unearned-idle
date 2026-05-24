@@ -109,6 +109,10 @@ let furnaceBoostStatus: HTMLElement | null    = null
 let furnaceBurnBtn:    HTMLButtonElement | null = null
 const furnaceValveRows = new Map<StormBoostId, HTMLElement>()
 const furnaceValveBtns = new Map<StormBoostId, HTMLButtonElement>()
+// Shipwright bench DOM refs (commission slot updates at tick-rate during crafting)
+let benchProgressFill: HTMLElement | null = null
+let benchCraftingName: HTMLElement | null = null
+let benchProgressPct:  HTMLElement | null = null
 let advanceBtn:      HTMLButtonElement
 let statusRailBtn:   HTMLButtonElement
 let deskRailBtn:     HTMLButtonElement
@@ -812,8 +816,26 @@ function buildStormheartPanel(parent: HTMLElement): void {
 }
 
 function buildShipwrightPanel(parent: HTMLElement): void {
-  shipwrightSection = el('section', 'system-panel hidden')
-  shipwrightSection.appendChild(systemHeader("SHIPWRIGHT'S BENCH", 'Craft fittings, build mastery, and awaken modules'))
+  shipwrightSection = el('section', 'shipwright-panel hidden')
+
+  const header = el('div', 'muster-header-row')
+  header.appendChild(el('span', 'arsenal-header', "SHIPWRIGHT'S BENCH"))
+  header.appendChild(el('span', 'sz-11 c-silver', 'Craft fittings, build mastery, and awaken modules'))
+  shipwrightSection.appendChild(header)
+
+  // Commission slot — static frame; progress bar updated via stored refs at tick-rate
+  const commission = el('div', 'bench-commission')
+  commission.appendChild(el('span', 'loadout-kicker', 'COMMISSION'))
+  benchCraftingName = el('div', 'bench-commission-name', 'Bench clear')
+  commission.appendChild(benchCraftingName)
+  const barWrap = el('div', 'bench-bar')
+  benchProgressFill = el('div', 'bench-bar-fill')
+  barWrap.appendChild(benchProgressFill)
+  commission.appendChild(barWrap)
+  benchProgressPct = el('div', 'bench-progress-meta sz-11 c-silver', 'Select a blueprint below to begin crafting.')
+  commission.appendChild(benchProgressPct)
+  shipwrightSection.appendChild(commission)
+
   parent.appendChild(shipwrightSection)
   refreshShipwrightUI()
 }
@@ -1584,34 +1606,56 @@ function refreshStormheartUI(): void {
 }
 
 function refreshShipwrightUI(): void {
-  if (!shipwrightSection) return
-  shipwrightSection.querySelectorAll('.system-grid, .system-diagnostic').forEach(node => node.remove())
+  if (!benchProgressFill) return
+
   const state = GameState.getShipwrightState()
-  const grid = el('div', 'system-grid')
+  const activeRecipe = SHIPWRIGHT_RECIPES.find(r => r.id === state.active_recipe)
+  const progress = activeRecipe ? Math.min(100, (state.progress / activeRecipe.seconds) * 100) : 0
+
+  // Update commission slot (stored refs — no DOM rebuild)
+  benchProgressFill.style.width = `${progress}%`
+  if (activeRecipe) {
+    const mastery = state.mastery[activeRecipe.id] ?? 0
+    benchCraftingName!.textContent = activeRecipe.displayName
+    benchProgressPct!.textContent  = `${Math.round(progress)}% — mastery ${mastery}/${activeRecipe.masteryCap} · ${describeShipwrightEffect(activeRecipe.id, mastery)}`
+  } else {
+    benchCraftingName!.textContent = 'Bench clear'
+    benchProgressPct!.textContent  = 'Select a blueprint below to begin crafting.'
+  }
+
+  // Rebuild catalog (infrequent — fires only on start/complete, not every progress tick)
+  shipwrightSection.querySelector('.bench-catalog')?.remove()
+  shipwrightSection.querySelector('.system-diagnostic')?.remove()
+
+  const catalog = el('div', 'bench-catalog')
   for (const recipe of SHIPWRIGHT_RECIPES) {
     const mastery = state.mastery[recipe.id] ?? 0
-    const active = state.active_recipe === recipe.id
-    const progress = active ? Math.min(100, (state.progress / recipe.seconds) * 100) : 0
-    const card = el('div', 'system-card')
-    card.appendChild(el('span', 'loadout-kicker', active ? 'ON THE BENCH' : 'BLUEPRINT'))
-    card.appendChild(el('span', 'upgrade-name', recipe.displayName))
-    card.appendChild(el('span', 'upgrade-desc', `Mastery ${mastery}/${recipe.masteryCap}. Cost ${Balance.formatNumber(recipe.salvageCost)} Salvage. ${describeShipwrightEffect(recipe.id, mastery)}`))
-    const meter = el('div', 'upgrade-meter')
-    const fill = el('div', 'upgrade-meter-fill')
-    fill.style.width = `${progress}%`
-    meter.appendChild(fill)
-    card.appendChild(meter)
-    const craft = btn(active ? 'CRAFTING' : 'CRAFT', 'btn-lg sz-13') as HTMLButtonElement
-    craft.disabled = Boolean(state.active_recipe) || GameState.getResource('salvage') < recipe.salvageCost
-    craft.addEventListener('click', () => {
-      if (GameState.startShipwrightRecipe(recipe.id)) appendLog(`<span class="log-gold">${recipe.displayName} laid on the bench.</span>`)
-      refreshShipwrightUI()
+    const isActive = state.active_recipe === recipe.id
+    const canAfford = GameState.getResource('salvage') >= recipe.salvageCost
+
+    const entry = el('div', `bench-entry${isActive ? ' is-active' : ''}`)
+
+    const left = el('div', 'bench-entry-left')
+    left.appendChild(el('span', 'bench-mastery-pips', '●'.repeat(mastery) + '○'.repeat(recipe.masteryCap - mastery)))
+    left.appendChild(el('span', 'bench-entry-name', recipe.displayName))
+    left.appendChild(el('span', 'bench-entry-effect', describeShipwrightEffect(recipe.id, mastery)))
+    entry.appendChild(left)
+
+    const right = el('div', 'bench-entry-right')
+    right.appendChild(el('span', 'bench-entry-cost', `${Balance.formatNumber(recipe.salvageCost)} Sv`))
+    const craftBtn = btn(isActive ? 'CRAFTING' : 'CRAFT', 'bench-craft-btn') as HTMLButtonElement
+    craftBtn.disabled = Boolean(state.active_recipe) || !canAfford
+    craftBtn.addEventListener('click', () => {
+      if (GameState.startShipwrightRecipe(recipe.id))
+        appendLog(`<span class="log-gold">${recipe.displayName} laid on the bench.</span>`)
     })
-    card.appendChild(craft)
-    grid.appendChild(card)
+    right.appendChild(craftBtn)
+    entry.appendChild(right)
+
+    catalog.appendChild(entry)
   }
-  shipwrightSection.appendChild(grid)
-  shipwrightSection.appendChild(el('div', 'system-diagnostic', 'Source: Salvage crafting. Persistent: Blueprint Mastery. Visible effects: salvage nets and fair wind fittings feed pickups and route speed.'))
+  shipwrightSection.appendChild(catalog)
+  shipwrightSection.appendChild(el('div', 'system-diagnostic', 'Source: Salvage crafting. Persistent: Blueprint Mastery. Effects: salvage nets and fair wind fittings.'))
 }
 
 function describeShipwrightEffect(id: string, mastery: number): string {
@@ -1620,40 +1664,57 @@ function describeShipwrightEffect(id: string, mastery: number): string {
   return mastery >= 5 ? 'Standing Supply established.' : 'Improves future fitting work.'
 }
 
+const RESEARCH_NAMES: Record<ResearchBranchId, string> = {
+  gunnery: 'Gunnery', shipwrighting: 'Shipwrighting', navigation: 'Navigation', occult: 'Occult',
+}
+
 function refreshResearchUI(): void {
   if (!researchSection) return
-  researchSection.querySelectorAll('.system-grid, .system-diagnostic').forEach(node => node.remove())
-  const grid = el('div', 'system-grid')
-  const names: Record<ResearchBranchId, string> = {
-    gunnery: 'Gunnery',
-    shipwrighting: 'Shipwrighting',
-    navigation: 'Navigation',
-    occult: 'Occult',
-  }
+  researchSection.querySelector('.research-body')?.remove()
+
+  const focused = GameState.getResearchFocus()
+  const body = el('div', 'research-body')
+
+  // Lantern strip — shows which branch is focused
+  const lanternStrip = el('div', 'research-lantern-strip')
+  lanternStrip.appendChild(el('span', 'loadout-kicker', 'LANTERN'))
+  const lanternText = el('span', 'sz-12')
+  lanternText.innerHTML = `Focused on <strong class="c-gold">${RESEARCH_NAMES[focused]}</strong> · 2.5× branch gain`
+  lanternStrip.appendChild(lanternText)
+  body.appendChild(lanternStrip)
+
+  // Branch tracks
+  const tracks = el('div', 'research-tracks')
   for (const branch of RESEARCH_BRANCHES) {
     const progress = GameState.getResearchProgress(branch)
     const rank = Math.floor(progress / 100)
-    const card = el('div', 'system-card')
-    const focused = GameState.getResearchFocus() === branch
-    card.appendChild(el('span', 'loadout-kicker', focused ? 'FOCUSED' : 'BRANCH'))
-    card.appendChild(el('span', 'upgrade-name', names[branch]))
-    card.appendChild(el('span', 'upgrade-desc', `Rank ${rank}. ${describeResearchEffect(branch, rank)}`))
-    const meter = el('div', 'upgrade-meter')
-    const fill = el('div', 'upgrade-meter-fill')
-    fill.style.width = `${progress % 100}%`
-    meter.appendChild(fill)
-    card.appendChild(meter)
-    const focus = btn(focused ? 'FOCUSED' : 'FOCUS', 'btn-lg sz-13') as HTMLButtonElement
-    focus.disabled = focused
-    focus.addEventListener('click', () => {
-      GameState.setResearchFocus(branch)
-      refreshResearchUI()
-    })
-    card.appendChild(focus)
-    grid.appendChild(card)
+    const withinRank = progress % 100
+    const isFocused = focused === branch
+
+    const track = el('div', `research-track${isFocused ? ' is-focused' : ''}`)
+
+    const trackHead = el('div', 'track-header')
+    trackHead.appendChild(el('span', 'track-name', RESEARCH_NAMES[branch]))
+    trackHead.appendChild(el('span', 'track-rank', `Rank ${rank}`))
+    const pinBtn = btn(isFocused ? '⊙ FOCUSED' : 'PIN', 'track-pin-btn') as HTMLButtonElement
+    pinBtn.disabled = isFocused
+    pinBtn.addEventListener('click', () => { GameState.setResearchFocus(branch); refreshResearchUI() })
+    trackHead.appendChild(pinBtn)
+    track.appendChild(trackHead)
+
+    const trackBar = el('div', 'track-bar')
+    const trackFill = el('div', 'track-fill')
+    trackFill.style.width = `${withinRank}%`
+    trackBar.appendChild(trackFill)
+    track.appendChild(trackBar)
+
+    track.appendChild(el('div', 'track-effect', describeResearchEffect(branch, rank)))
+    tracks.appendChild(track)
   }
-  researchSection.appendChild(grid)
-  researchSection.appendChild(el('div', 'system-diagnostic', 'Source: every kill. Focus: 2.5x branch gain without stopping other branches. Route density: Black Reef favors Gunnery/Shipwrighting; Storm Line favors Navigation/Occult.'))
+  body.appendChild(tracks)
+
+  body.appendChild(el('div', 'system-diagnostic', 'Source: every kill. Focus: 2.5× branch gain. Route density: Black Reef → Gunnery/Shipwrighting; Storm Line → Navigation/Occult.'))
+  researchSection.appendChild(body)
 }
 
 function describeResearchEffect(branch: ResearchBranchId, rank: number): string {
@@ -1663,35 +1724,58 @@ function describeResearchEffect(branch: ResearchBranchId, rank: number): string 
   return `Current: improves Ether Brine and relic preview knowledge rank ${rank}.`
 }
 
+const RELIC_GLYPHS: Record<RelicId, string> = {
+  cannon_ruby: '◈', netted_astrolabe: '✦', brine_compass: '⬟',
+}
+
 function refreshRelicsUI(): void {
   if (!relicsSection) return
-  relicsSection.querySelectorAll('.system-grid, .system-diagnostic').forEach(node => node.remove())
+  relicsSection.querySelector('.relics-body')?.remove()
+
   const state = GameState.getRelicState()
-  const grid = el('div', 'system-grid')
+  const body = el('div', 'relics-body')
+
+  // Socket tray — horizontal row of compass sockets
+  const tray = el('div', 'compass-tray')
   for (const relic of RELICS) {
     const shards = state.shards[relic.id] ?? 0
-    const rank = GameState.getRelicRank(relic.id)
-    const active = state.active_relic === relic.id
-    const card = el('div', 'system-card')
-    card.appendChild(el('span', 'loadout-kicker', active ? 'SOCKETED' : 'RELIC'))
-    card.appendChild(el('span', 'upgrade-name', relic.displayName))
-    card.appendChild(el('span', 'upgrade-desc', `Rank ${rank}/${relic.maxRank}. ${shards % 10}/10 shards toward next rank. ${describeRelicEffect(relic.id, rank)}`))
-    const meter = el('div', 'upgrade-meter')
-    const fill = el('div', 'upgrade-meter-fill')
-    fill.style.width = `${rank >= relic.maxRank ? 100 : (shards % 10) * 10}%`
-    meter.appendChild(fill)
-    card.appendChild(meter)
-    const socket = btn(active ? 'SOCKETED' : 'SOCKET', 'btn-lg sz-13') as HTMLButtonElement
-    socket.disabled = active
-    socket.addEventListener('click', () => {
-      GameState.setActiveRelic(relic.id)
-      refreshRelicsUI()
-    })
-    card.appendChild(socket)
-    grid.appendChild(card)
+    const rank   = GameState.getRelicRank(relic.id)
+    const isActive = state.active_relic === relic.id
+    const attunePct = rank >= relic.maxRank ? 100 : (shards % 10) * 10
+
+    const socket = el('div', `compass-socket${isActive ? ' is-active' : ''}`)
+    socket.appendChild(el('div', 'compass-relic-glyph', RELIC_GLYPHS[relic.id] ?? '?'))
+    socket.appendChild(el('div', 'compass-relic-name', relic.displayName))
+
+    const atBar = el('div', 'compass-attune-bar')
+    const atFill = el('div', 'compass-attune-fill')
+    atFill.style.width = `${attunePct}%`
+    atBar.appendChild(atFill)
+    socket.appendChild(atBar)
+
+    socket.appendChild(el('div', 'compass-shard-count', `${shards % 10}/10 shards · rank ${rank}/${relic.maxRank}`))
+
+    const sockBtn = btn(isActive ? 'SOCKETED' : 'SOCKET', 'compass-socket-btn') as HTMLButtonElement
+    sockBtn.disabled = isActive
+    sockBtn.addEventListener('click', () => { GameState.setActiveRelic(relic.id); refreshRelicsUI() })
+    socket.appendChild(sockBtn)
+
+    tray.appendChild(socket)
   }
-  relicsSection.appendChild(grid)
-  relicsSection.appendChild(el('div', 'system-diagnostic', 'Source: rare wreckage shards from kills and bosses. Persistent: shards and socket choice. Interlock: Research Occult, Officers, and Storm Line routes improve discovery.'))
+  body.appendChild(tray)
+
+  // Active relic effect strip
+  const activeRelicDef = RELICS.find(r => r.id === state.active_relic)
+  if (activeRelicDef) {
+    const rank = GameState.getRelicRank(state.active_relic)
+    const effect = el('div', 'compass-effect-strip')
+    effect.appendChild(el('span', 'loadout-kicker', 'SOCKETED EFFECT'))
+    effect.appendChild(el('span', 'compass-effect-text', `${activeRelicDef.displayName} — ${describeRelicEffect(state.active_relic, rank)}`))
+    body.appendChild(effect)
+  }
+
+  body.appendChild(el('div', 'system-diagnostic', 'Source: rare wreckage shards from kills and bosses. Persistent: shards and socket choice. Interlock: Research Occult, Officers, and Storm Line routes improve discovery.'))
+  relicsSection.appendChild(body)
 }
 
 function describeRelicEffect(id: RelicId, rank: number): string {
@@ -1702,57 +1786,120 @@ function describeRelicEffect(id: RelicId, rank: number): string {
 
 function refreshContractsUI(): void {
   if (!contractsSection) return
-  contractsSection.querySelectorAll('.system-grid, .system-diagnostic').forEach(node => node.remove())
+  contractsSection.querySelector('.contracts-body')?.remove()
+
   const state = GameState.getContractState()
-  const grid = el('div', 'system-grid')
+  const body  = el('div', 'contracts-body')
+  const NS    = 'http://www.w3.org/2000/svg'
+  const SEAL_R = 15, SEAL_CIRC = 2 * Math.PI * SEAL_R
+
   for (const contract of CONTRACTS) {
-    const active = state.active_contract === contract.id
-    const card = el('div', 'system-card')
-    card.appendChild(el('span', 'loadout-kicker', active ? 'CHARTED WRIT' : 'WRIT'))
-    card.appendChild(el('span', 'upgrade-name', contract.displayName))
-    card.appendChild(el('span', 'upgrade-desc', `Charge ${Math.floor(state.charge)}/${contract.chargeCost}. Completed ${state.completions[contract.id] ?? 0}. Reward: ${formatRewardMap(contract.reward)}.`))
-    const meter = el('div', 'upgrade-meter')
-    const fill = el('div', 'upgrade-meter-fill')
-    fill.style.width = `${Math.min(100, (state.charge / contract.chargeCost) * 100)}%`
-    meter.appendChild(fill)
-    card.appendChild(meter)
-    const pick = btn(active ? 'RUN WRIT' : 'CHART', 'btn-lg sz-13') as HTMLButtonElement
-    pick.disabled = active ? state.charge < contract.chargeCost : false
-    pick.addEventListener('click', () => {
-      if (!active) GameState.setActiveContract(contract.id)
+    const isActive  = state.active_contract === contract.id
+    const charge    = isActive ? state.charge : 0
+    const chargePct = Math.min(1, charge / contract.chargeCost)
+    const charged   = chargePct >= 1
+    const completed = state.completions[contract.id] ?? 0
+
+    const notice = el('div', `contract-notice${isActive ? ' is-active' : ''}${charged ? ' is-charged' : ''}`)
+
+    // Circular seal (SVG) showing charge fill
+    const sealSvg = document.createElementNS(NS, 'svg') as SVGSVGElement
+    sealSvg.setAttribute('viewBox', '0 0 40 40')
+    sealSvg.setAttribute('class', 'contract-seal-svg')
+    sealSvg.setAttribute('aria-hidden', 'true')
+
+    const bgRing = document.createElementNS(NS, 'circle') as SVGCircleElement
+    bgRing.setAttribute('cx','20'); bgRing.setAttribute('cy','20'); bgRing.setAttribute('r', String(SEAL_R))
+    bgRing.setAttribute('fill','none'); bgRing.setAttribute('stroke','rgba(205,217,217,0.10)'); bgRing.setAttribute('stroke-width','3')
+    sealSvg.appendChild(bgRing)
+
+    const fillRing = document.createElementNS(NS, 'circle') as SVGCircleElement
+    fillRing.setAttribute('cx','20'); fillRing.setAttribute('cy','20'); fillRing.setAttribute('r', String(SEAL_R))
+    fillRing.setAttribute('fill','none')
+    fillRing.setAttribute('stroke', charged ? '#F2B134' : '#22A6A1')
+    fillRing.setAttribute('stroke-width','3')
+    fillRing.setAttribute('stroke-linecap','round')
+    fillRing.setAttribute('stroke-dasharray', `${(SEAL_CIRC * chargePct).toFixed(1)} ${SEAL_CIRC.toFixed(1)}`)
+    fillRing.setAttribute('stroke-dashoffset', String((SEAL_CIRC * 0.25).toFixed(1))) // start at top
+    sealSvg.appendChild(fillRing)
+
+    const sealGlyph = document.createElementNS(NS, 'text') as SVGTextElement
+    sealGlyph.setAttribute('x','20'); sealGlyph.setAttribute('y','25')
+    sealGlyph.setAttribute('text-anchor','middle')
+    sealGlyph.setAttribute('class','contract-seal-glyph')
+    sealGlyph.textContent = charged ? '✓' : '⚓'
+    sealSvg.appendChild(sealGlyph)
+
+    notice.appendChild(sealSvg)
+
+    // Body text
+    const noticeBody = el('div', 'contract-notice-body')
+    noticeBody.appendChild(el('span', `contract-notice-name${isActive ? ' c-gold' : ''}`, contract.displayName))
+    noticeBody.appendChild(el('span', 'contract-notice-meta', `${Math.floor(charge)}/${contract.chargeCost} charge · ${completed} completed`))
+    noticeBody.appendChild(el('span', 'contract-notice-reward', `Reward: ${formatRewardMap(contract.reward)}`))
+    notice.appendChild(noticeBody)
+
+    // Action button
+    let btnLabel = isActive ? (charged ? 'CLAIM' : 'CHARGING') : 'CHART'
+    const actionBtn = btn(btnLabel, 'contract-action-btn') as HTMLButtonElement
+    actionBtn.disabled = isActive && !charged
+    actionBtn.addEventListener('click', () => {
+      if (!isActive) GameState.setActiveContract(contract.id)
       else if (GameState.completeActiveContract()) appendLog(`<span class="log-gold">${contract.displayName} paid out.</span>`)
       refreshContractsUI()
       refreshAllResources()
     })
-    card.appendChild(pick)
-    grid.appendChild(card)
+    notice.appendChild(actionBtn)
+
+    body.appendChild(notice)
   }
-  contractsSection.appendChild(grid)
-  contractsSection.appendChild(el('div', 'system-diagnostic', `Source: sunk ships fill contract charge; Observatory adds +${Math.round(GameState.portContractBonus() * 100)}% contract handling. Sink: run one chosen writ for targeted rewards.`))
+
+  const obsBonus = Math.round(GameState.portContractBonus() * 100)
+  body.appendChild(el('div', 'system-diagnostic',
+    `Source: sunk ships fill charge${obsBonus > 0 ? `; Observatory +${obsBonus}%` : ''}. Sink: run one writ for targeted rewards.`))
+  contractsSection.appendChild(body)
+}
+
+const PORT_TILE_CONFIG: Record<PortFacilityId, { glyph: string; color: string }> = {
+  drydock:     { glyph: '⚓', color: 'copper' },
+  foundry:     { glyph: '⚙', color: 'gold'   },
+  observatory: { glyph: '⊙', color: 'teal'   },
+  hidden_cove: { glyph: '◎', color: 'violet'  },
 }
 
 function refreshPortUI(): void {
   if (!portSection) return
-  portSection.querySelectorAll('.system-grid, .system-diagnostic').forEach(node => node.remove())
-  const grid = el('div', 'system-grid')
+  portSection.querySelector('.port-body')?.remove()
+
+  const body = el('div', 'port-body')
+  const grid = el('div', 'port-grid')
+
   for (const facility of PORT_FACILITIES) {
-    const rank = GameState.getPortFacilityRank(facility.id)
-    const cost = GameState.portUpgradeCost(facility.id)
-    const card = el('div', 'system-card')
-    card.appendChild(el('span', 'loadout-kicker', 'FACILITY'))
-    card.appendChild(el('span', 'upgrade-name', facility.displayName))
-    card.appendChild(el('span', 'upgrade-desc', `Rank ${rank}/${facility.maxRank}. ${describePortEffect(facility.id, rank)}`))
-    const up = btn(rank >= facility.maxRank ? 'MAXED' : `UPGRADE ${cost} DB`, 'btn-lg sz-13') as HTMLButtonElement
-    up.disabled = rank >= facility.maxRank || GameState.getResource('doubloons') < cost
-    up.addEventListener('click', () => {
+    const rank     = GameState.getPortFacilityRank(facility.id)
+    const cost     = GameState.portUpgradeCost(facility.id)
+    const maxed    = rank >= facility.maxRank
+    const canAfford = GameState.getResource('doubloons') >= cost
+    const cfg      = PORT_TILE_CONFIG[facility.id]
+
+    const tile = el('div', `port-tile port-tile--${cfg.color}${maxed ? ' is-maxed' : ''}`)
+    tile.appendChild(el('div', 'port-tile-icon', cfg.glyph))
+    tile.appendChild(el('div', 'port-tile-name', facility.displayName))
+    tile.appendChild(el('div', 'port-tile-rank', '●'.repeat(rank) + '○'.repeat(facility.maxRank - rank)))
+    tile.appendChild(el('div', 'port-tile-effect', describePortEffect(facility.id, rank)))
+
+    const upBtn = btn(maxed ? 'MAXED' : `${cost} DB`, 'port-upgrade-btn') as HTMLButtonElement
+    upBtn.disabled = maxed || !canAfford
+    upBtn.addEventListener('click', () => {
       if (GameState.upgradePortFacility(facility.id)) appendLog(`<span class="log-gold">${facility.displayName} upgraded.</span>`)
       refreshPortUI()
     })
-    card.appendChild(up)
-    grid.appendChild(card)
+    tile.appendChild(upBtn)
+    grid.appendChild(tile)
   }
-  portSection.appendChild(grid)
-  portSection.appendChild(el('div', 'system-diagnostic', 'Source: persistent Doubloons from rare drops, contracts, and trials. Sink: durable harbor ranks. Reset: facilities persist across Return to Port.'))
+
+  body.appendChild(grid)
+  body.appendChild(el('div', 'system-diagnostic', 'Source: persistent Doubloons from rare drops, contracts, and trials. Sink: durable harbor ranks. Reset: facilities persist across Return to Port.'))
+  portSection.appendChild(body)
 }
 
 function describePortEffect(id: PortFacilityId, rank: number): string {
@@ -1764,63 +1911,87 @@ function describePortEffect(id: PortFacilityId, rank: number): string {
 
 function refreshTrialsUI(): void {
   if (!trialsSection) return
-  trialsSection.querySelectorAll('.system-grid, .system-diagnostic').forEach(node => node.remove())
+  trialsSection.querySelector('.trials-body')?.remove()
+
   const completions = GameState.getTrialCompletions()
   const trials = [
-    { id: 'gunnery_trial', name: 'Gunnery Trial', req: 'Long Nine upgrade level 5', ready: GameState.getUpgradeLevel('long_nine_upgrade') >= 5 },
-    { id: 'shipwright_trial', name: 'Shipwright Trial', req: 'Any blueprint mastery 1', ready: Object.values(GameState.getShipwrightState().mastery).some(v => v >= 1) },
-    { id: 'storm_trial', name: 'Storm Trial', req: 'Hold 5 Ether Brine', ready: GameState.getResource('ether_brine') >= 5 },
-    { id: 'research_trial', name: 'Research Trial', req: 'Any Research branch rank 1', ready: RESEARCH_BRANCHES.some(branch => GameState.getResearchProgress(branch) >= 100) },
+    { id: 'gunnery_trial',    name: 'Gunnery Trial',    req: 'Long Nine upgrade level 5',    ready: GameState.getUpgradeLevel('long_nine_upgrade') >= 5 },
+    { id: 'shipwright_trial', name: 'Shipwright Trial', req: 'Any blueprint mastery 1',       ready: Object.values(GameState.getShipwrightState().mastery).some(v => v >= 1) },
+    { id: 'storm_trial',      name: 'Storm Trial',      req: 'Hold 5 Ether Brine',            ready: GameState.getResource('ether_brine') >= 5 },
+    { id: 'research_trial',   name: 'Research Trial',   req: 'Any Research branch rank 1',    ready: RESEARCH_BRANCHES.some(branch => GameState.getResearchProgress(branch) >= 100) },
   ]
-  const grid = el('div', 'system-grid')
+
+  const body = el('div', 'trials-body')
+  const list = el('div', 'trials-list')
+
   for (const trial of trials) {
-    const done = Boolean(completions[trial.id])
-    const card = el('div', 'system-card')
-    card.appendChild(el('span', 'loadout-kicker', done ? 'CLEARED' : trial.ready ? 'READY' : 'TRIAL'))
-    card.appendChild(el('span', 'upgrade-name', trial.name))
-    card.appendChild(el('span', 'upgrade-desc', `${trial.req}. Reward: Doubloons and ledger proof.`))
-    const complete = btn(done ? 'CLEARED' : 'CLAIM', 'btn-lg sz-13') as HTMLButtonElement
-    complete.disabled = done || !trial.ready
-    complete.addEventListener('click', () => {
+    const done  = Boolean(completions[trial.id])
+    const entry = el('div', `trial-entry${done ? ' is-cleared' : trial.ready ? ' is-ready' : ''}`)
+
+    entry.appendChild(el('div', 'trial-stamp', done ? '✓' : trial.ready ? '⊙' : '○'))
+
+    const info = el('div', 'trial-info')
+    info.appendChild(el('span', 'trial-name', trial.name))
+    info.appendChild(el('span', 'trial-req', `${trial.req} · Reward: Doubloons + ledger proof`))
+    entry.appendChild(info)
+
+    const claimBtn = btn(done ? 'CLEARED' : 'CLAIM', 'trial-claim-btn') as HTMLButtonElement
+    claimBtn.disabled = done || !trial.ready
+    claimBtn.addEventListener('click', () => {
       if (GameState.completeTrial(trial.id)) appendLog(`<span class="log-gold">${trial.name} cleared.</span>`)
       refreshTrialsUI()
     })
-    card.appendChild(complete)
-    grid.appendChild(card)
+    entry.appendChild(claimBtn)
+    list.appendChild(entry)
   }
-  trialsSection.appendChild(grid)
-  trialsSection.appendChild(el('div', 'system-diagnostic', 'Source: system proficiency checks. Persistent: one-time clears. Interlock: trials validate Arsenal, Shipwright, Stormheart, and Research before later phase gates.'))
+
+  body.appendChild(list)
+  body.appendChild(el('div', 'system-diagnostic', 'Source: system proficiency checks. Persistent: one-time clears. Interlock: trials validate Arsenal, Shipwright, Stormheart, and Research before later phase gates.'))
+  trialsSection.appendChild(body)
 }
 
 function refreshOfficersUI(): void {
   if (!officersSection) return
-  officersSection.querySelectorAll('.system-grid, .system-diagnostic').forEach(node => node.remove())
-  const state = GameState.getOfficerState()
-  const grid = el('div', 'system-grid')
+  officersSection.querySelector('.officers-body')?.remove()
+
+  const state  = GameState.getOfficerState()
+  const body   = el('div', 'officers-body')
+  const roster = el('div', 'officer-roster')
+
   for (const officer of OFFICERS) {
-    const active = state.active_officer === officer.id
-    const xp = state.xp[officer.id] ?? 0
-    const rank = GameState.getOfficerRank(officer.id)
-    const card = el('div', 'system-card')
-    card.appendChild(el('span', 'loadout-kicker', active ? 'ON WATCH' : 'OFFICER'))
-    card.appendChild(el('span', 'upgrade-name', officer.displayName))
-    card.appendChild(el('span', 'upgrade-desc', `Rank ${rank}. Learns from kills while assigned. Post: ${officer.post}. ${describeOfficerEffect(officer.id, rank)}`))
-    const meter = el('div', 'upgrade-meter')
-    const fill = el('div', 'upgrade-meter-fill')
-    fill.style.width = `${xp % 100}%`
-    meter.appendChild(fill)
-    card.appendChild(meter)
-    const assign = btn(active ? 'ASSIGNED' : 'ASSIGN', 'btn-lg sz-13') as HTMLButtonElement
-    assign.disabled = active
-    assign.addEventListener('click', () => {
+    const active    = state.active_officer === officer.id
+    const xp        = state.xp[officer.id] ?? 0
+    const rank      = GameState.getOfficerRank(officer.id)
+    const xpInRank  = xp % 100
+
+    const row = el('div', `officer-row${active ? ' is-assigned' : ''}`)
+
+    row.appendChild(el('div', 'officer-badge', officer.displayName.charAt(0).toUpperCase()))
+
+    const info = el('div', 'officer-info')
+    info.appendChild(el('span', 'officer-name', officer.displayName))
+    info.appendChild(el('span', 'officer-post', `${officer.post} · Rank ${rank}`))
+    const xpBar = el('div', 'officer-xp-bar')
+    const xpFill = el('div', 'officer-xp-fill')
+    xpFill.style.width = `${xpInRank}%`
+    xpBar.appendChild(xpFill)
+    info.appendChild(xpBar)
+    info.appendChild(el('span', 'officer-effect', describeOfficerEffect(officer.id, rank)))
+    row.appendChild(info)
+
+    const assignBtn = btn(active ? 'ON WATCH' : 'ASSIGN', 'officer-assign-btn') as HTMLButtonElement
+    assignBtn.disabled = active
+    assignBtn.addEventListener('click', () => {
       GameState.setActiveOfficer(officer.id)
       refreshOfficersUI()
     })
-    card.appendChild(assign)
-    grid.appendChild(card)
+    row.appendChild(assignBtn)
+    roster.appendChild(row)
   }
-  officersSection.appendChild(grid)
-  officersSection.appendChild(el('div', 'system-diagnostic', 'Source: the assigned officer gains XP from kills. Persistent: officer XP and assignment. Interlock: officers push combat, salvage, route speed, or rare drops.'))
+
+  body.appendChild(roster)
+  body.appendChild(el('div', 'system-diagnostic', 'Source: the assigned officer gains XP from kills. Persistent: officer XP and assignment. Interlock: officers push combat, salvage, route speed, or rare drops.'))
+  officersSection.appendChild(body)
 }
 
 function describeOfficerEffect(id: OfficerId, rank: number): string {
@@ -1833,76 +2004,123 @@ function describeOfficerEffect(id: OfficerId, rank: number): string {
 
 function refreshOrdersUI(): void {
   if (!ordersSection) return
-  ordersSection.querySelectorAll('.system-grid, .system-diagnostic').forEach(node => node.remove())
+  ordersSection.querySelector('.orders-body')?.remove()
+
   const orders = GameState.getOrdersState()
-  const grid = el('div', 'system-grid')
-  const brine = el('div', 'system-card')
-  brine.appendChild(el('span', 'loadout-kicker', 'STORMHEART ORDER'))
-  brine.appendChild(el('span', 'upgrade-name', 'Auto Burn Brine'))
-  brine.appendChild(el('span', 'upgrade-desc', 'When Storm Power is nearly empty, spend 5 Ether Brine to restore pressure.'))
-  const burn = btn(orders.auto_burn_brine ? 'ON' : 'OFF', 'btn-lg sz-13') as HTMLButtonElement
-  burn.addEventListener('click', () => GameState.setOrder('auto_burn_brine', !orders.auto_burn_brine))
-  brine.appendChild(burn)
-  grid.appendChild(brine)
+  const body   = el('div', 'orders-body')
 
-  const research = el('div', 'system-card')
-  research.appendChild(el('span', 'loadout-kicker', 'RESEARCH ORDER'))
-  research.appendChild(el('span', 'upgrade-name', 'Focus Rule'))
-  research.appendChild(el('span', 'upgrade-desc', `Current automatic focus: ${orders.auto_research_focus}.`))
+  // ── STORMHEART section ──────────────────────────────
+  const stormSec = el('div', 'order-section')
+  stormSec.appendChild(el('div', 'order-section-header', 'STORMHEART'))
+
+  const burnEntry = el('div', `order-entry${orders.auto_burn_brine ? ' is-active' : ''}`)
+  burnEntry.appendChild(el('div', 'order-stamp', orders.auto_burn_brine ? '●' : '○'))
+  const burnText = el('div', 'order-text')
+  burnText.appendChild(el('span', 'order-name', 'Auto Burn Brine'))
+  burnText.appendChild(el('span', 'order-desc', 'Spend 5 Ether Brine when Storm Power is nearly empty.'))
+  burnEntry.appendChild(burnText)
+  const burnToggle = btn(orders.auto_burn_brine ? 'ON' : 'OFF', 'order-toggle-btn') as HTMLButtonElement
+  burnToggle.addEventListener('click', () => { GameState.setOrder('auto_burn_brine', !orders.auto_burn_brine); refreshOrdersUI() })
+  burnEntry.appendChild(burnToggle)
+  stormSec.appendChild(burnEntry)
+  body.appendChild(stormSec)
+
+  // ── RESEARCH section ─────────────────────────────────
+  const resSec = el('div', 'order-section')
+  resSec.appendChild(el('div', 'order-section-header', 'RESEARCH'))
+
+  const focusEntry = el('div', 'order-entry')
+  focusEntry.appendChild(el('div', 'order-stamp', '⊙'))
+  const focusText = el('div', 'order-text')
+  focusText.appendChild(el('span', 'order-name', 'Focus Rule'))
+  focusText.appendChild(el('span', 'order-desc', `Auto-focus: ${RESEARCH_NAMES[orders.auto_research_focus as ResearchBranchId] ?? orders.auto_research_focus}`))
+  focusEntry.appendChild(focusText)
+  const focusControls = el('div', 'order-controls')
   for (const branch of RESEARCH_BRANCHES) {
-    const pick = btn(branch.toUpperCase(), 'btn-lg sz-13') as HTMLButtonElement
+    const pick = btn(RESEARCH_NAMES[branch], 'order-pick-btn') as HTMLButtonElement
     pick.disabled = orders.auto_research_focus === branch
-    pick.addEventListener('click', () => GameState.setOrder('auto_research_focus', branch))
-    research.appendChild(pick)
+    pick.addEventListener('click', () => { GameState.setOrder('auto_research_focus', branch); refreshOrdersUI() })
+    focusControls.appendChild(pick)
   }
-  grid.appendChild(research)
+  focusEntry.appendChild(focusControls)
+  resSec.appendChild(focusEntry)
+  body.appendChild(resSec)
 
-  const craft = el('div', 'system-card')
-  craft.appendChild(el('span', 'loadout-kicker', 'SHIPWRIGHT ORDER'))
-  craft.appendChild(el('span', 'upgrade-name', 'Craft Queue'))
-  craft.appendChild(el('span', 'upgrade-desc', orders.auto_shipwright_recipe ? `Auto-starting ${orders.auto_shipwright_recipe}.` : 'No automatic craft selected.'))
-  const clear = btn('NONE', 'btn-lg sz-13') as HTMLButtonElement
-  clear.disabled = !orders.auto_shipwright_recipe
-  clear.addEventListener('click', () => GameState.setOrder('auto_shipwright_recipe', ''))
-  craft.appendChild(clear)
+  // ── SHIPWRIGHT section ───────────────────────────────
+  const craftSec = el('div', 'order-section')
+  craftSec.appendChild(el('div', 'order-section-header', 'SHIPWRIGHT'))
+
+  const craftEntry = el('div', `order-entry${orders.auto_shipwright_recipe ? ' is-active' : ''}`)
+  craftEntry.appendChild(el('div', 'order-stamp', orders.auto_shipwright_recipe ? '●' : '○'))
+  const craftText = el('div', 'order-text')
+  craftText.appendChild(el('span', 'order-name', 'Craft Queue'))
+  craftText.appendChild(el('span', 'order-desc', orders.auto_shipwright_recipe ? `Auto-starting ${orders.auto_shipwright_recipe}` : 'No automatic craft selected'))
+  craftEntry.appendChild(craftText)
+  const craftControls = el('div', 'order-controls')
+  const noneBtn = btn('NONE', 'order-pick-btn') as HTMLButtonElement
+  noneBtn.disabled = !orders.auto_shipwright_recipe
+  noneBtn.addEventListener('click', () => { GameState.setOrder('auto_shipwright_recipe', ''); refreshOrdersUI() })
+  craftControls.appendChild(noneBtn)
   for (const recipe of SHIPWRIGHT_RECIPES) {
-    const pick = btn(recipe.displayName.toUpperCase(), 'btn-lg sz-13') as HTMLButtonElement
+    const pick = btn(recipe.displayName, 'order-pick-btn') as HTMLButtonElement
     pick.disabled = orders.auto_shipwright_recipe === recipe.id
-    pick.addEventListener('click', () => GameState.setOrder('auto_shipwright_recipe', recipe.id))
-    craft.appendChild(pick)
+    pick.addEventListener('click', () => { GameState.setOrder('auto_shipwright_recipe', recipe.id); refreshOrdersUI() })
+    craftControls.appendChild(pick)
   }
-  grid.appendChild(craft)
+  craftEntry.appendChild(craftControls)
+  craftSec.appendChild(craftEntry)
+  body.appendChild(craftSec)
 
-  ordersSection.appendChild(grid)
-  ordersSection.appendChild(el('div', 'system-diagnostic', 'Source: unlocked solved-system rules. Sink: attention reduction. Orders currently manage Stormheart burn, Research focus, and Shipwright queue starts.'))
+  body.appendChild(el('div', 'system-diagnostic', 'Source: unlocked solved-system rules. Sink: attention reduction. Orders manage Stormheart burn, Research focus, and Shipwright queue.'))
+  ordersSection.appendChild(body)
 }
 
 function refreshLedgerUI(): void {
   if (!ledgerSection) return
-  ledgerSection.querySelectorAll('.system-grid, .system-diagnostic').forEach(node => node.remove())
+  ledgerSection.querySelector('.ledger-body')?.remove()
+
   const proofs = [
-    { name: 'Passage Boss Clear', done: GameState.persistent.defeated_bosses.length > 0 },
-    { name: 'Return to Port', done: GameState.getReturnCount() > 0 },
-    { name: 'Muster Allocated', done: GameState.getMusterGunnery() + GameState.getMusterSeamanship() > 0 },
-    { name: 'Stormheart Fed', done: GameState.getResource('storm_power') > 0 || GameState.getResource('ether_brine') > 0 },
-    { name: 'Shipwright Mastery', done: Object.values(GameState.getShipwrightState().mastery).some(v => v > 0) },
-    { name: 'Research Rank', done: RESEARCH_BRANCHES.some(branch => GameState.getResearchProgress(branch) >= 100) },
-    { name: 'Relic Socketed', done: GameState.getRelicRank(GameState.getActiveRelic()) > 0 },
-    { name: 'Contract Paid', done: Object.values(GameState.getContractState().completions).some(v => v > 0) },
-    { name: 'Port Built', done: PORT_FACILITIES.some(f => GameState.getPortFacilityRank(f.id) > 0) },
-    { name: 'Trial Cleared', done: Object.values(GameState.getTrialCompletions()).some(v => v > 0) },
+    { name: 'Passage Boss Clear',   done: GameState.persistent.defeated_bosses.length > 0 },
+    { name: 'Return to Port',       done: GameState.getReturnCount() > 0 },
+    { name: 'Muster Allocated',     done: GameState.getMusterGunnery() + GameState.getMusterSeamanship() > 0 },
+    { name: 'Stormheart Fed',       done: GameState.getResource('storm_power') > 0 || GameState.getResource('ether_brine') > 0 },
+    { name: 'Shipwright Mastery',   done: Object.values(GameState.getShipwrightState().mastery).some(v => v > 0) },
+    { name: 'Research Rank',        done: RESEARCH_BRANCHES.some(branch => GameState.getResearchProgress(branch) >= 100) },
+    { name: 'Relic Socketed',       done: GameState.getRelicRank(GameState.getActiveRelic()) > 0 },
+    { name: 'Contract Paid',        done: Object.values(GameState.getContractState().completions).some(v => v > 0) },
+    { name: 'Port Built',           done: PORT_FACILITIES.some(f => GameState.getPortFacilityRank(f.id) > 0) },
+    { name: 'Trial Cleared',        done: Object.values(GameState.getTrialCompletions()).some(v => v > 0) },
   ]
-  const grid = el('div', 'system-grid')
+  const done  = proofs.filter(p => p.done).length
+  const total = proofs.length
+
+  const body = el('div', 'ledger-body')
+
+  // Progress header
+  const progHeader = el('div', 'ledger-progress-header')
+  progHeader.appendChild(el('span', 'ledger-fraction', `${done} / ${total} proofs`))
+  const progBar  = el('div', 'ledger-progress-bar')
+  const progFill = el('div', 'ledger-progress-fill')
+  progFill.style.width = `${(done / total) * 100}%`
+  progBar.appendChild(progFill)
+  progHeader.appendChild(progBar)
+  body.appendChild(progHeader)
+
+  // Entry list
+  const entries = el('div', 'ledger-entries')
   for (const proof of proofs) {
-    const card = el('div', 'system-card')
-    card.appendChild(el('span', 'loadout-kicker', proof.done ? 'LOGGED' : 'OPEN'))
-    card.appendChild(el('span', 'upgrade-name', proof.name))
-    card.appendChild(el('span', 'upgrade-desc', proof.done ? 'Recorded in the Captain\'s Ledger.' : 'Still needs a visible system proof.'))
-    grid.appendChild(card)
+    const entry = el('div', `ledger-entry${proof.done ? ' is-stamped' : ''}`)
+    entry.appendChild(el('div', 'ledger-stamp', proof.done ? '◆' : '◇'))
+    const text = el('div', 'ledger-entry-text')
+    text.appendChild(el('span', 'ledger-entry-name', proof.name))
+    text.appendChild(el('span', 'ledger-entry-status', proof.done ? 'Recorded.' : 'Awaiting proof.'))
+    entry.appendChild(text)
+    entries.appendChild(entry)
   }
-  const done = proofs.filter(p => p.done).length
-  ledgerSection.appendChild(grid)
-  ledgerSection.appendChild(el('div', 'system-diagnostic', `Ledger proof ${done}/${proofs.length}. Later this becomes the phase gate for Captain's Ledger, Flagship Phase, and Legend Reset.`))
+  body.appendChild(entries)
+
+  body.appendChild(el('div', 'system-diagnostic', `Ledger proof ${done}/${total}. Later becomes the phase gate for Flagship Phase and Legend Reset.`))
+  ledgerSection.appendChild(body)
 }
 
 function formatRewardMap(reward: Record<string, number>): string {

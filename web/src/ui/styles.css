@@ -1976,6 +1976,753 @@ hr { border: none; border-top: 1px solid rgba(205,217,217,0.15); }
   .furnace-power-value { font-size: 22px; }
 }
 
+/* ── Shipwright's Bench ──────────────────────────────────────────────────── */
+.shipwright-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Commission slot — always-visible top frame */
+.bench-commission {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background: rgba(16, 28, 44, 0.70);
+  border: 1px solid rgba(205, 217, 217, 0.12);
+  border-top: 2px solid rgba(185, 110, 53, 0.55);
+  border-radius: 4px;
+  padding: 10px 12px;
+}
+.bench-commission-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--teal);
+}
+.bench-bar {
+  height: 6px;
+  background: rgba(205, 217, 217, 0.10);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.bench-bar-fill {
+  height: 100%;
+  background: var(--copper);
+  border-radius: 3px;
+  transition: width 250ms linear;
+  width: 0%;
+}
+.bench-progress-meta {
+  margin-top: 1px;
+}
+
+/* Blueprint catalog */
+.bench-catalog {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bench-entry {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  background: rgba(16, 28, 44, 0.55);
+  border: 1px solid rgba(205, 217, 217, 0.09);
+  border-left: 3px solid rgba(205, 217, 217, 0.14);
+  border-radius: 4px;
+  padding: 9px 10px;
+  transition: border-left-color 200ms, background 200ms;
+}
+.bench-entry.is-active {
+  border-left-color: var(--copper);
+  background: rgba(185, 110, 53, 0.06);
+}
+.bench-entry-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.bench-mastery-pips {
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--copper);
+  line-height: 1;
+}
+.bench-entry-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.bench-entry.is-active .bench-entry-name { color: var(--copper); }
+.bench-entry-effect { font-size: 10px; color: rgba(205, 217, 217, 0.60); }
+.bench-entry-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.bench-entry-cost { font-size: 11px; color: var(--gold); }
+.bench-craft-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(185, 110, 53, 0.14);
+  border: 1px solid rgba(185, 110, 53, 0.36);
+  color: var(--copper);
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: background 150ms, opacity 150ms;
+}
+.bench-craft-btn:not(:disabled):hover { background: rgba(185, 110, 53, 0.28); }
+.bench-craft-btn:disabled { opacity: 0.38; cursor: default; }
+
+/* ── Admiralty Research ──────────────────────────────────────────────────── */
+.research-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Focus lantern strip */
+.research-lantern-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(34, 166, 161, 0.06);
+  border: 1px solid rgba(34, 166, 161, 0.20);
+  border-radius: 4px;
+  padding: 8px 12px;
+}
+
+/* Branch tracks */
+.research-tracks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.research-track {
+  background: rgba(16, 28, 44, 0.60);
+  border: 1px solid rgba(205, 217, 217, 0.09);
+  border-left: 3px solid rgba(205, 217, 217, 0.14);
+  border-radius: 4px;
+  padding: 9px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  transition: border-left-color 200ms, background 200ms;
+}
+.research-track.is-focused {
+  border-left-color: var(--teal);
+  background: rgba(34, 166, 161, 0.05);
+}
+.track-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.track-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  flex: 1;
+}
+.research-track.is-focused .track-name { color: var(--teal); }
+.track-rank {
+  font-size: 10px;
+  color: rgba(205, 217, 217, 0.55);
+}
+.track-pin-btn {
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(34, 166, 161, 0.10);
+  border: 1px solid rgba(34, 166, 161, 0.28);
+  color: var(--teal);
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: background 150ms, opacity 150ms;
+}
+.track-pin-btn:disabled { opacity: 0.38; cursor: default; }
+.track-bar {
+  height: 4px;
+  background: rgba(205, 217, 217, 0.10);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.track-fill {
+  height: 100%;
+  background: var(--teal);
+  border-radius: 2px;
+  transition: width 400ms ease;
+}
+.track-effect { font-size: 10px; color: rgba(205, 217, 217, 0.55); }
+
+/* ── Relic Compass ───────────────────────────────────────────────────────── */
+.relics-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Horizontal socket tray */
+.compass-tray {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.compass-socket {
+  flex: 1;
+  min-width: 90px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  background: rgba(16, 28, 44, 0.65);
+  border: 1px solid rgba(205, 217, 217, 0.10);
+  border-radius: 6px;
+  padding: 10px 8px;
+  transition: border-color 200ms, background 200ms;
+}
+.compass-socket.is-active {
+  border-color: rgba(34, 166, 161, 0.45);
+  background: rgba(34, 166, 161, 0.06);
+}
+.compass-relic-glyph {
+  font-size: 22px;
+  line-height: 1;
+  color: var(--gold);
+}
+.compass-socket.is-active .compass-relic-glyph { color: var(--teal); }
+.compass-relic-name {
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--text);
+  letter-spacing: 0.03em;
+}
+.compass-attune-bar {
+  width: 100%;
+  height: 3px;
+  background: rgba(205, 217, 217, 0.10);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.compass-attune-fill {
+  height: 100%;
+  background: var(--teal);
+  border-radius: 2px;
+  transition: width 300ms ease;
+}
+.compass-shard-count {
+  font-size: 9px;
+  color: rgba(205, 217, 217, 0.52);
+  text-align: center;
+}
+.compass-socket-btn {
+  padding: 3px 9px;
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(34, 166, 161, 0.10);
+  border: 1px solid rgba(34, 166, 161, 0.28);
+  color: var(--teal);
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: background 150ms, opacity 150ms;
+}
+.compass-socket-btn:disabled { opacity: 0.38; cursor: default; }
+
+/* Active relic effect strip */
+.compass-effect-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(34, 166, 161, 0.06);
+  border: 1px solid rgba(34, 166, 161, 0.18);
+  border-radius: 4px;
+  padding: 8px 12px;
+}
+.compass-effect-text { font-size: 12px; color: var(--teal); }
+
+/* ── Storm Contracts ─────────────────────────────────────────────────────── */
+.contracts-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Notice board entry */
+.contract-notice {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  background: rgba(16, 28, 44, 0.60);
+  border: 1px solid rgba(205, 217, 217, 0.09);
+  border-radius: 5px;
+  padding: 10px 10px;
+  transition: border-color 200ms, background 200ms;
+}
+.contract-notice.is-active {
+  background: rgba(34, 166, 161, 0.05);
+  border-color: rgba(34, 166, 161, 0.24);
+}
+.contract-notice.is-charged {
+  background: rgba(242, 177, 52, 0.05);
+  border-color: rgba(242, 177, 52, 0.30);
+}
+.contract-seal-svg {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+.contract-seal-glyph {
+  font-size: 11px;
+  fill: rgba(205, 217, 217, 0.55);
+}
+.contract-notice.is-charged .contract-seal-glyph { fill: var(--gold); }
+.contract-notice-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.contract-notice-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.contract-notice-meta { font-size: 10px; color: rgba(205, 217, 217, 0.52); }
+.contract-notice-reward { font-size: 10px; color: var(--gold); }
+.contract-action-btn {
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(34, 166, 161, 0.12);
+  border: 1px solid rgba(34, 166, 161, 0.30);
+  color: var(--teal);
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  transition: background 150ms, opacity 150ms;
+}
+.contract-notice.is-charged .contract-action-btn {
+  background: rgba(242, 177, 52, 0.14);
+  border-color: rgba(242, 177, 52, 0.40);
+  color: var(--gold);
+}
+.contract-action-btn:not(:disabled):hover { background: rgba(34, 166, 161, 0.24); }
+.contract-notice.is-charged .contract-action-btn:not(:disabled):hover { background: rgba(242, 177, 52, 0.26); }
+.contract-action-btn:disabled { opacity: 0.38; cursor: default; }
+
+/* ── Port Facilities ─────────────────────────────────────────────────────── */
+.port-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 2×2 color-coded tile grid */
+.port-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.port-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  background: rgba(16, 28, 44, 0.70);
+  border: 1px solid rgba(205, 217, 217, 0.10);
+  border-top: 3px solid transparent;
+  border-radius: 5px;
+  padding: 12px 10px 10px;
+  text-align: center;
+  transition: border-top-color 200ms, background 200ms;
+}
+.port-tile--copper { border-top-color: rgba(185, 110, 53, 0.65); }
+.port-tile--gold   { border-top-color: rgba(242, 177, 52, 0.65); }
+.port-tile--teal   { border-top-color: rgba(34, 166, 161, 0.65); }
+.port-tile--violet { border-top-color: rgba(123, 79, 163, 0.65); }
+.port-tile.is-maxed { opacity: 0.60; }
+
+.port-tile-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+.port-tile--copper .port-tile-icon { color: var(--copper); }
+.port-tile--gold   .port-tile-icon { color: var(--gold);   }
+.port-tile--teal   .port-tile-icon { color: var(--teal);   }
+.port-tile--violet .port-tile-icon { color: #9B6FD0;       }
+
+.port-tile-name {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.port-tile-rank {
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+.port-tile--copper .port-tile-rank { color: var(--copper); }
+.port-tile--gold   .port-tile-rank { color: var(--gold);   }
+.port-tile--teal   .port-tile-rank { color: var(--teal);   }
+.port-tile--violet .port-tile-rank { color: #9B6FD0;       }
+
+.port-tile-effect {
+  font-size: 9px;
+  color: rgba(205, 217, 217, 0.52);
+  line-height: 1.35;
+}
+.port-upgrade-btn {
+  margin-top: 2px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(205, 217, 217, 0.07);
+  border: 1px solid rgba(205, 217, 217, 0.18);
+  color: var(--text);
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: background 150ms, opacity 150ms;
+}
+.port-upgrade-btn:not(:disabled):hover { background: rgba(205, 217, 217, 0.14); }
+.port-upgrade-btn:disabled { opacity: 0.38; cursor: default; }
+
+/* ── Captain's Trials ────────────────────────────────────────────────────── */
+.trials-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.trials-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.trial-entry {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  background: rgba(16, 28, 44, 0.58);
+  border: 1px solid rgba(205, 217, 217, 0.09);
+  border-radius: 4px;
+  padding: 10px 10px;
+  transition: border-color 200ms, background 200ms;
+}
+.trial-entry.is-ready {
+  border-color: rgba(34, 166, 161, 0.28);
+  background: rgba(34, 166, 161, 0.04);
+}
+.trial-entry.is-cleared {
+  border-color: rgba(242, 177, 52, 0.28);
+  background: rgba(242, 177, 52, 0.04);
+  opacity: 0.75;
+}
+.trial-stamp {
+  font-size: 18px;
+  text-align: center;
+  line-height: 1;
+  color: rgba(205, 217, 217, 0.28);
+}
+.trial-entry.is-ready   .trial-stamp { color: var(--teal); }
+.trial-entry.is-cleared .trial-stamp { color: var(--gold); font-weight: 700; }
+.trial-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.trial-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.trial-entry.is-ready   .trial-name { color: var(--teal); }
+.trial-entry.is-cleared .trial-name { color: var(--gold); }
+.trial-req { font-size: 10px; color: rgba(205, 217, 217, 0.52); }
+.trial-claim-btn {
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(34, 166, 161, 0.10);
+  border: 1px solid rgba(34, 166, 161, 0.28);
+  color: var(--teal);
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  transition: background 150ms, opacity 150ms;
+}
+.trial-claim-btn:not(:disabled):hover { background: rgba(34, 166, 161, 0.22); }
+.trial-claim-btn:disabled { opacity: 0.38; cursor: default; }
+
+/* ── Officers Roster ─────────────────────────────────────────────────────── */
+.officers-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.officer-roster {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.officer-row {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  background: rgba(16, 28, 44, 0.58);
+  border: 1px solid rgba(205, 217, 217, 0.09);
+  border-left: 3px solid rgba(205, 217, 217, 0.14);
+  border-radius: 4px;
+  padding: 9px 10px;
+  transition: border-left-color 200ms, background 200ms;
+}
+.officer-row.is-assigned {
+  border-left-color: var(--teal);
+  background: rgba(34, 166, 161, 0.05);
+}
+.officer-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(205, 217, 217, 0.08);
+  border: 1px solid rgba(205, 217, 217, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 800;
+  color: rgba(205, 217, 217, 0.65);
+  flex-shrink: 0;
+  transition: background 200ms, border-color 200ms, color 200ms;
+}
+.officer-row.is-assigned .officer-badge {
+  background: rgba(34, 166, 161, 0.14);
+  border-color: rgba(34, 166, 161, 0.45);
+  color: var(--teal);
+}
+.officer-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.officer-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.officer-row.is-assigned .officer-name { color: var(--teal); }
+.officer-post {
+  font-size: 10px;
+  color: rgba(205, 217, 217, 0.52);
+}
+.officer-xp-bar {
+  height: 3px;
+  background: rgba(205, 217, 217, 0.10);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+.officer-xp-fill {
+  height: 100%;
+  background: var(--teal);
+  border-radius: 2px;
+  transition: width 300ms ease;
+}
+.officer-effect { font-size: 10px; color: rgba(205, 217, 217, 0.50); margin-top: 1px; }
+.officer-assign-btn {
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(34, 166, 161, 0.10);
+  border: 1px solid rgba(34, 166, 161, 0.28);
+  color: var(--teal);
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  transition: background 150ms, opacity 150ms;
+}
+.officer-assign-btn:not(:disabled):hover { background: rgba(34, 166, 161, 0.22); }
+.officer-assign-btn:disabled { opacity: 0.38; cursor: default; }
+
+/* ── Captain's Orders ────────────────────────────────────────────────────── */
+.orders-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.order-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.order-section-header {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(205, 217, 217, 0.42);
+  padding: 0 2px 2px;
+  border-bottom: 1px solid rgba(205, 217, 217, 0.07);
+}
+.order-entry {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  gap: 10px;
+  align-items: start;
+  background: rgba(16, 28, 44, 0.55);
+  border: 1px solid rgba(205, 217, 217, 0.09);
+  border-radius: 4px;
+  padding: 9px 10px;
+  transition: border-color 200ms, background 200ms;
+}
+.order-entry.is-active {
+  border-color: rgba(34, 166, 161, 0.22);
+  background: rgba(34, 166, 161, 0.04);
+}
+.order-stamp {
+  font-size: 16px;
+  line-height: 1.2;
+  text-align: center;
+  color: rgba(205, 217, 217, 0.28);
+  padding-top: 1px;
+}
+.order-entry.is-active .order-stamp { color: var(--teal); }
+.order-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.order-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.order-desc { font-size: 10px; color: rgba(205, 217, 217, 0.52); }
+.order-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+}
+.order-toggle-btn,
+.order-pick-btn {
+  padding: 3px 9px;
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(205, 217, 217, 0.07);
+  border: 1px solid rgba(205, 217, 217, 0.18);
+  color: rgba(205, 217, 217, 0.70);
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  transition: background 150ms, opacity 150ms;
+}
+.order-toggle-btn:hover,
+.order-pick-btn:not(:disabled):hover { background: rgba(205, 217, 217, 0.14); }
+.order-pick-btn:disabled { opacity: 0.38; cursor: default; }
+
+/* ── Captain's Ledger ────────────────────────────────────────────────────── */
+.ledger-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Proof progress header */
+.ledger-progress-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: rgba(16, 28, 44, 0.60);
+  border: 1px solid rgba(205, 217, 217, 0.10);
+  border-radius: 4px;
+}
+.ledger-fraction {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold);
+  white-space: nowrap;
+}
+.ledger-progress-bar {
+  flex: 1;
+  height: 5px;
+  background: rgba(205, 217, 217, 0.10);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.ledger-progress-fill {
+  height: 100%;
+  background: var(--gold);
+  border-radius: 3px;
+  transition: width 400ms ease;
+}
+
+/* Proof entries */
+.ledger-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ledger-entry {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 10px;
+  background: rgba(16, 28, 44, 0.45);
+  border: 1px solid rgba(205, 217, 217, 0.07);
+  border-radius: 3px;
+  transition: background 200ms, border-color 200ms;
+}
+.ledger-entry.is-stamped {
+  background: rgba(242, 177, 52, 0.04);
+  border-color: rgba(242, 177, 52, 0.18);
+}
+.ledger-stamp {
+  font-size: 13px;
+  text-align: center;
+  color: rgba(205, 217, 217, 0.22);
+  transition: color 200ms;
+}
+.ledger-entry.is-stamped .ledger-stamp { color: var(--gold); }
+.ledger-entry-text {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.ledger-entry-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(205, 217, 217, 0.70);
+  flex: 1;
+}
+.ledger-entry.is-stamped .ledger-entry-name { color: var(--text); }
+.ledger-entry-status {
+  font-size: 10px;
+  color: rgba(205, 217, 217, 0.38);
+  white-space: nowrap;
+}
+.ledger-entry.is-stamped .ledger-entry-status { color: rgba(242, 177, 52, 0.65); }
+
 /* ── Prestige panel ─────────────────────── */
 .log-panel {
   display: flex;

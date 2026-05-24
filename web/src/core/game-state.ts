@@ -185,7 +185,7 @@ function defaultInfamy(): InfamyState {
 function defaultPersistent(): PersistentState {
   return {
     unlocked_lanes: ['lane_01'],
-    unlocked_systems: ['arsenal', 'stormheart', 'shipwright', 'research', 'relics', 'contracts', 'port', 'trials', 'officers', 'orders', 'ledger', 'infamy'],
+    unlocked_systems: ['arsenal'],
     defeated_bosses: [],
     best_lane: 'lane_01',
     best_distance: 0,

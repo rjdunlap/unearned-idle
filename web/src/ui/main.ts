@@ -1174,7 +1174,7 @@ function buildDebugOverlay(root: HTMLElement): void {
   const ioRow = el('div', 'debug-row')
   const saveB = btn('SAVE',  'sz-13'); saveB.addEventListener('click', () => SaveSystem.saveGame()); ioRow.appendChild(saveB)
   const loadB = btn('LOAD',  'sz-13'); loadB.addEventListener('click', debugLoad); ioRow.appendChild(loadB)
-  const resB  = btn('RESET', 'sz-13 btn-reset'); resB.addEventListener('click', () => SaveSystem.resetGame()); ioRow.appendChild(resB)
+  const resB  = btn('RESET', 'sz-13 btn-reset'); resB.addEventListener('click', () => { SaveSystem.resetGame(); location.reload() }); ioRow.appendChild(resB)
   debugOverlay.appendChild(ioRow)
 
   root.appendChild(debugOverlay)

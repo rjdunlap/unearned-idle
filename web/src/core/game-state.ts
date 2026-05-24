@@ -538,6 +538,7 @@ export const GameState = new class extends Emitter {
     const unlocked: SystemUnlock[] = []
     if (firstClear) bosses.push(id)
     if (this._bossUnlocksPrestige(id) && this.unlockSystem('prestige')) unlocked.push('prestige')
+    if (firstClear && this.unlockSystem('infamy')) unlocked.push('infamy')
     this.addInfamy(firstClear ? 30 : 5)
     this.emit('boss_defeated_persistent', id, firstClear, unlocked)
     return { firstClear, unlocked }

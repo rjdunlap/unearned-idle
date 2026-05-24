@@ -418,39 +418,39 @@ function buildBottomPanel(root: HTMLElement): void {
   tabRowA.appendChild(arsenalTabBtn)
 
   musterTabBtn = btn('MUSTER', 'tab-btn') as HTMLButtonElement
-  labelDeskTab(musterTabBtn, 'MUSTER', 'P2')
+  labelDeskTab(musterTabBtn, 'MUSTER', 'S2')
   musterTabBtn.addEventListener('click', () => setActiveTab('muster'))
   tabRowA.appendChild(musterTabBtn)
 
   stormheartTabBtn = btn('STORMHEART', 'tab-btn') as HTMLButtonElement
-  labelDeskTab(stormheartTabBtn, 'STORMHEART', 'P4')
+  labelDeskTab(stormheartTabBtn, 'STORMHEART', 'S4')
   stormheartTabBtn.addEventListener('click', () => setActiveTab('stormheart'))
   tabRowA.appendChild(stormheartTabBtn)
 
   shipwrightTabBtn = btn('SHIPWRIGHT', 'tab-btn') as HTMLButtonElement
-  labelDeskTab(shipwrightTabBtn, 'SHIPWRIGHT', 'P5')
+  labelDeskTab(shipwrightTabBtn, 'SHIPWRIGHT', 'S5')
   shipwrightTabBtn.addEventListener('click', () => setActiveTab('shipwright'))
   tabRowA.appendChild(shipwrightTabBtn)
 
   researchTabBtn = btn('RESEARCH', 'tab-btn') as HTMLButtonElement
-  labelDeskTab(researchTabBtn, 'RESEARCH', 'P6')
+  labelDeskTab(researchTabBtn, 'RESEARCH', 'S6')
   researchTabBtn.addEventListener('click', () => setActiveTab('research'))
   tabRowA.appendChild(researchTabBtn)
 
-  relicsTabBtn = buildDeckTab(tabRowA, 'RELICS', 'P8', 'relics', 'Relic Compass target unlock: Passage 8 clear')
+  relicsTabBtn = buildDeckTab(tabRowA, 'RELICS', 'S8', 'relics', 'Relic Compass target unlock: Sea 8 clear')
 
   prestigeTabBtn = btn('PRESTIGE', 'tab-btn') as HTMLButtonElement
-  labelDeskTab(prestigeTabBtn, 'PRESTIGE', 'P1')
+  labelDeskTab(prestigeTabBtn, 'PRESTIGE', 'S1')
   prestigeTabBtn.addEventListener('click', () => setActiveTab('prestige'))
   tabRowB.appendChild(prestigeTabBtn)
 
-  contractsTabBtn = buildDeckTab(tabRowB, 'CONTRACTS', 'P12', 'contracts', 'Storm Contracts target unlock: Passage 12 or first elite branch clear')
-  portTabBtn      = buildDeckTab(tabRowB, 'PORT',      'P15', 'port',      'Port Facilities target unlock: Passage 15 clear')
-  trialsTabBtn    = buildDeckTab(tabRowB, 'TRIALS',    'P18', 'trials',    "Captain's Trials target unlock: Passage 18 clear")
-  officersTabBtn  = buildDeckTab(tabRowB, 'OFFICERS',  'P20', 'officers',  'Officers target unlock: Passage 20 clear')
-  ordersTabBtn    = buildDeckTab(tabRowB, 'ORDERS',    'P25', 'orders',    "Captain's Orders target unlock: Passage 25 clear")
-  ledgerTabBtn    = buildDeckTab(tabRowB, 'LEDGER',    'P30', 'ledger',    "Captain's Ledger target unlock: Passage 30 clear")
-  infamyTabBtn    = buildDeckTab(tabRowB, 'INFAMY',    '',    'infamy',    'Infamy — your notoriety, wanted level, and the Infamy Tree')
+  contractsTabBtn = buildDeckTab(tabRowB, 'CONTRACTS', 'S12', 'contracts', 'Storm Contracts target unlock: Sea 12 clear')
+  portTabBtn      = buildDeckTab(tabRowB, 'PORT',      'S15', 'port',      'Port Facilities target unlock: Sea 15 clear')
+  trialsTabBtn    = buildDeckTab(tabRowB, 'TRIALS',    'S18', 'trials',    "Captain's Trials target unlock: Sea 18 clear")
+  officersTabBtn  = buildDeckTab(tabRowB, 'OFFICERS',  'S20', 'officers',  'Officers target unlock: Sea 20 clear')
+  ordersTabBtn    = buildDeckTab(tabRowB, 'ORDERS',    'S25', 'orders',    "Captain's Orders target unlock: Sea 25 clear")
+  ledgerTabBtn    = buildDeckTab(tabRowB, 'LEDGER',    'S30', 'ledger',    "Captain's Ledger target unlock: Sea 30 clear")
+  infamyTabBtn    = buildDeckTab(tabRowB, 'INFAMY',    '',    'infamy',    'Infamy — unlocks on first boss clear')
 
   logTabBtn = btn('LOG', 'tab-btn') as HTMLButtonElement
   logTabBtn.addEventListener('click', () => setActiveTab('log'))
@@ -1039,6 +1039,7 @@ function setActiveTab(tab: DeskTab): void {
   if (tab === 'officers' && !GameState.isSystemUnlocked('officers')) tab = 'arsenal'
   if (tab === 'orders' && !GameState.isSystemUnlocked('orders')) tab = 'arsenal'
   if (tab === 'ledger' && !GameState.isSystemUnlocked('ledger')) tab = 'arsenal'
+  if (tab === 'infamy' && !GameState.isSystemUnlocked('infamy')) tab = 'arsenal'
   arsenalSection.classList.toggle('hidden', tab !== 'arsenal')
   infamySection.classList.toggle('hidden', tab !== 'infamy')
   prestigeSection.classList.toggle('hidden', tab !== 'prestige')
@@ -1148,7 +1149,7 @@ function buildDebugOverlay(root: HTMLElement): void {
 
   // Sector jumps
   const laneRow = el('div', 'debug-row')
-  laneRow.appendChild(el('span', '', 'Sectors:'))
+  laneRow.appendChild(el('span', '', 'Seas:'))
   for (const sector of [1, 2, 5, 10]) {
     const label = `S${sector}`
     const b = btn(label, 'sz-13')
@@ -1373,13 +1374,13 @@ function onSectorCompleted(_sectorId: string, nextId: string): void {
     const nextName = nextSector > 0 ? SectorPlan.getSector(nextSector).displayName : nextId
     advanceBtn.textContent = `▶  CHART COURSE TO ${nextName.toUpperCase()}`
     advanceBtn.classList.remove('hidden')
-    appendLog('<span class="log-green">Sector cleared. New course plotted.</span>')
+    appendLog('<span class="log-green">Sea cleared. New course plotted.</span>')
   } else if (nextId) {
     advanceBtn.classList.add('hidden')
-    appendLog('<span class="log-green">Sector cleared. Auto course continuing.</span>')
+    appendLog('<span class="log-green">Sea cleared. Auto course continuing.</span>')
   } else {
     advanceBtn.classList.add('hidden')
-    appendLog('<span class="log-green">Final sector cleared!</span>')
+    appendLog('<span class="log-green">Final sea cleared!</span>')
   }
 }
 
@@ -1464,7 +1465,9 @@ function refreshSystemLocks(): void {
   syncTabLock(officersTabBtn, 'officers')
   syncTabLock(ordersTabBtn, 'orders')
   syncTabLock(ledgerTabBtn, 'ledger')
+  syncTabLock(infamyTabBtn, 'infamy')
   if (!GameState.isSystemUnlocked('muster')) musterSection.classList.add('hidden')
+  if (!GameState.isSystemUnlocked('infamy')) infamySection.classList.add('hidden')
 }
 
 function refreshPrestigeUI(): void {
@@ -1834,7 +1837,7 @@ function refreshResearchUI(): void {
 function describeResearchEffect(branch: ResearchBranchId, rank: number): string {
   if (branch === 'gunnery') return `Current: +${rank}% target reading and impact doctrine diagnostics.`
   if (branch === 'shipwrighting') return `Current: +${rank * 5}% Shipwright craft speed and +${rank * 2}% salvage analysis.`
-  if (branch === 'navigation') return `Current: route and starting-sector chart knowledge rank ${rank}.`
+  if (branch === 'navigation') return `Current: route and starting-sea chart knowledge rank ${rank}.`
   return `Current: improves Ether Brine and relic preview knowledge rank ${rank}.`
 }
 
@@ -2194,7 +2197,7 @@ function refreshLedgerUI(): void {
   ledgerSection.querySelector('.ledger-body')?.remove()
 
   const proofs = [
-    { name: 'Passage Boss Clear',   done: GameState.persistent.defeated_bosses.length > 0 },
+    { name: 'Sea Boss Clear',        done: GameState.persistent.defeated_bosses.length > 0 },
     { name: 'Return to Port',       done: GameState.getReturnCount() > 0 },
     { name: 'Muster Allocated',     done: GameState.getMusterGunnery() + GameState.getMusterSeamanship() > 0 },
     { name: 'Stormheart Fed',       done: GameState.getResource('storm_power') > 0 || GameState.getResource('ether_brine') > 0 },
@@ -2502,7 +2505,7 @@ function refreshLaneLabel(): void {
 
 function refreshWatersTitle(): void {
   const sector = SectorPlan.getSector(GameState.getCurrentSector())
-  laneLabel.textContent = `Sector ${sector.sector} · ${sector.displayName}`
+  laneLabel.textContent = `Sea ${sector.sector} · ${sector.displayName}`
 }
 
 function refreshRouteUI(): void {
@@ -2517,14 +2520,14 @@ function refreshRouteUI(): void {
   const sector = SectorPlan.getSector(GameState.getCurrentSector())
   const bossState = GameState.hasDefeatedCurrentSectorBoss(sector.sector) ? 'boss first-clear logged' : 'boss ahead'
   const unlocks = sector.firstClearUnlocks.length > 0 ? `; first clear: ${sector.firstClearUnlocks.join(', ')}` : ''
-  routeDistanceLabel.textContent = `Sector ${sector.sector} · ${sector.routeName} · ${Math.floor(distance)} / ${Math.floor(goal)} nmi · ${bossState}`
-  routeDistanceLabel.title = `Sector ${sector.sector}: ${sector.displayName}; route tag ${sector.routeTag}; ${bossState}${unlocks}`
+  routeDistanceLabel.textContent = `Sea ${sector.sector} · ${sector.routeName} · ${Math.floor(distance)} / ${Math.floor(goal)} nmi · ${bossState}`
+  routeDistanceLabel.title = `Sea ${sector.sector}: ${sector.displayName}; route tag ${sector.routeTag}; ${bossState}${unlocks}`
   if (sectorDiagnostic) {
     const sunk = GameState.getShipsSunkThisSector()
     const best = GameState.getBestShipsSunkForCurrentSector()
     const salvageMul = GameState.salvageRewardMultiplier()
     const salvageNote = salvageMul > 1 ? ` · salvage x${salvageMul.toFixed(2)}` : ''
-    sectorDiagnostic.textContent = `Sector sunk: ${sunk} · best ${best}${salvageNote}`
+    sectorDiagnostic.textContent = `Sea sunk: ${sunk} · best ${best}${salvageNote}`
   }
   autoProgressBtn.textContent = auto ? 'A' : 'A'
   autoProgressBtn.classList.toggle('is-active', auto)
@@ -2961,7 +2964,7 @@ function debugJumpSector(sector: number): void {
   GameState.setCurrentSector(sector)
   refreshLaneLabel()
   sim.startCombat()
-  appendLog(`<span class="log-silver">DEBUG: charted to Sector ${sector}</span>`)
+  appendLog(`<span class="log-silver">DEBUG: charted to Sea ${sector}</span>`)
 }
 
 function debugLoad(): void {

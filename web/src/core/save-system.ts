@@ -148,6 +148,9 @@ export const SaveSystem = {
     if ((defeatedBosses.includes('lane_01_boss') || defeatedBosses.includes('sector_001_boss')) && !unlockedSystems.includes('prestige')) {
       unlockedSystems.push('prestige')
     }
+    if (defeatedBosses.length > 0 && !unlockedSystems.includes('infamy')) {
+      unlockedSystems.push('infamy')
+    }
     const secondBossCleared = defeatedBosses.includes('lane_02_boss') || defeatedBosses.includes('sector_002_boss')
     if ((d.prestige?.returns ?? 0) > 0 && secondBossCleared && !unlockedSystems.includes('muster')) {
       unlockedSystems.push('muster')

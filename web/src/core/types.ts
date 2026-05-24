@@ -7,6 +7,19 @@ export type ContractId = 'reef_prize' | 'storm_writ' | 'admiralty_chart'
 export type PortFacilityId = 'drydock' | 'foundry' | 'observatory' | 'hidden_cove'
 export type OfficerId = 'gunner' | 'boatswain' | 'navigator' | 'quartermaster' | 'occultist'
 
+export type InfamyTreeNodeId =
+  | 'notorious_captain'
+  | 'relic_hunter'
+  | 'persistent_contract'
+  | 'iron_reputation'
+  | 'fearsome_colors'
+
+export interface InfamyState {
+  carried: number                                           // 20% carried from previous runs
+  marks: number                                             // Infamy Marks (permanent prestige currency)
+  tree_nodes: Partial<Record<InfamyTreeNodeId, boolean>>
+}
+
 export interface AbilityState {
   active: number    // ticks remaining active (0 = inactive)
   cooldown: number  // ticks remaining on cooldown (0 = ready when active also 0)
@@ -46,6 +59,7 @@ export interface RunState {
   milestone_choice_ids: Record<string, string[]>
   stormheart: StormheartState
   abilities: Record<AbilityId, AbilityState>
+  run_infamy: number
   timestamp: number
 }
 
@@ -118,6 +132,7 @@ export interface PersistentState {
   trials: TrialState
   officers: OfficerState
   orders: OrderState
+  infamy: InfamyState
   persistent_resources: Record<string, number>
 }
 

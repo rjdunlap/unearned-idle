@@ -2723,6 +2723,185 @@ hr { border: none; border-top: 1px solid rgba(205,217,217,0.15); }
 }
 .ledger-entry.is-stamped .ledger-entry-status { color: rgba(242, 177, 52, 0.65); }
 
+/* ── Infamy / Bounty Ledger panel ───────────────────────────────────────── */
+.infamy-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 0 4px;
+}
+
+/* Wanted poster header */
+.wanted-poster {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 12px 8px;
+  background: rgba(220, 53, 53, 0.08);
+  border: 1px solid rgba(220, 53, 53, 0.3);
+  border-radius: 4px;
+}
+.wanted-poster-label {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: rgba(220, 53, 53, 0.65);
+  text-transform: uppercase;
+}
+.wanted-infamy-total {
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--red);
+}
+.wanted-infamy-sub {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: rgba(220, 53, 53, 0.5);
+  text-transform: uppercase;
+}
+
+/* Breakdown row */
+.wanted-breakdown {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.wanted-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 4px;
+}
+.wanted-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+.wanted-stat-label {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--silver);
+  text-transform: uppercase;
+}
+
+/* Bounty hunter threat */
+.wanted-threat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wanted-threat-header {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.wanted-hunter-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  background: rgba(220, 53, 53, 0.1);
+  border: 1px solid rgba(220, 53, 53, 0.35);
+  border-radius: 4px;
+}
+.wanted-hunter-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+.wanted-hunter-threshold {
+  font-size: 10px;
+}
+.wanted-hunter-desc {
+  color: var(--silver);
+  margin-top: 2px;
+}
+
+/* Infamy Tree */
+.infamy-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.infamy-tree-header {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.infamy-node-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.infamy-node-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto auto;
+  column-gap: 8px;
+  row-gap: 2px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 4px;
+  align-items: start;
+}
+.infamy-node-card.can-afford {
+  border-color: rgba(220, 53, 53, 0.35);
+  background: rgba(220, 53, 53, 0.06);
+}
+.infamy-node-card.is-owned {
+  border-color: rgba(242, 177, 52, 0.3);
+  background: rgba(242, 177, 52, 0.05);
+  opacity: 0.7;
+}
+.node-name {
+  font-size: 12px;
+  grid-column: 1;
+  grid-row: 1;
+  color: var(--text);
+}
+.node-cost-row {
+  grid-column: 1;
+  grid-row: 2;
+}
+.node-cost {
+  font-size: 10px;
+  color: var(--red);
+}
+.infamy-node-card.is-owned .node-cost {
+  color: var(--gold);
+}
+.node-desc {
+  grid-column: 1;
+  grid-row: 3;
+}
+.node-buy-btn {
+  grid-column: 2;
+  grid-row: 1 / 4;
+  align-self: center;
+  padding: 4px 8px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  background: rgba(220, 53, 53, 0.15);
+  color: var(--red);
+  border: 1px solid rgba(220, 53, 53, 0.35);
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.node-buy-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.infamy-node-card.can-afford .node-buy-btn:not(:disabled):hover {
+  background: rgba(220, 53, 53, 0.28);
+}
+
 /* ── Prestige panel ─────────────────────── */
 .log-panel {
   display: flex;

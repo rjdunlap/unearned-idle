@@ -1,4 +1,4 @@
-import type { AbilityId, AbilityState, ContractId, CourseMode, DoctrineMode, OfficerId, OrderState, PersistentState, PortFacilityId, PortState, PrestigeState, RelicId, RelicState, ResearchBranchId, RouteState, RunState, Settings, ShipwrightState, StormBoostId, StormheartState, TrialState } from './types'
+import type { AbilityId, AbilityState, ContractId, CourseMode, DoctrineMode, InfamyState, InfamyTreeNodeId, OfficerId, OrderState, PersistentState, PortFacilityId, PortState, PrestigeState, RelicId, RelicState, ResearchBranchId, RouteState, RunState, Settings, ShipwrightState, StormBoostId, StormheartState, TrialState } from './types'
 import { Definitions } from './definitions'
 import { Balance } from './balance'
 import { SectorPlan } from './sector-plan'
@@ -44,6 +44,25 @@ export const OFFICERS: Array<{ id: OfficerId; displayName: string; post: string 
   { id: 'navigator', displayName: 'Navigator', post: 'route speed' },
   { id: 'quartermaster', displayName: 'Quartermaster', post: 'salvage value' },
   { id: 'occultist', displayName: 'Occultist', post: 'brine and relic odds' },
+]
+
+export const INFAMY_TREE_NODES: Array<{
+  id: InfamyTreeNodeId; displayName: string; cost: number; desc: string
+}> = [
+  { id: 'notorious_captain',  displayName: 'Notorious Captain',   cost: 10, desc: '+10% Doubloon prizes from all enemies and bosses.' },
+  { id: 'relic_hunter',       displayName: 'Relic Hunter',        cost: 15, desc: '+25% relic shard drop chance from kills and bosses.' },
+  { id: 'persistent_contract',displayName: 'Persistent Contract', cost: 25, desc: 'Active contract and its charge survive Return to Port.' },
+  { id: 'iron_reputation',    displayName: 'Iron Reputation',     cost: 30, desc: '+15% max hull permanently across all runs.' },
+  { id: 'fearsome_colors',    displayName: 'Fearsome Colors',     cost: 40, desc: 'Bounty hunters appear more often; all Infamy gains +50%.' },
+]
+
+export const BOUNTY_HUNTERS: Array<{
+  id: string; displayName: string; infamyThreshold: number; hullMul: number; desc: string
+}> = [
+  { id: 'scatterwick',    displayName: 'Scatterwick',        infamyThreshold: 20,  hullMul: 1.5, desc: 'Wiry scout with a taste for blood money.' },
+  { id: 'pale_creditor',  displayName: 'The Pale Creditor',  infamyThreshold: 50,  hullMul: 2.2, desc: 'Armored debt-collector. Iron-hulled and self-repairing.' },
+  { id: 'mother_mast',    displayName: 'Mother Mast',        infamyThreshold: 100, hullMul: 3.0, desc: 'Warded occultist. Heavy ward; occult counterfire.' },
+  { id: 'iron_collector', displayName: 'The Iron Collector', infamyThreshold: 200, hullMul: 4.0, desc: 'All defenses maximized. The price on your head is now sovereign.' },
 ]
 
 class Emitter {
@@ -99,6 +118,7 @@ function defaultRun(): RunState {
     milestone_choice_ids: {},
     stormheart: defaultStormheart(),
     abilities: defaultAbilities(),
+    run_infamy: 0,
     timestamp: Date.now(),
   }
 }
@@ -158,10 +178,14 @@ function defaultOrders(): OrderState {
   return { auto_burn_brine: false, auto_research_focus: 'gunnery', auto_shipwright_recipe: '' }
 }
 
+function defaultInfamy(): InfamyState {
+  return { carried: 0, marks: 0, tree_nodes: {} }
+}
+
 function defaultPersistent(): PersistentState {
   return {
     unlocked_lanes: ['lane_01'],
-    unlocked_systems: ['arsenal', 'stormheart', 'shipwright', 'research', 'relics', 'contracts', 'port', 'trials', 'officers', 'orders', 'ledger'],
+    unlocked_systems: ['arsenal', 'stormheart', 'shipwright', 'research', 'relics', 'contracts', 'port', 'trials', 'officers', 'orders', 'ledger', 'infamy'],
     defeated_bosses: [],
     best_lane: 'lane_01',
     best_distance: 0,
@@ -177,6 +201,7 @@ function defaultPersistent(): PersistentState {
     trials: defaultTrials(),
     officers: defaultOfficers(),
     orders: defaultOrders(),
+    infamy: defaultInfamy(),
     persistent_resources: { doubloons: 0 },
   }
 }
@@ -184,7 +209,7 @@ function defaultPersistent(): PersistentState {
 export const MUSTER_MAX_LEVELS_PER_SECOND = 40
 export const ABILITY_ACTIVE_TICKS = 50
 export const ABILITY_COOLDOWN_TICKS = 400
-export type SystemUnlock = 'arsenal' | 'prestige' | 'muster' | 'stormheart' | 'shipwright' | 'research' | 'relics' | 'contracts' | 'port' | 'trials' | 'officers' | 'orders' | 'ledger'
+export type SystemUnlock = 'arsenal' | 'prestige' | 'muster' | 'stormheart' | 'shipwright' | 'research' | 'relics' | 'contracts' | 'port' | 'trials' | 'officers' | 'orders' | 'ledger' | 'infamy'
 
 export const GameState = new class extends Emitter {
   run:        RunState        = defaultRun()
@@ -288,6 +313,14 @@ export const GameState = new class extends Emitter {
     this.persistent.orders.auto_research_focus ??= 'gunnery'
     this.persistent.orders.auto_shipwright_recipe ??= ''
     return this.persistent.orders
+  }
+
+  private _infamy(): InfamyState {
+    if (!this.persistent.infamy) this.persistent.infamy = defaultInfamy()
+    this.persistent.infamy.carried    ??= 0
+    this.persistent.infamy.marks      ??= 0
+    this.persistent.infamy.tree_nodes ??= {}
+    return this.persistent.infamy
   }
 
   private _isPersistentResource(id: string): boolean {
@@ -484,7 +517,7 @@ export const GameState = new class extends Emitter {
     const refitIncrement = Number(hullUpgrade?.['effect_scale'] ?? 14)
     const muls = hullUpgrade ? this.getMilestoneMuls(hullUpgrade['id'] ?? '') : []
     const refitHull = Balance.shipHull(baseHull, hullLevel, refitIncrement, muls)
-    return refitHull * Balance.seamanshipHullBonus(this.getMusterSeamanship()) * this.portHullMultiplier() * this.officerHullMultiplier()
+    return refitHull * Balance.seamanshipHullBonus(this.getMusterSeamanship()) * this.portHullMultiplier() * this.officerHullMultiplier() * this.infamyHullMultiplier()
   }
 
   isSystemUnlocked(id: SystemUnlock): boolean { return this._systems().includes(id) }
@@ -505,6 +538,7 @@ export const GameState = new class extends Emitter {
     const unlocked: SystemUnlock[] = []
     if (firstClear) bosses.push(id)
     if (this._bossUnlocksPrestige(id) && this.unlockSystem('prestige')) unlocked.push('prestige')
+    this.addInfamy(firstClear ? 30 : 5)
     this.emit('boss_defeated_persistent', id, firstClear, unlocked)
     return { firstClear, unlocked }
   }
@@ -526,6 +560,17 @@ export const GameState = new class extends Emitter {
   getReturnCount(): number { return this._prestige().returns }
 
   returnToPort(): void {
+    // Infamy conversion: earn 40% of run infamy as marks, carry forward 20%
+    const earnedMarks  = this.pendingInfamyMarks()
+    const carryForward = Math.floor((this.run.run_infamy ?? 0) * 0.2)
+    this._infamy().marks   += earnedMarks
+    this._infamy().carried  = this.getCarriedInfamy() + carryForward
+
+    // Save contract state if Persistent Contract node is owned
+    const savedContract = this.getInfamyTreeNode('persistent_contract')
+      ? { ...this._contracts() }
+      : null
+
     const p = this._prestige()
     const prestige = { ...p, returns: p.returns + 1 }
     const bosses = [...this._bosses()]
@@ -536,8 +581,13 @@ export const GameState = new class extends Emitter {
     this.persistent.prestige = prestige
     this.persistent.muster = defaultMuster()
     if (bosses.includes('lane_02_boss') || bosses.includes('sector_002_boss')) this.unlockSystem('muster')
+
+    // Restore saved contract if node is owned
+    if (savedContract) this.persistent.contracts = savedContract
+
     this.emit('returned_to_port', prestige.returns)
     this.emit('muster_changed', 'reset')
+    this.emit('infamy_changed')
     this.emitRouteChanged()
   }
 
@@ -616,7 +666,7 @@ export const GameState = new class extends Emitter {
     const activeOfficer = this.getActiveOfficer()
     this._officers().xp[activeOfficer] += isBoss ? 24 : 5
     const occultRank = Math.floor(this.getResearchProgress('occult') / 100)
-    const relicChance = (isBoss ? 0.45 : 0.06) + occultRank * 0.01 + this.officerOccultBonus() + (route.routeTag === 'storm_line' ? 0.03 : 0)
+    const relicChance = (isBoss ? 0.45 : 0.06) + occultRank * 0.01 + this.officerOccultBonus() + this.infamyRelicBonus() + (route.routeTag === 'storm_line' ? 0.03 : 0)
     if (Math.random() < relicChance) {
       const relicId = route.routeTag === 'storm_line' ? 'brine_compass' : route.routeTag === 'black_reef' ? 'netted_astrolabe' : 'cannon_ruby'
       this._relics().shards[relicId] += isBoss ? 3 : 1
@@ -732,6 +782,7 @@ export const GameState = new class extends Emitter {
     state.charge -= contract.chargeCost
     state.completions[contract.id] = (state.completions[contract.id] ?? 0) + 1
     for (const [id, amount] of Object.entries(contract.reward)) this.addResource(id, amount)
+    this.addInfamy(20)
     this.emit('contracts_changed')
     return true
   }
@@ -811,6 +862,47 @@ export const GameState = new class extends Emitter {
     }
   }
 
+  // ── Infamy ──────────────────────────────────────────────────────────────
+  getRunInfamy(): number    { return Math.floor(this.run.run_infamy ?? 0) }
+  getCarriedInfamy(): number { return Math.floor(this._infamy().carried) }
+  getTotalInfamy(): number  { return this.getRunInfamy() + this.getCarriedInfamy() }
+  getInfamyMarks(): number  { return this._infamy().marks }
+
+  /** Marks earned if you Return to Port right now (40% of run infamy). */
+  pendingInfamyMarks(): number { return Math.floor(this.getRunInfamy() * 0.4) }
+
+  addInfamy(amount: number): void {
+    if (amount <= 0) return
+    const mul = this.getInfamyTreeNode('fearsome_colors') ? 1.5 : 1
+    this.run.run_infamy = (this.run.run_infamy ?? 0) + Math.round(amount * mul)
+    this.emit('infamy_changed')
+  }
+
+  getInfamyTreeNode(id: InfamyTreeNodeId): boolean {
+    return Boolean(this._infamy().tree_nodes[id])
+  }
+
+  buyInfamyTreeNode(id: InfamyTreeNodeId): boolean {
+    const node = INFAMY_TREE_NODES.find(n => n.id === id)
+    if (!node || this.getInfamyTreeNode(id) || this._infamy().marks < node.cost) return false
+    this._infamy().marks -= node.cost
+    this._infamy().tree_nodes[id] = true
+    this.emit('infamy_changed')
+    return true
+  }
+
+  /** Which bounty hunter is currently pursuing the player (highest eligible). */
+  getCurrentBountyHunter(): typeof BOUNTY_HUNTERS[0] | null {
+    const total = this.getTotalInfamy()
+    const eligible = BOUNTY_HUNTERS.filter(h => h.infamyThreshold <= total)
+    return eligible.length > 0 ? (eligible[eligible.length - 1] ?? null) : null
+  }
+
+  infamyHullMultiplier(): number    { return this.getInfamyTreeNode('iron_reputation') ? 1.15 : 1 }
+  infamyDoubloonMultiplier(): number { return this.getInfamyTreeNode('notorious_captain') ? 1.10 : 1 }
+  infamyRelicBonus(): number        { return this.getInfamyTreeNode('relic_hunter') ? 0.25 : 0 }
+
+  // ── Route ────────────────────────────────────────────────────────────────
   getRouteDistanceGoal(): number {
     return SectorPlan.getSector(this.getCurrentSector()).distance
   }

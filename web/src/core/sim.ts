@@ -1,4 +1,4 @@
-import { GameState } from './game-state'
+import { GameState, BOUNTY_HUNTERS } from './game-state'
 import { Definitions } from './definitions'
 import { Balance, type DamageType } from './balance'
 import { SectorPlan } from './sector-plan'
@@ -50,6 +50,7 @@ export class Sim {
   private _escorts:     SimTarget[] = []
   private _doctrineShot = 0
   private _encounterPauseTimer = 0
+  private _bountyHunterWaveCooldown = 0  // waves until a bounty hunter can spawn again
 
   // Mirrors Godot signals as optional callbacks
   // isSquadMember is kept for old UI compatibility; distance encounters pass false.
@@ -111,9 +112,10 @@ export class Sim {
     this._fleeing          = false
     this._combatRange      = 0
     this._maxCombatRange   = 0
-    this._escorts             = []
-    this._doctrineShot        = 0
-    this._encounterPauseTimer = 0
+    this._escorts                = []
+    this._doctrineShot           = 0
+    this._encounterPauseTimer    = 0
+    this._bountyHunterWaveCooldown = 0
   }
 
   private _initCombat(): void {
@@ -314,7 +316,9 @@ export class Sim {
     const scalar = Balance.rewardScalar(GameState.getRouteDistance(), GameState.getCurrentSector())
     const out: Record<string, number> = {}
     for (const [id, amt] of Object.entries(base)) {
-      const rewardMul = id === 'salvage' ? GameState.salvageRewardMultiplier() * GameState.stormSalvageMultiplier() : 1
+      let rewardMul = 1
+      if (id === 'salvage')   rewardMul = GameState.salvageRewardMultiplier() * GameState.stormSalvageMultiplier()
+      if (id === 'doubloons') rewardMul = GameState.infamyDoubloonMultiplier()
       out[id] = Math.round((amt as number) * scalar * rewardMul)
     }
     return out
@@ -342,6 +346,11 @@ export class Sim {
     GameState.awardResearchForKill(false)
     GameState.awardSideSystemKill(false)
     this._awardMusterProgress(false)
+    // Bounty hunter kill: award bonus infamy
+    if (this._enemy['is_wanted']) {
+      GameState.addInfamy(15)
+      this.onCombatLog?.(`<span class="log-gold">⚑ ${this._enemy['display_name'] ?? 'Bounty hunter'} driven off — +15 Infamy.</span>`)
+    }
     this.onEnemyDefeated?.(this._enemy, rewards, true)
     const rewardStr = Object.entries(rewards).map(([id, a]) => `${Balance.formatNumber(a as number)} ${id}`).join(', ')
     this.onCombatLog?.(`${this._enemy['display_name'] ?? 'Enemy'} defeated! Wreckage visible${rewardStr ? `: ${rewardStr}` : '.'}`)
@@ -431,16 +440,44 @@ export class Sim {
 
   private _spawnEncounter(): void {
     const sector = GameState.getCurrentSector()
-    const def = SectorPlan.enemyForEncounter(sector, this._encounter, GameState.getRouteDistance())
+    let def = SectorPlan.enemyForEncounter(sector, this._encounter, GameState.getRouteDistance())
     if (!def) { console.error(`Sim: no enemy for sector '${sector}'`); return }
+
+    // Check if a bounty hunter ambush replaces this wave
+    const hunter = this._maybeTriggerBountyHunter()
+    if (hunter) {
+      const baseHull = Math.round((def['hull'] ?? 30) * hunter.hullMul)
+      def = {
+        id:           hunter.id,
+        display_name: `⚑ ${hunter.displayName}`,
+        hull:         baseHull,
+        damage:       (def['damage'] ?? 5) * 1.3,
+        fire_rate_ticks: (def['fire_rate_ticks'] ?? 15) * 0.85,
+        rewards:      { doubloons: 3, salvage: 40 },
+        family:       'wanted',
+        is_wanted:    true,
+      }
+      this.onCombatLog?.(`<span class="log-gold">⚑ WANTED: ${hunter.displayName} has found you!</span>`)
+    }
+
     this._bossActive   = false
     this._escorts      = []
     this._doctrineShot = 0
     GameState.setBossPhase(false)
     this._setEnemy(def)
-    this._spawnEscorts()
+    if (!hunter) this._spawnEscorts()
     this.onCombatLog?.(`Sector ${sector}, ${Math.floor(GameState.getRouteDistance())} nmi: ${def['display_name'] ?? '?'} sighted`)
     this.onEnemySpawned?.(this._enemy, this._enemyMaxHull, false)
+  }
+
+  private _maybeTriggerBountyHunter(): typeof BOUNTY_HUNTERS[0] | null {
+    const hunter = GameState.getCurrentBountyHunter()
+    if (!hunter) return null
+    if (this._bountyHunterWaveCooldown > 0) { this._bountyHunterWaveCooldown--; return null }
+    const baseChance = GameState.getInfamyTreeNode('fearsome_colors') ? 0.15 : 0.08
+    if (Math.random() >= baseChance) return null
+    this._bountyHunterWaveCooldown = 8  // no second hunter for 8 waves
+    return hunter
   }
 
   private _spawnEscorts(): void {

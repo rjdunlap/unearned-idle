@@ -1,11 +1,11 @@
 import './styles.css'
-import { ABILITY_ACTIVE_TICKS, ABILITY_COOLDOWN_TICKS, CONTRACTS, GameState, OFFICERS, PORT_FACILITIES, RELICS, RESEARCH_BRANCHES, SHIPWRIGHT_RECIPES } from '../core/game-state'
+import { ABILITY_ACTIVE_TICKS, ABILITY_COOLDOWN_TICKS, BOUNTY_HUNTERS, CONTRACTS, GameState, INFAMY_TREE_NODES, OFFICERS, PORT_FACILITIES, RELICS, RESEARCH_BRANCHES, SHIPWRIGHT_RECIPES } from '../core/game-state'
 import { sim } from '../core/sim'
 import { Definitions } from '../core/definitions'
 import { Balance } from '../core/balance'
 import { SaveSystem } from '../core/save-system'
 import { SectorPlan } from '../core/sector-plan'
-import type { AbilityId, OfficerId, PortFacilityId, RelicId, ResearchBranchId, StormBoostId } from '../core/types'
+import type { AbilityId, InfamyTreeNodeId, OfficerId, PortFacilityId, RelicId, ResearchBranchId, StormBoostId } from '../core/types'
 import type { SystemUnlock } from '../core/game-state'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -19,7 +19,7 @@ type ArsenalCardRefs = {
   button: HTMLButtonElement
   milestoneContainer: HTMLElement
 }
-type DeskTab = 'arsenal' | 'prestige' | 'muster' | 'stormheart' | 'shipwright' | 'research' | 'relics' | 'contracts' | 'port' | 'trials' | 'officers' | 'orders' | 'ledger' | 'log'
+type DeskTab = 'arsenal' | 'prestige' | 'muster' | 'stormheart' | 'shipwright' | 'research' | 'relics' | 'contracts' | 'port' | 'trials' | 'officers' | 'orders' | 'ledger' | 'infamy' | 'log'
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 let shellRoot:       HTMLElement
@@ -68,6 +68,7 @@ let trialsTabBtn: HTMLButtonElement
 let officersTabBtn: HTMLButtonElement
 let ordersTabBtn: HTMLButtonElement
 let ledgerTabBtn: HTMLButtonElement
+let infamyTabBtn: HTMLButtonElement
 let logTabBtn: HTMLButtonElement
 let prestigeSection: HTMLElement
 let stormheartSection: HTMLElement
@@ -80,6 +81,7 @@ let trialsSection: HTMLElement
 let officersSection: HTMLElement
 let ordersSection: HTMLElement
 let ledgerSection: HTMLElement
+let infamySection: HTMLElement
 let logSection: HTMLElement
 let prestigeMilestoneList: HTMLElement
 let prestigeLoadoutList: HTMLElement
@@ -448,6 +450,7 @@ function buildBottomPanel(root: HTMLElement): void {
   officersTabBtn  = buildDeckTab(tabRowB, 'OFFICERS',  'P20', 'officers',  'Officers target unlock: Passage 20 clear')
   ordersTabBtn    = buildDeckTab(tabRowB, 'ORDERS',    'P25', 'orders',    "Captain's Orders target unlock: Passage 25 clear")
   ledgerTabBtn    = buildDeckTab(tabRowB, 'LEDGER',    'P30', 'ledger',    "Captain's Ledger target unlock: Passage 30 clear")
+  infamyTabBtn    = buildDeckTab(tabRowB, 'INFAMY',    '',    'infamy',    'Infamy — your notoriety, wanted level, and the Infamy Tree')
 
   logTabBtn = btn('LOG', 'tab-btn') as HTMLButtonElement
   logTabBtn.addEventListener('click', () => setActiveTab('log'))
@@ -472,6 +475,7 @@ function buildBottomPanel(root: HTMLElement): void {
   buildOfficersPanel(panel)
   buildOrdersPanel(panel)
   buildLedgerPanel(panel)
+  buildInfamyPanel(panel)
   buildLogPanel(panel)
   refreshSystemLocks()
 
@@ -903,6 +907,110 @@ function systemHeader(title: string, subtitle: string): HTMLElement {
   return header
 }
 
+function buildInfamyPanel(parent: HTMLElement): void {
+  infamySection = el('section', 'system-panel hidden')
+  infamySection.appendChild(systemHeader('BOUNTY LEDGER', 'Track your notoriety and invest Infamy Marks in the tree'))
+  parent.appendChild(infamySection)
+  refreshInfamyUI()
+}
+
+function refreshInfamyUI(): void {
+  if (!infamySection) return
+  infamySection.querySelector('.infamy-body')?.remove()
+
+  const runInfamy     = GameState.getRunInfamy()
+  const carriedInfamy = GameState.getCarriedInfamy()
+  const totalInfamy   = GameState.getTotalInfamy()
+  const marks         = GameState.getInfamyMarks()
+  const pending       = GameState.pendingInfamyMarks()
+  const hunter        = GameState.getCurrentBountyHunter()
+
+  const body = el('div', 'infamy-body')
+
+  // ── Wanted poster header ──────────────────────────────────────────────────
+  const poster = el('div', 'wanted-poster')
+  poster.appendChild(el('span', 'wanted-poster-label', 'WANTED: DEAD OR ALIVE'))
+  poster.appendChild(el('span', 'wanted-infamy-total c-red', String(totalInfamy)))
+  poster.appendChild(el('span', 'wanted-infamy-sub', 'TOTAL INFAMY'))
+  body.appendChild(poster)
+
+  // ── Breakdown row ─────────────────────────────────────────────────────────
+  const breakdown = el('div', 'wanted-breakdown')
+
+  const mkStat = (label: string, value: string, cls = '') => {
+    const s = el('div', `wanted-stat${cls ? ' ' + cls : ''}`)
+    s.appendChild(el('span', 'wanted-stat-value', value))
+    s.appendChild(el('span', 'wanted-stat-label', label))
+    return s
+  }
+  breakdown.appendChild(mkStat('This Run',   String(runInfamy)))
+  breakdown.appendChild(mkStat('Carried In', String(carriedInfamy),  carriedInfamy > 0 ? 'c-gold' : ''))
+  breakdown.appendChild(mkStat('Marks',      String(marks),          'c-red'))
+  breakdown.appendChild(mkStat('Pending',    `+${pending}`,          pending > 0 ? 'c-teal' : 'c-silver'))
+  body.appendChild(breakdown)
+
+  // ── Bounty hunter threat ──────────────────────────────────────────────────
+  const threat = el('div', 'wanted-threat')
+  if (hunter) {
+    const hdr = el('div', 'wanted-threat-header c-red', '⚑ BOUNTY HUNTER ACTIVE')
+    threat.appendChild(hdr)
+    const card = el('div', 'wanted-hunter-card')
+    card.appendChild(el('span', 'wanted-hunter-name c-red', hunter.displayName))
+    card.appendChild(el('span', 'wanted-hunter-threshold c-silver', `Threshold: ${hunter.infamyThreshold} infamy · ${hunter.hullMul}× hull`))
+    card.appendChild(el('span', 'wanted-hunter-desc sz-11', hunter.desc))
+    threat.appendChild(card)
+  } else {
+    const nextHunter = BOUNTY_HUNTERS.find(h => h.infamyThreshold > totalInfamy)
+    if (nextHunter) {
+      const gap = nextHunter.infamyThreshold - totalInfamy
+      threat.appendChild(el('div', 'wanted-threat-header c-silver', `No hunter at large — ${gap} infamy until ${nextHunter.displayName} targets you`))
+    } else {
+      threat.appendChild(el('div', 'wanted-threat-header c-silver', 'All hunters cleared — maximum notoriety reached'))
+    }
+  }
+  body.appendChild(threat)
+
+  // ── Infamy Tree ───────────────────────────────────────────────────────────
+  const treeSection = el('div', 'infamy-tree')
+  const treeHdr = el('div', 'infamy-tree-header')
+  treeHdr.appendChild(el('span', 'bold sz-13', 'INFAMY TREE'))
+  treeHdr.appendChild(el('span', 'sz-11 c-silver', `${marks} marks available — spend to unlock permanent boons`))
+  treeSection.appendChild(treeHdr)
+
+  const nodeGrid = el('div', 'infamy-node-grid')
+  for (const node of INFAMY_TREE_NODES) {
+    const owned    = GameState.getInfamyTreeNode(node.id as InfamyTreeNodeId)
+    const canAfford = marks >= node.cost
+
+    const card = el('div', `infamy-node-card${owned ? ' is-owned' : canAfford ? ' can-afford' : ''}`)
+    card.appendChild(el('span', 'node-name bold', node.displayName))
+
+    const costRow = el('div', 'node-cost-row')
+    costRow.appendChild(el('span', 'node-cost', owned ? '✓ Purchased' : `${node.cost} marks`))
+    card.appendChild(costRow)
+
+    card.appendChild(el('span', 'node-desc sz-11 c-silver', node.desc))
+
+    const buyBtn = btn(owned ? 'ACQUIRED' : canAfford ? `ACQUIRE  (${node.cost} ✦)` : `NEED ${node.cost} ✦`, 'node-buy-btn') as HTMLButtonElement
+    buyBtn.disabled = owned || !canAfford
+    buyBtn.addEventListener('click', () => {
+      if (GameState.buyInfamyTreeNode(node.id as InfamyTreeNodeId)) {
+        appendLog(`<span class="log-red">Infamy Tree: ${node.displayName} unlocked.</span>`)
+        refreshInfamyUI()
+      }
+    })
+    card.appendChild(buyBtn)
+    nodeGrid.appendChild(card)
+  }
+  treeSection.appendChild(nodeGrid)
+  body.appendChild(treeSection)
+
+  // ── Infamy sources diagnostic ──────────────────────────────────────────────
+  body.appendChild(el('div', 'system-diagnostic', 'Infamy sources: boss first clear +30, repeat +5, contract complete +20, bounty hunter kill +15. Return to Port converts 40% to marks; 20% carries forward.'))
+
+  infamySection.appendChild(body)
+}
+
 function buildLogPanel(parent: HTMLElement): void {
   logSection = el('section', 'log-panel hidden')
   const header = el('div', 'muster-header-row')
@@ -932,6 +1040,7 @@ function setActiveTab(tab: DeskTab): void {
   if (tab === 'orders' && !GameState.isSystemUnlocked('orders')) tab = 'arsenal'
   if (tab === 'ledger' && !GameState.isSystemUnlocked('ledger')) tab = 'arsenal'
   arsenalSection.classList.toggle('hidden', tab !== 'arsenal')
+  infamySection.classList.toggle('hidden', tab !== 'infamy')
   prestigeSection.classList.toggle('hidden', tab !== 'prestige')
   musterSection.classList.toggle('hidden', tab !== 'muster')
   stormheartSection.classList.toggle('hidden', tab !== 'stormheart')
@@ -958,6 +1067,7 @@ function setActiveTab(tab: DeskTab): void {
   officersTabBtn.classList.toggle('is-active', tab === 'officers')
   ordersTabBtn.classList.toggle('is-active', tab === 'orders')
   ledgerTabBtn.classList.toggle('is-active', tab === 'ledger')
+  infamyTabBtn.classList.toggle('is-active', tab === 'infamy')
   logTabBtn.classList.toggle('is-active', tab === 'log')
   arsenalTabBtn.classList.toggle('c-gold', tab === 'arsenal')
   prestigeTabBtn.classList.toggle('c-gold', tab === 'prestige')
@@ -972,6 +1082,7 @@ function setActiveTab(tab: DeskTab): void {
   officersTabBtn.classList.toggle('c-gold', tab === 'officers')
   ordersTabBtn.classList.toggle('c-teal', tab === 'orders')
   ledgerTabBtn.classList.toggle('c-gold', tab === 'ledger')
+  infamyTabBtn.classList.toggle('c-red', tab === 'infamy')
   logTabBtn.classList.toggle('c-gold', tab === 'log')
   if (tab === 'prestige') refreshPrestigeUI()
   if (tab === 'muster') refreshMusterUI()
@@ -985,6 +1096,7 @@ function setActiveTab(tab: DeskTab): void {
   if (tab === 'officers') refreshOfficersUI()
   if (tab === 'orders') refreshOrdersUI()
   if (tab === 'ledger') refreshLedgerUI()
+  if (tab === 'infamy') refreshInfamyUI()
 }
 
 function buildDebugOverlay(root: HTMLElement): void {
@@ -1103,6 +1215,7 @@ function connectSignals(): void {
     refreshCombatPowerVisuals()
   })
   GameState.on('orders_changed', () => refreshOrdersUI())
+  GameState.on('infamy_changed', () => { if (!infamySection.classList.contains('hidden')) refreshInfamyUI() })
   GameState.on('muster_changed', (...args) => {
     if (!musterSection.classList.contains('hidden')) refreshMusterUI()
     if (args[0] === 'levels') updatePlayerHullUI(GameState.getPlayerHull(), GameState.getPlayerMaxHull())
@@ -1142,6 +1255,7 @@ function connectSignals(): void {
     refreshOfficersUI()
     refreshOrdersUI()
     refreshLedgerUI()
+    refreshInfamyUI()
     setActiveTab(GameState.isSystemUnlocked('muster') ? 'muster' : 'arsenal')
   })
   GameState.on('doctrine_changed', () => refreshDoctrineUI())
